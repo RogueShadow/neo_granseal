@@ -13,3 +13,11 @@ bytemuck = "1.12.1"
 image = "0.24.3"
 log = "0.4.17"
 env_logger = "0.9.1"
+
+
+
+[lib]
+
+[[example]]
+name = "pixels"
+test = false
