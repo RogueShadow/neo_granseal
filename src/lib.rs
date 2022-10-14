@@ -1,46 +1,175 @@
+pub mod core;
+pub mod events;
+pub mod main_loop;
+pub mod shape_pipeline;
+
+use crate::main_loop::main_loop;
+use crate::core::NGCore;
+use image::EncodableLayout;
+use pollster::FutureExt;
+use wgpu::util::DeviceExt;
 use winit::dpi::PhysicalSize;
 use winit::event::{Event, WindowEvent};
-use winit::event_loop;
-use winit::event_loop::ControlFlow;
+use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
+use winit::{event, event_loop};
 
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
+#[derive(Clone, Debug)]
+pub struct GransealGameConfig {
+    pub width: i32,
+    pub height: i32,
+    pub title: String,
+    pub vsync: VSyncMode,
+    pub clear_color: [f64; 4],
 }
-
-pub fn build() {
-    let event_loop = event_loop::EventLoop::new();
-    let builder = winit::window::WindowBuilder::new();
-
-    let window = builder
-        .with_title("Neo Granseal")
-        .with_resizable(false)
-        .with_inner_size(PhysicalSize::new(800,600))
-        .build(&event_loop)
-        .expect("Failed to build window");
-
-
-    event_loop.run(move |event, _, control_flow| {
-        *control_flow = ControlFlow::Wait;
-
-        match event {
-            Event::WindowEvent {
-                event: WindowEvent::CloseRequested,
-                window_id,
-            } if window_id == window.id() => *control_flow = ControlFlow::Exit,
-            _ => (),
+impl GransealGameConfig {
+    pub fn new() -> Self {
+        Self {
+            title: "Neo Granseal Engine".to_string(),
+            width: 800,
+            height: 600,
+            vsync: VSyncMode::VSyncOn,
+            clear_color: [0.0, 0.0, 0.0, 1.0],
         }
-    });
-
+    }
+    pub fn title(mut self, title: String) -> Self {
+        self.title = title;
+        self
+    }
+    pub fn vsync(mut self, mode: VSyncMode) -> Self {
+        self.vsync = mode;
+        self
+    }
+    pub fn clear_color(mut self, color: [f64; 4]) -> Self {
+        self.clear_color = color;
+        self
+    }
+    pub fn size(mut self, width: i32, height: i32) -> Self {
+        self.width = width;
+        self.height = height;
+        self
+    }
 }
 
+#[repr(C)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum VSyncMode {
+    AutoVsync,
+    AutoNoVsync,
+    VSyncOn,
+    AdaptiveVSync,
+    VSyncOff,
+    FastVSync,
+}
+
+pub fn map_present_modes(mode: VSyncMode) -> wgpu::PresentMode {
+    match mode {
+        VSyncMode::AutoVsync => wgpu::PresentMode::AutoVsync,
+        VSyncMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
+        VSyncMode::VSyncOn => wgpu::PresentMode::Fifo,
+        VSyncMode::AdaptiveVSync => wgpu::PresentMode::FifoRelaxed,
+        VSyncMode::VSyncOff => wgpu::PresentMode::Immediate,
+        VSyncMode::FastVSync => wgpu::PresentMode::Mailbox,
+    }
+}
+
+pub trait NeoGransealEventHandler {
+    fn event(&mut self, core: &mut NGCore, e: events::Event);
+}
+pub trait NGRenderPipeline {
+    fn render(&mut self, core: &mut NGCore);
+    fn set_globals(&mut self, globals: GlobalUniforms);
+}
+
+pub struct GlobalUniforms {
+    screen_uniform_buffer: wgpu::Buffer,
+    time_uniform_buffer: wgpu::Buffer,
+    bind_group_layout: wgpu::BindGroupLayout,
+    bind_group: wgpu::BindGroup,
+}
+impl GlobalUniforms {
+    fn new(core: &NGCore) -> Self {
+        let screen_uniform_buffer =
+            core.device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Screen Uniform Buffer"),
+                    contents: bytemuck::cast_slice(
+                        [
+                            core.window.inner_size().width as f32,
+                            core.window.inner_size().height as f32,
+                        ]
+                        .as_bytes(),
+                    ),
+                    usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                });
+        let time_uniform_buffer =
+            core.device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Time Uniform Buffer"),
+                    contents: bytemuck::cast_slice(
+                        core.timer.elapsed().as_secs_f32().to_ne_bytes().as_slice(),
+                    ),
+                    usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                });
+        let bind_group_layout =
+            core.device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("Global Uniforms Bind Group Layout"),
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                    ],
+                });
+        let bind_group = core.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Global Uniforms Bind Group Layout"),
+            layout: &bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: screen_uniform_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: time_uniform_buffer.as_entire_binding(),
+                },
+            ],
+        });
+        Self {
+            screen_uniform_buffer,
+            time_uniform_buffer,
+            bind_group_layout,
+            bind_group,
+        }
+    }
+}
+
+pub fn start<T>(handler: T, config: GransealGameConfig)
+where
+    T: 'static + NeoGransealEventHandler,
+{
+    let event_loop = EventLoopBuilder::new().build();
+    let core = NGCore::new(&event_loop, config);
+    main_loop(event_loop, core, Box::new(handler));
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
 }

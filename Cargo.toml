@@ -9,12 +9,10 @@ edition = "2021"
 winit = "0.27.3"
 wgpu = "0.13.1"
 pollster = "0.2.5"
-bytemuck = "1.12.1"
+bytemuck = {version = "1.12.1", features = ["extern_crate_alloc","derive"]}
 image = "0.24.3"
 log = "0.4.17"
 env_logger = "0.9.1"
-
-
 
 [lib]
 
