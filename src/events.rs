@@ -20,6 +20,7 @@ pub enum Event {
     Update(Duration),
     Load,
     Resized(u32,u32),
+    Fps(u32),
 }
 
 

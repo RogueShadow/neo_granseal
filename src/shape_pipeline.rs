@@ -1,11 +1,11 @@
-use std::ops::Range;
-use crate::*;
-use bytemuck::{Pod,Zeroable};
-use wgpu::{BufferAddress, DynamicOffset, MultisampleState};
 use crate::events::Key::V;
+use crate::*;
+use bytemuck::{Pod, Zeroable};
+use std::ops::Range;
+use wgpu::{BufferAddress, DynamicOffset, MultisampleState};
 
 #[repr(C)]
-#[derive(Copy,Clone,Debug,Pod,Zeroable)]
+#[derive(Copy, Clone, Debug, Pod, Zeroable)]
 pub struct Vertex {
     pub x: f32,
     pub y: f32,
@@ -38,19 +38,19 @@ impl Vertex {
                     shader_location: 1,
                     format: wgpu::VertexFormat::Float32x2,
                 },
-            ]
+            ],
         }
     }
 }
 
-#[repr(C,align(256))]
-#[derive(Copy,Clone,Debug)]
-pub struct Transform {
+#[repr(C, align(256))]
+#[derive(Copy, Clone, Debug)]
+pub struct SSRTransform {
     x: f32,
     y: f32,
     rotation: f32,
 }
-impl Transform {
+impl SSRTransform {
     pub fn new(x: f32, y: f32) -> Self {
         Self {
             x,
@@ -59,8 +59,8 @@ impl Transform {
         }
     }
 }
-#[repr(C,align(256))]
-#[derive(Copy,Clone,Debug)]
+#[repr(C, align(256))]
+#[derive(Copy, Clone, Debug)]
 pub struct SSRMaterial {
     r: f32,
     g: f32,
@@ -89,77 +89,79 @@ pub struct SSRLocals {
     material_bg: wgpu::BindGroup,
 }
 impl SSRLocals {
+    const MAX_OBJECTS: BufferAddress = 1 << 20;
     pub fn new(core: &NGCore) -> Self {
-        let uniform_alignment = core.device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
+        let uniform_alignment =
+            core.device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
         let transform_buffer = core.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("SSR Transform Buffer"),
-            size: (1 << 20 as wgpu::BufferAddress) * uniform_alignment,
-            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
-            mapped_at_creation: false
-        });
-        let transform_bgl = core.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("SSR Transform Bind Group Layout"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: true,
-                        min_binding_size: wgpu::BufferSize::new(std::mem::size_of::<Transform>() as _)
-                    },
-                    count: None
-                }
-            ]
-        });
-        let transform_bg = core.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("SSR Transform Bind Group"),
-            layout: &transform_bgl,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding{
-                        buffer: &transform_buffer,
-                        offset: 0,
-                        size: wgpu::BufferSize::new(std::mem::size_of::<Transform>() as _),
-                    }),
-                }
-            ]
-        });
-        let material_buffer = core.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("SSR Material Buffer"),
-            size: (1 << 20 as wgpu::BufferAddress) * uniform_alignment,
+            size: SSRLocals::MAX_OBJECTS * uniform_alignment,
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
             mapped_at_creation: false,
         });
-        let material_bgl = core.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("SSR Material Bind Group Layout"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
+        let transform_bgl =
+            core.device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("SSR Transform Bind Group Layout"),
+                    entries: &[wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: true,
+                            min_binding_size: wgpu::BufferSize::new(
+                                std::mem::size_of::<SSRTransform>() as _,
+                            ),
+                        },
+                        count: None,
+                    }],
+                });
+        let transform_bg = core.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("SSR Transform Bind Group"),
+            layout: &transform_bgl,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                    buffer: &transform_buffer,
+                    offset: 0,
+                    size: wgpu::BufferSize::new(std::mem::size_of::<SSRTransform>() as _),
+                }),
+            }],
+        });
+        let material_buffer = core.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("SSR Material Buffer"),
+            size: SSRLocals::MAX_OBJECTS * uniform_alignment,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
+            mapped_at_creation: false,
+        });
+        let material_bgl = core
+            .device
+            .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("SSR Material Bind Group Layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
                     visibility: wgpu::ShaderStages::VERTEX,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: true,
-                        min_binding_size: wgpu::BufferSize::new(std::mem::size_of::<SSRMaterial>() as _)
+                        min_binding_size: wgpu::BufferSize::new(
+                            std::mem::size_of::<SSRMaterial>() as _
+                        ),
                     },
-                    count: None
-                }
-            ]
-        });
+                    count: None,
+                }],
+            });
         let material_bg = core.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("SSR Material Bind Group"),
             layout: &material_bgl,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding{
-                        buffer: &material_buffer,
-                        offset: 0,
-                        size: wgpu::BufferSize::new(std::mem::size_of::<SSRMaterial>() as _),
-                    }),
-                }
-            ]
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                    buffer: &material_buffer,
+                    offset: 0,
+                    size: wgpu::BufferSize::new(std::mem::size_of::<SSRMaterial>() as _),
+                }),
+            }],
         });
         Self {
             transform_buffer,
@@ -172,15 +174,9 @@ impl SSRLocals {
     }
 }
 
-pub struct SSRObject {
-    vertices: Vec<Vertex>,
-    transform: Transform,
-    material: SSRMaterial,
-}
-
 pub struct ObjectManager {
     vertices: Vec<Vertex>,
-    transforms: Vec<Transform>,
+    transforms: Vec<SSRTransform>,
     materials: Vec<SSRMaterial>,
     object_info: Vec<ObjectInfo>,
 }
@@ -199,22 +195,18 @@ impl ObjectManager {
         self.materials.clear();
         self.transforms.clear();
     }
-    pub fn add(&mut self, obj: SSRObject) {
+    pub fn add(&mut self, verts: Vec<Vertex>, transform: SSRTransform, material: SSRMaterial) {
         let start_vertice = self.vertices.len() as u32;
-        let end_vertice = start_vertice + obj.vertices.len() as u32;
-        let transform = self.transforms.len();
-        let material = self.materials.len();
-        for v in obj.vertices {
+        let end_vertice = start_vertice + verts.len() as u32;
+        for v in verts {
             self.vertices.push(v);
         }
-        self.transforms.push(obj.transform);
-        self.materials.push(obj.material);
+        self.transforms.push(transform);
+        self.materials.push(material);
 
         let obj_info = ObjectInfo {
             start_vertice,
             end_vertice,
-            transform,
-            material,
         };
 
         self.object_info.push(obj_info);
@@ -223,8 +215,6 @@ impl ObjectManager {
 pub struct ObjectInfo {
     start_vertice: u32,
     end_vertice: u32,
-    transform: usize,
-    material: usize,
 }
 
 pub struct SimpleShapeRenderPipeline {
@@ -239,13 +229,13 @@ pub struct SimpleShapeRenderPipeline {
 impl SimpleShapeRenderPipeline {
     pub fn new(core: &NGCore) -> Self {
         let vertex_buffer = core.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("SimpleShapeRenderPipeline Vertex Buffer"),
+            label: Some("SSR Vertex Buffer"),
             size: 0,
             usage: wgpu::BufferUsages::VERTEX,
             mapped_at_creation: false,
         });
         let index_buffer = core.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("SimpleShapeRenderPipeline Index Buffer"),
+            label: Some("SSR Index Buffer"),
             size: 0,
             usage: wgpu::BufferUsages::INDEX,
             mapped_at_creation: false,
@@ -258,21 +248,25 @@ impl SimpleShapeRenderPipeline {
         let shader = core
             .device
             .create_shader_module(wgpu::ShaderModuleDescriptor {
-                label: Some("SimpleShapeRender Shader"),
+                label: Some("SSR Shader"),
                 source: wgpu::ShaderSource::Wgsl(include_str!("shape_shader.wgsl").into()),
             });
 
         let pipeline_layout = core
             .device
             .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("SimpleShapeRenderPipeline Layout"),
-                bind_group_layouts: &[&globals.bind_group_layout,&locals.transform_bgl,&locals.material_bgl],
+                label: Some("SSR Pipeline Layout"),
+                bind_group_layouts: &[
+                    &globals.bind_group_layout,
+                    &locals.transform_bgl,
+                    &locals.material_bgl,
+                ],
                 push_constant_ranges: &[],
             });
         let pipeline = core
             .device
             .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                label: Some("SimpleShapeRenderPipeline"),
+                label: Some("SSR Pipeline"),
                 layout: Some(&pipeline_layout),
                 vertex: wgpu::VertexState {
                     module: &shader,
@@ -311,120 +305,111 @@ impl SimpleShapeRenderPipeline {
             pipeline,
         }
     }
-
 }
 impl NGRenderPipeline for SimpleShapeRenderPipeline {
     fn render(&mut self, core: &mut NGCore) {
-        let uniform_alignment = core.device.limits().min_uniform_buffer_offset_alignment as DynamicOffset;
+        let uniform_alignment =
+            core.device.limits().min_uniform_buffer_offset_alignment as DynamicOffset;
 
         let size = 128.0;
         let mut verts = vec![
             Vertex::new_xy(0.0, size),
             Vertex::new_xy(size, -size),
-            Vertex::new_xy(-size,-size),
+            Vertex::new_xy(-size, -size),
         ];
 
         self.objects.clear();
-        self.objects.add(SSRObject {
-            vertices: verts.clone(),
-            transform: Transform::new(0.0,0.0),
-            material: SSRMaterial::rgb(0.0,1.0,1.0),
-        });
-        self.objects.add(SSRObject {
-            vertices: verts.clone(),
-            transform: Transform::new(-256.0,-256.0),
-            material: SSRMaterial::rgb(1.0,0.0,0.0),
-        });
-        self.objects.add(SSRObject {
-            vertices: verts.clone(),
-            transform: Transform::new(-256.0,256.0),
-            material: SSRMaterial::rgb(0.0,1.0,0.0),
-        });
-        self.objects.add(SSRObject {
-            vertices: verts.clone(),
-            transform: Transform::new(256.0,-256.0),
-            material: SSRMaterial::rgb(0.0,0.0,1.0),
-        });
-        self.objects.add(SSRObject {
-            vertices: verts.clone(),
-            transform: Transform::new(256.0,256.0),
-            material: SSRMaterial::rgb(1.0,0.0,1.0),
-        });
+        self.objects.add(
+            verts.clone(),
+            SSRTransform::new(0.0, 0.0),
+            SSRMaterial::rgb(0.0, 1.0, 1.0),
+        );
+        self.objects.add(
+            verts.clone(),
+            SSRTransform::new(-256.0, -256.0),
+            SSRMaterial::rgb(1.0, 0.0, 0.0),
+        );
+        self.objects.add(
+            verts.clone(),
+            SSRTransform::new(-256.0, 256.0),
+            SSRMaterial::rgb(0.0, 1.0, 0.0),
+        );
+        self.objects.add(
+            verts.clone(),
+            SSRTransform::new(256.0, -256.0),
+            SSRMaterial::rgb(0.0, 0.0, 1.0),
+        );
+        self.objects.add(
+            verts.clone(),
+            SSRTransform::new(256.0, 256.0),
+            SSRMaterial::rgb(1.0, 0.0, 1.0),
+        );
 
-
-
-
-
-        let output = core.surface.get_current_texture().expect("Couldn't get Surface Texture.");
-        let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let mut encoder = core.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("SimpleShapeRenderPipeline Command Encoder")
-        });
+        let output = core
+            .surface
+            .get_current_texture()
+            .expect("Couldn't get Surface Texture.");
+        let view = output
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+        let mut encoder = core
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("SimpleShapeRenderPipeline Command Encoder"),
+            });
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("SimpeShapeRenderPipeline Render Pass"),
-                color_attachments: &[
-                    Some(wgpu::RenderPassColorAttachment {
-                        view: &view,
-                        resolve_target: None,
-                        ops: wgpu::Operations {
-                            load: wgpu::LoadOp::Clear(wgpu::Color {
-                                r: core.config.clear_color[0],
-                                g: core.config.clear_color[1],
-                                b: core.config.clear_color[2],
-                                a: core.config.clear_color[3]
-                            }),
-                            store: true
-                        }
-                    })
-                ],
-                depth_stencil_attachment: None
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: core.config.clear_color[0],
+                            g: core.config.clear_color[1],
+                            b: core.config.clear_color[2],
+                            a: core.config.clear_color[3],
+                        }),
+                        store: true,
+                    },
+                })],
+                depth_stencil_attachment: None,
             });
-
-
-
-            self.vertex_buffer = core.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("SSRP Vertex Buffer"),
-                contents: bytemuck::cast_slice(self.objects.vertices.as_slice()),
-                usage: wgpu::BufferUsages::VERTEX
-            });
-            core.queue.write_buffer(
-                &self.locals.transform_buffer,
-                0,
-                unsafe {
+            self.vertex_buffer =
+                core.device
+                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("SSRP Vertex Buffer"),
+                        contents: bytemuck::cast_slice(self.objects.vertices.as_slice()),
+                        usage: wgpu::BufferUsages::VERTEX,
+                    });
+            core.queue
+                .write_buffer(&self.locals.transform_buffer, 0, unsafe {
                     std::slice::from_raw_parts(
                         self.objects.transforms.as_ptr() as *const u8,
                         self.objects.transforms.len() * uniform_alignment as usize,
                     )
-                }
-            );
-            core.queue.write_buffer(
-                &self.locals.material_buffer,
-                0,
-                unsafe {
+                });
+            core.queue
+                .write_buffer(&self.locals.material_buffer, 0, unsafe {
                     std::slice::from_raw_parts(
                         self.objects.materials.as_ptr() as *const u8,
                         self.objects.materials.len() * uniform_alignment as usize,
                     )
-                }
-            );
+                });
 
             render_pass.set_pipeline(&self.pipeline);
-            render_pass.set_vertex_buffer(0,self.vertex_buffer.slice(..));
-            render_pass.set_bind_group(0,&self.globals.bind_group,&[]);
+            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            render_pass.set_bind_group(0, &self.globals.bind_group, &[]);
 
-
-            for (i,obj) in self.objects.object_info.iter().enumerate() {
+            for (i, obj) in self.objects.object_info.iter().enumerate() {
                 let offset = (i as DynamicOffset) * uniform_alignment;
                 render_pass.set_bind_group(1, &self.locals.transform_bg, &[offset]);
-                render_pass.set_bind_group(2,&self.locals.material_bg, &[offset]);
-                render_pass.draw(obj.start_vertice..obj.end_vertice,0..1);
+                render_pass.set_bind_group(2, &self.locals.material_bg, &[offset]);
+                render_pass.draw(obj.start_vertice..obj.end_vertice, 0..1);
             }
         }
-
         core.queue.submit(Some(encoder.finish()));
         output.present();
-
     }
     fn set_globals(&mut self, globals: GlobalUniforms) {
         self.globals = globals;

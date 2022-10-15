@@ -1,21 +1,25 @@
-use std::thread::Builder;
-use log::info;
-use pollster::FutureExt;
-use neo_granseal::{events::Event, start, GransealGameConfig, NeoGransealEventHandler, shape_pipeline};
-use neo_granseal::core::NGCommand::AddPipeline;
-use neo_granseal::core::NGCore;
+use neo_granseal::{
+    events::Event,
+    start,
+    GransealGameConfig,
+    NeoGransealEventHandler,
+    shape_pipeline,
+    VSyncMode,
+    core::{NGCommand,NGCore}
+};
 
 fn main() {
-    start(Game::new(), GransealGameConfig::new());
+    start(
+        Game::new(),
+          GransealGameConfig::new()
+        .vsync(VSyncMode::FastVSync));
 }
-
 struct Game {}
 impl Game {
     fn new() -> Self {
         Self {}
     }
 }
-
 impl NeoGransealEventHandler for Game {
     fn event(&mut self, core: &mut NGCore, e: Event) {
         match e {
@@ -25,10 +29,10 @@ impl NeoGransealEventHandler for Game {
             Event::Draw => {}
             Event::Update(_) => {}
             Event::Load => {
-                core.cmd(AddPipeline(Box::new(shape_pipeline::SimpleShapeRenderPipeline::new(&core))));
+                core.cmd(NGCommand::AddPipeline(Box::new(shape_pipeline::SimpleShapeRenderPipeline::new(&core))));
             }
             Event::Resized(_, _) => {}
+            Event::Fps(_) => {}
         }
     }
 }
-

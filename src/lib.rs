@@ -3,6 +3,7 @@ pub mod events;
 pub mod main_loop;
 pub mod shape_pipeline;
 
+use std::ops::{Deref, DerefMut};
 use crate::main_loop::main_loop;
 use crate::core::NGCore;
 use image::EncodableLayout;
