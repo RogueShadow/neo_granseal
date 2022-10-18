@@ -79,7 +79,7 @@ pub trait NeoGransealEventHandler {
 }
 pub trait NGRenderPipeline {
     fn render(&mut self, core: &mut NGCore);
-    fn set_data(&mut self, data: Box<dyn RenderData>);
+    fn set_data(&mut self, data: Box<dyn std::any::Any>);
     fn set_globals(&mut self, globals: GlobalUniforms);
 }
 

@@ -174,44 +174,6 @@ impl SSRLocals {
     }
 }
 
-pub struct ObjectManager {
-    vertices: Vec<Vertex>,
-    transforms: Vec<SSRTransform>,
-    materials: Vec<SSRMaterial>,
-    object_info: Vec<SSRObjectInfo>,
-}
-impl ObjectManager {
-    pub fn new() -> Self {
-        Self {
-            vertices: vec![],
-            transforms: vec![],
-            materials: vec![],
-            object_info: vec![],
-        }
-    }
-    pub fn clear(&mut self) {
-        self.object_info.clear();
-        self.vertices.clear();
-        self.materials.clear();
-        self.transforms.clear();
-    }
-    pub fn add(&mut self, verts: Vec<Vertex>, transform: SSRTransform, material: SSRMaterial) {
-        let start_vertice = self.vertices.len() as u32;
-        let end_vertice = start_vertice + verts.len() as u32;
-        for v in verts {
-            self.vertices.push(v);
-        }
-        self.transforms.push(transform);
-        self.materials.push(material);
-
-        let obj_info = SSRObjectInfo {
-            start_vertice,
-            end_vertice,
-        };
-
-        self.object_info.push(obj_info);
-    }
-}
 #[derive(Copy,Clone,Debug)]
 pub struct SSRObjectInfo {
     start_vertice: u32,
@@ -224,7 +186,7 @@ pub struct SimpleShapeRenderPipeline {
     clear_color: [f64; 4],
     globals: GlobalUniforms,
     locals: SSRLocals,
-    data: Option<Box<dyn RenderData>>,
+    data: Option<SSRRenderData>,
     pipeline: wgpu::RenderPipeline,
 }
 impl SimpleShapeRenderPipeline {
@@ -310,7 +272,7 @@ impl SimpleShapeRenderPipeline {
 impl NGRenderPipeline for SimpleShapeRenderPipeline {
     fn render(&mut self, core: &mut NGCore) {
         if self.data.is_none() { return; };
-        let data = self.data.as_ref().expect("Couldn't get render data.");
+        let data = self.data.as_ref().expect("Couldn't get data");
 
         let uniform_alignment =
             core.device.limits().min_uniform_buffer_offset_alignment as DynamicOffset;
@@ -349,21 +311,21 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
                 core.device
                     .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                         label: Some("SSRP Vertex Buffer"),
-                        contents: bytemuck::cast_slice(data.vertices().as_slice()),
+                        contents: bytemuck::cast_slice(data.vertices.as_slice()),
                         usage: wgpu::BufferUsages::VERTEX,
                     });
             core.queue
                 .write_buffer(&self.locals.transform_buffer, 0, unsafe {
                     std::slice::from_raw_parts(
-                        data.transform().as_ptr() as *const u8,
-                        data.transform().len() * uniform_alignment as usize,
+                        data.transforms.as_ptr() as *const u8,
+                        data.transforms.len() * uniform_alignment as usize,
                     )
                 });
             core.queue
                 .write_buffer(&self.locals.material_buffer, 0, unsafe {
                     std::slice::from_raw_parts(
-                        data.material().as_ptr() as *const u8,
-                        data.material().len() * uniform_alignment as usize,
+                        data.materials.as_ptr() as *const u8,
+                        data.materials.len() * uniform_alignment as usize,
                     )
                 });
 
@@ -371,7 +333,7 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_bind_group(0, &self.globals.bind_group, &[]);
 
-            for (i, obj) in data.object_info().iter().enumerate() {
+            for (i, obj) in data.object_info.iter().enumerate() {
                 let offset = (i as DynamicOffset) * uniform_alignment;
                 render_pass.set_bind_group(1, &self.locals.transform_bg, &[offset]);
                 render_pass.set_bind_group(2, &self.locals.material_bg, &[offset]);
@@ -382,8 +344,9 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
         output.present();
     }
 
-    fn set_data(&mut self, data: Box<dyn RenderData>) {
-        self.data = Some(data);
+    fn set_data(&mut self, data: Box<dyn std::any::Any>) {
+        let rd = data.downcast::<SSRRenderData>().expect("");
+        self.data = Some(*rd);
     }
 
     fn set_globals(&mut self, globals: GlobalUniforms) {
@@ -391,12 +354,9 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
     }
 }
 
-pub trait RenderData {
-    fn vertices(&self) -> &Vec<Vertex>;
-    fn material(&self) -> &Vec<SSRMaterial>;
-    fn transform(&self) -> &Vec<SSRTransform>;
-    fn object_info(&self) -> &Vec<SSRObjectInfo>;
-}
+
+pub trait RenderData {}
+
 #[derive(Clone,Debug)]
 pub struct SSRRenderData {
     vertices: Vec<Vertex>,
@@ -420,28 +380,10 @@ impl AsRef<SSRRenderData> for SSRRenderData {
     }
 }
 
-
-impl RenderData for  SSRRenderData {
-    fn vertices(&self) -> &Vec<Vertex> {
-        self.vertices.as_ref()
-    }
-
-    fn material(&self) -> &Vec<SSRMaterial> {
-        self.materials.as_ref()
-    }
-
-    fn transform(&self) -> &Vec<SSRTransform> {
-        self.transforms.as_ref()
-    }
-
-    fn object_info(&self) -> &Vec<SSRObjectInfo> {
-        self.object_info.as_ref()
-    }
-}
+impl RenderData for  SSRRenderData {}
 
 pub struct SSRGraphics {
     pub data: SSRRenderData,
-
     current_transform: SSRTransform,
     current_material: SSRMaterial,
 }
@@ -460,7 +402,7 @@ impl SSRGraphics {
             current_transform: SSRTransform {
                 x: 0.0,
                 y: 0.0,
-                rotation: 0.0
+                rotation: 0.0,
             },
             current_material: SSRMaterial {
                 r: 1.0,
@@ -470,9 +412,6 @@ impl SSRGraphics {
                 kind: 0
             }
         }
-    }
-    pub fn clear(&mut self) {
-        self.data.clear();
     }
     fn v_quad(x1: f32, y1: f32, x2: f32, y2: f32) -> [Vertex; 6] {
         [
@@ -501,20 +440,20 @@ impl SSRGraphics {
         };
 
         let transform = SSRTransform {
-            x,
-            y,
-            rotation: 0.0
+            x: self.current_transform.x + x,
+            y: self.current_transform.y + y,
+            rotation: self.current_transform.rotation
         };
         self.data.transforms.push(transform);
         self.data.materials.push(self.current_material);
         self.data.object_info.push(info);
     }
-    pub fn fill(&mut self, r: f32, g: f32, b: f32)  {
+    pub fn fill_rgba(&mut self, r: f32, g: f32, b: f32, a: f32)  {
         self.current_material = SSRMaterial {
             r,
             g,
             b,
-            a: 1.0,
+            a,
             kind: 0
         }
     }

@@ -1,5 +1,6 @@
-use std::ops::Index;
+use std::ops::{Deref, Index};
 use std::rc::Rc;
+use std::sync::Arc;
 use env_logger::init;
 use wgpu::util::DeviceExt;
 use crate::{core::{NGCommand, NGCore}, shape_pipeline, events, GlobalUniforms, SSRRenderData};

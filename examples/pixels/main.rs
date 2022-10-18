@@ -28,16 +28,15 @@ impl NeoGransealEventHandler for Game {
             Event::MouseMoved { .. } => {}
             Event::Draw => {
                 let mut gfx = SSRGraphics::new();
-                gfx.clear();
-                gfx.fill(1.0,0.0,0.0);
+                gfx.fill_rgba(1.0,0.0,0.0,1.0);
                 gfx.fill_rect(core.config.width as f32 - 64.0,core.config.height as f32 - 64.0,128.0,128.0);
-                gfx.fill(0.0,1.0,0.0);
+                gfx.fill_rgba(0.0,1.0,0.0,1.0);
                 gfx.fill_rect(192.0,192.0,128.0,128.0);
-                gfx.fill(0.0,0.0,1.0);
+                gfx.fill_rgba(0.0,0.0,1.0,1.0);
                 gfx.fill_rect(64.0,64.0,128.0,128.0);
-                gfx.fill(1.0,0.0,1.0);
+                gfx.fill_rgba(1.0,0.0,1.0,1.0);
                 gfx.fill_rect(320.0,320.0,128.0,128.0);
-                gfx.fill(1.0,1.0,0.0);
+                gfx.fill_rgba(1.0,1.0,0.0,1.0);
                 gfx.fill_rect(448.0,448.0,128.0,128.0);
                 core.cmd(NGCommand::Render(0,Box::new(gfx.data)));
             }

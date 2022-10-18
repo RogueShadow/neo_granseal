@@ -6,7 +6,7 @@ use crate::shape_pipeline::SimpleShapeRenderPipeline;
 
 pub enum NGCommand {
     AddPipeline(Box<dyn NGRenderPipeline>),
-    Render(usize,Box<dyn RenderData>),
+    Render(usize, Box<dyn std::any::Any>),
     GetFps,
 }
 
