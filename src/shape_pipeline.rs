@@ -178,7 +178,7 @@ pub struct ObjectManager {
     vertices: Vec<Vertex>,
     transforms: Vec<SSRTransform>,
     materials: Vec<SSRMaterial>,
-    object_info: Vec<ObjectInfo>,
+    object_info: Vec<SSRObjectInfo>,
 }
 impl ObjectManager {
     pub fn new() -> Self {
@@ -204,7 +204,7 @@ impl ObjectManager {
         self.transforms.push(transform);
         self.materials.push(material);
 
-        let obj_info = ObjectInfo {
+        let obj_info = SSRObjectInfo {
             start_vertice,
             end_vertice,
         };
@@ -212,7 +212,8 @@ impl ObjectManager {
         self.object_info.push(obj_info);
     }
 }
-pub struct ObjectInfo {
+#[derive(Copy,Clone,Debug)]
+pub struct SSRObjectInfo {
     start_vertice: u32,
     end_vertice: u32,
 }
@@ -223,7 +224,7 @@ pub struct SimpleShapeRenderPipeline {
     clear_color: [f64; 4],
     globals: GlobalUniforms,
     locals: SSRLocals,
-    objects: ObjectManager,
+    data: Option<Box<dyn RenderData>>,
     pipeline: wgpu::RenderPipeline,
 }
 impl SimpleShapeRenderPipeline {
@@ -301,49 +302,18 @@ impl SimpleShapeRenderPipeline {
             clear_color,
             globals,
             locals,
-            objects: ObjectManager::new(),
+            data: None,
             pipeline,
         }
     }
 }
 impl NGRenderPipeline for SimpleShapeRenderPipeline {
     fn render(&mut self, core: &mut NGCore) {
+        if self.data.is_none() { return; };
+        let data = self.data.as_ref().expect("Couldn't get render data.");
+
         let uniform_alignment =
             core.device.limits().min_uniform_buffer_offset_alignment as DynamicOffset;
-
-        let size = 128.0;
-        let mut verts = vec![
-            Vertex::new_xy(0.0, size),
-            Vertex::new_xy(size, -size),
-            Vertex::new_xy(-size, -size),
-        ];
-
-        self.objects.clear();
-        self.objects.add(
-            verts.clone(),
-            SSRTransform::new(0.0, 0.0),
-            SSRMaterial::rgb(0.0, 1.0, 1.0),
-        );
-        self.objects.add(
-            verts.clone(),
-            SSRTransform::new(-256.0, -256.0),
-            SSRMaterial::rgb(1.0, 0.0, 0.0),
-        );
-        self.objects.add(
-            verts.clone(),
-            SSRTransform::new(-256.0, 256.0),
-            SSRMaterial::rgb(0.0, 1.0, 0.0),
-        );
-        self.objects.add(
-            verts.clone(),
-            SSRTransform::new(256.0, -256.0),
-            SSRMaterial::rgb(0.0, 0.0, 1.0),
-        );
-        self.objects.add(
-            verts.clone(),
-            SSRTransform::new(256.0, 256.0),
-            SSRMaterial::rgb(1.0, 0.0, 1.0),
-        );
 
         let output = core
             .surface
@@ -379,21 +349,21 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
                 core.device
                     .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                         label: Some("SSRP Vertex Buffer"),
-                        contents: bytemuck::cast_slice(self.objects.vertices.as_slice()),
+                        contents: bytemuck::cast_slice(data.vertices().as_slice()),
                         usage: wgpu::BufferUsages::VERTEX,
                     });
             core.queue
                 .write_buffer(&self.locals.transform_buffer, 0, unsafe {
                     std::slice::from_raw_parts(
-                        self.objects.transforms.as_ptr() as *const u8,
-                        self.objects.transforms.len() * uniform_alignment as usize,
+                        data.transform().as_ptr() as *const u8,
+                        data.transform().len() * uniform_alignment as usize,
                     )
                 });
             core.queue
                 .write_buffer(&self.locals.material_buffer, 0, unsafe {
                     std::slice::from_raw_parts(
-                        self.objects.materials.as_ptr() as *const u8,
-                        self.objects.materials.len() * uniform_alignment as usize,
+                        data.material().as_ptr() as *const u8,
+                        data.material().len() * uniform_alignment as usize,
                     )
                 });
 
@@ -401,7 +371,7 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_bind_group(0, &self.globals.bind_group, &[]);
 
-            for (i, obj) in self.objects.object_info.iter().enumerate() {
+            for (i, obj) in data.object_info().iter().enumerate() {
                 let offset = (i as DynamicOffset) * uniform_alignment;
                 render_pass.set_bind_group(1, &self.locals.transform_bg, &[offset]);
                 render_pass.set_bind_group(2, &self.locals.material_bg, &[offset]);
@@ -411,7 +381,141 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
         core.queue.submit(Some(encoder.finish()));
         output.present();
     }
+
+    fn set_data(&mut self, data: Box<dyn RenderData>) {
+        self.data = Some(data);
+    }
+
     fn set_globals(&mut self, globals: GlobalUniforms) {
         self.globals = globals;
+    }
+}
+
+pub trait RenderData {
+    fn vertices(&self) -> &Vec<Vertex>;
+    fn material(&self) -> &Vec<SSRMaterial>;
+    fn transform(&self) -> &Vec<SSRTransform>;
+    fn object_info(&self) -> &Vec<SSRObjectInfo>;
+}
+#[derive(Clone,Debug)]
+pub struct SSRRenderData {
+    vertices: Vec<Vertex>,
+    transforms: Vec<SSRTransform>,
+    materials: Vec<SSRMaterial>,
+    object_info: Vec<SSRObjectInfo>,
+}
+
+impl SSRRenderData {
+    pub(crate) fn clear(&mut self) {
+        self.transforms.clear();
+        self.vertices.clear();
+        self.materials.clear();
+        self.object_info.clear();
+    }
+}
+
+impl AsRef<SSRRenderData> for SSRRenderData {
+    fn as_ref(&self) -> &SSRRenderData {
+        self
+    }
+}
+
+
+impl RenderData for  SSRRenderData {
+    fn vertices(&self) -> &Vec<Vertex> {
+        self.vertices.as_ref()
+    }
+
+    fn material(&self) -> &Vec<SSRMaterial> {
+        self.materials.as_ref()
+    }
+
+    fn transform(&self) -> &Vec<SSRTransform> {
+        self.transforms.as_ref()
+    }
+
+    fn object_info(&self) -> &Vec<SSRObjectInfo> {
+        self.object_info.as_ref()
+    }
+}
+
+pub struct SSRGraphics {
+    pub data: SSRRenderData,
+
+    current_transform: SSRTransform,
+    current_material: SSRMaterial,
+}
+impl SSRGraphics {
+    pub fn data(&self) -> &SSRRenderData {
+        self.data.as_ref()
+    }
+    pub fn new() -> Self {
+        Self {
+            data: SSRRenderData {
+                vertices: vec![],
+                transforms: vec![],
+                materials: vec![],
+                object_info: vec![]
+            },
+            current_transform: SSRTransform {
+                x: 0.0,
+                y: 0.0,
+                rotation: 0.0
+            },
+            current_material: SSRMaterial {
+                r: 1.0,
+                g: 1.0,
+                b: 1.0,
+                a: 1.0,
+                kind: 0
+            }
+        }
+    }
+    pub fn clear(&mut self) {
+        self.data.clear();
+    }
+    fn v_quad(x1: f32, y1: f32, x2: f32, y2: f32) -> [Vertex; 6] {
+        [
+            Vertex::new_xy(x1,y1),
+            Vertex::new_xy(x1,y2),
+            Vertex::new_xy(x2,y2),
+            Vertex::new_xy(x2,y2),
+            Vertex::new_xy(x2,y1),
+            Vertex::new_xy(x1,y1),
+        ]
+    }
+    pub fn fill_rect(&mut self, x: f32, y: f32, w: f32, h: f32) {
+        let start_vertex = self.data.vertices.len();
+        let hw = w / 2.0;
+        let hh = h / 2.0;
+
+        for v in SSRGraphics::v_quad(-hw,-hh,hw,hh) {
+            self.data.vertices.push(v);
+        }
+
+        let end_vertex = self.data.vertices.len();
+
+        let info = SSRObjectInfo {
+            start_vertice: start_vertex as u32,
+            end_vertice: end_vertex as u32,
+        };
+
+        let transform = SSRTransform {
+            x,
+            y,
+            rotation: 0.0
+        };
+        self.data.transforms.push(transform);
+        self.data.materials.push(self.current_material);
+        self.data.object_info.push(info);
+    }
+    pub fn fill(&mut self, r: f32, g: f32, b: f32)  {
+        self.current_material = SSRMaterial {
+            r,
+            g,
+            b,
+            a: 1.0,
+            kind: 0
+        }
     }
 }

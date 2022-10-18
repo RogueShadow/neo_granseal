@@ -13,6 +13,7 @@ use winit::dpi::PhysicalSize;
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
 use winit::{event, event_loop};
+use crate::shape_pipeline::{RenderData, SSRRenderData};
 
 #[derive(Clone, Debug)]
 pub struct GransealGameConfig {
@@ -78,6 +79,7 @@ pub trait NeoGransealEventHandler {
 }
 pub trait NGRenderPipeline {
     fn render(&mut self, core: &mut NGCore);
+    fn set_data(&mut self, data: Box<dyn RenderData>);
     fn set_globals(&mut self, globals: GlobalUniforms);
 }
 

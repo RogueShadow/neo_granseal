@@ -41,8 +41,8 @@ var<uniform> material: Material;
 
 @vertex
 fn vs_main(@builtin(vertex_index) index: u32, in: VertexInput) -> VertexOutput {
-    var pos = (in.pos.xy) / screen;
-    var trans = (vec2<f32>(transform.x,transform.y) / screen);
+    var pos = ((in.pos.xy) / screen) * 2.0;
+    var trans = ((vec2<f32>(transform.x,transform.y)  / screen) - 0.5) * 2.0 ;
     var output = pos + trans;
 
     var out: VertexOutput;

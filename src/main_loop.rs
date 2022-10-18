@@ -2,14 +2,12 @@ use std::ops::Index;
 use std::rc::Rc;
 use env_logger::init;
 use wgpu::util::DeviceExt;
-use crate::{core::{NGCommand, NGCore}, shape_pipeline, events, GlobalUniforms};
+use crate::{core::{NGCommand, NGCore}, shape_pipeline, events, GlobalUniforms, SSRRenderData};
 use winit::{
     event_loop,
-    event::{Event,WindowEvent}
+    event::{Event,WindowEvent,VirtualKeyCode}
 };
-use winit::event::VirtualKeyCode;
-use winit::event::WindowEvent::KeyboardInput;
-use crate::events::Key::E;
+use crate::shape_pipeline::SSRGraphics;
 
 pub(crate) fn main_loop(
     e_loop: event_loop::EventLoop<()>,
@@ -45,15 +43,23 @@ pub(crate) fn main_loop(
                 while !core.cmd_queue.is_empty() {
                     match core.cmd_queue.pop().expect("Couldn't get command.") {
                         NGCommand::AddPipeline(p) => {
+                            println!("Added pipeline.");
                             pipelines.push(p);
                         },
                         NGCommand::GetFps => h.event(&mut core,events::Event::Fps(fps as u32)),
+                        NGCommand::Render(index,data) => {
+                            if !pipelines.is_empty() {
+                                pipelines.get_mut(index).expect("Couldn't get render pipeline")
+                                    .set_data(data);
+                            }
+                        },
                     };
                 }
                 core.window.request_redraw()
             },
-            Event::RedrawRequested(id) => {
+            Event::RedrawRequested(_) => {
                 h.event(&mut core, events::Event::Update(delta.elapsed()));
+                h.event(&mut core, events::Event::Draw);
                 delta = std::time::Instant::now();
 
                 for p in pipelines.iter_mut() {
@@ -67,6 +73,7 @@ pub(crate) fn main_loop(
                     frame_timer = std::time::Instant::now();
                     fps = frames;
                     frames = 0;
+                    println!("Fps: {}",fps);
                 }
                 frames += 1;
             }

@@ -1,4 +1,4 @@
-use crate::{map_present_modes, GransealGameConfig, NGRenderPipeline};
+use crate::{map_present_modes, GransealGameConfig, NGRenderPipeline, RenderData, SSRRenderData};
 use pollster::FutureExt;
 use winit::dpi::PhysicalSize;
 use winit::event_loop::EventLoop;
@@ -6,6 +6,7 @@ use crate::shape_pipeline::SimpleShapeRenderPipeline;
 
 pub enum NGCommand {
     AddPipeline(Box<dyn NGRenderPipeline>),
+    Render(usize,Box<dyn RenderData>),
     GetFps,
 }
 
