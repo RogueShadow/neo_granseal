@@ -3,17 +3,17 @@ pub mod events;
 pub mod main_loop;
 pub mod shape_pipeline;
 
-use std::ops::{Deref, DerefMut};
-use crate::main_loop::main_loop;
 use crate::core::NGCore;
+use crate::main_loop::main_loop;
+use crate::shape_pipeline::SSRRenderData;
 use image::EncodableLayout;
 use pollster::FutureExt;
+use std::ops::{Deref, DerefMut};
 use wgpu::util::DeviceExt;
 use winit::dpi::PhysicalSize;
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
 use winit::{event, event_loop};
-use crate::shape_pipeline::{RenderData, SSRRenderData};
 
 #[derive(Clone, Debug)]
 pub struct GransealGameConfig {
@@ -22,6 +22,7 @@ pub struct GransealGameConfig {
     pub title: String,
     pub vsync: VSyncMode,
     pub clear_color: [f64; 4],
+    pub simple_pipeline: bool,
 }
 impl GransealGameConfig {
     pub fn new() -> Self {
@@ -31,6 +32,7 @@ impl GransealGameConfig {
             height: 600,
             vsync: VSyncMode::VSyncOn,
             clear_color: [0.0, 0.0, 0.0, 1.0],
+            simple_pipeline: true,
         }
     }
     pub fn title(mut self, title: String) -> Self {
@@ -77,6 +79,7 @@ pub fn map_present_modes(mode: VSyncMode) -> wgpu::PresentMode {
 pub trait NeoGransealEventHandler {
     fn event(&mut self, core: &mut NGCore, e: events::Event);
 }
+
 pub trait NGRenderPipeline {
     fn render(&mut self, core: &mut NGCore);
     fn set_data(&mut self, data: Box<dyn std::any::Any>);

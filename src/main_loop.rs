@@ -1,14 +1,17 @@
+use crate::shape_pipeline::{SSRGraphics, SimpleShapeRenderPipeline};
+use crate::{
+    core::{NGCommand, NGCore},
+    events, shape_pipeline, GlobalUniforms, SSRRenderData,
+};
+use env_logger::init;
 use std::ops::{Deref, Index};
 use std::rc::Rc;
 use std::sync::Arc;
-use env_logger::init;
 use wgpu::util::DeviceExt;
-use crate::{core::{NGCommand, NGCore}, shape_pipeline, events, GlobalUniforms, SSRRenderData};
 use winit::{
+    event::{Event, VirtualKeyCode, WindowEvent},
     event_loop,
-    event::{Event,WindowEvent,VirtualKeyCode}
 };
-use crate::shape_pipeline::SSRGraphics;
 
 pub(crate) fn main_loop(
     e_loop: event_loop::EventLoop<()>,
@@ -20,11 +23,31 @@ pub(crate) fn main_loop(
     let mut fps = 0;
     let mut frame_timer = std::time::Instant::now();
     let mut pipelines: Vec<Box<dyn crate::NGRenderPipeline>> = vec![];
+    if core.config.simple_pipeline {
+        pipelines.push(Box::new(SimpleShapeRenderPipeline::new(&core)));
+    }
 
     h.event(&mut core, events::Event::Load);
 
     e_loop.run(move |event, _, control_flow| {
         *control_flow = event_loop::ControlFlow::Poll;
+        while !core.cmd_queue.is_empty() {
+            match core.cmd_queue.pop().expect("Couldn't get command.") {
+                NGCommand::AddPipeline(p) => {
+                    println!("Added pipeline.");
+                    pipelines.push(p);
+                }
+                NGCommand::GetFps => h.event(&mut core, events::Event::Fps(fps as u32)),
+                NGCommand::Render(index, data) => {
+                    if !pipelines.is_empty() {
+                        pipelines
+                            .get_mut(index)
+                            .expect("Couldn't get render pipeline")
+                            .set_data(data);
+                    }
+                }
+            };
+        }
         match event {
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
@@ -32,32 +55,13 @@ pub(crate) fn main_loop(
             } if window_id == core.window.id() => *control_flow = event_loop::ControlFlow::Exit,
             Event::WindowEvent {
                 window_id,
-                event: WindowEvent::KeyboardInput {
-                    input,
-                    ..
-                }
-            } if window_id == core.window.id() =>
+                event: WindowEvent::KeyboardInput { input, .. },
+            } if window_id == core.window.id() => {
                 if input.virtual_keycode == Some(VirtualKeyCode::Escape) {
                     *control_flow = event_loop::ControlFlow::Exit
-                },
-            Event::MainEventsCleared => {
-                while !core.cmd_queue.is_empty() {
-                    match core.cmd_queue.pop().expect("Couldn't get command.") {
-                        NGCommand::AddPipeline(p) => {
-                            println!("Added pipeline.");
-                            pipelines.push(p);
-                        },
-                        NGCommand::GetFps => h.event(&mut core,events::Event::Fps(fps as u32)),
-                        NGCommand::Render(index,data) => {
-                            if !pipelines.is_empty() {
-                                pipelines.get_mut(index).expect("Couldn't get render pipeline")
-                                    .set_data(data);
-                            }
-                        },
-                    };
                 }
-                core.window.request_redraw()
-            },
+            }
+            Event::MainEventsCleared => core.window.request_redraw(),
             Event::RedrawRequested(_) => {
                 h.event(&mut core, events::Event::Update(delta.elapsed()));
                 h.event(&mut core, events::Event::Draw);
@@ -74,7 +78,7 @@ pub(crate) fn main_loop(
                     frame_timer = std::time::Instant::now();
                     fps = frames;
                     frames = 0;
-                    println!("Fps: {}",fps);
+                    println!("Fps: {}", fps);
                 }
                 frames += 1;
             }

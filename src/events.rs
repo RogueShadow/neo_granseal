@@ -11,7 +11,7 @@ pub enum Event {
         state: KeyState,
         button: MouseButton,
         modifiers: ModifierState,
-        position: [f64;  2],
+        position: [f64; 2],
     },
     MouseMoved {
         position: [f64; 2],
@@ -19,10 +19,9 @@ pub enum Event {
     Draw,
     Update(Duration),
     Load,
-    Resized(u32,u32),
+    Resized(u32, u32),
     Fps(u32),
 }
-
 
 #[derive(Copy, Clone, Debug)]
 pub enum MouseButton {
@@ -45,61 +44,158 @@ pub struct ModifierState {
     pub(crate) ctrl: bool,
 }
 
-#[derive(Hash,Eq,PartialEq,Debug,Copy,Clone)]
+#[derive(Hash, Eq, PartialEq, Debug, Copy, Clone)]
 pub enum Key {
-    Escape, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12,
-    Grave, Key1, Key2, Key3, Key4, Key5, Key6, Key7, Key8, Key9, Key0,Minus, Equals, BackSpace,
-    Tab, Q, W, E, R, T, Y, U, I, O, P, LBracket, RBracket, BackSlash,
-    CapsLock, A, S, D, F, G, H, J, K, L, SemiColon, Apostrophe, Enter,
-    LShift, Z, X, C, V, B, N, M, Comma, Period, ForwardSlash, RShift,
-    LCtrl, LWin, LAlt, Space, RAlt, RWin, RCtrl,
+    Escape,
+    F1,
+    F2,
+    F3,
+    F4,
+    F5,
+    F6,
+    F7,
+    F8,
+    F9,
+    F10,
+    F11,
+    F12,
+    Grave,
+    Key1,
+    Key2,
+    Key3,
+    Key4,
+    Key5,
+    Key6,
+    Key7,
+    Key8,
+    Key9,
+    Key0,
+    Minus,
+    Equals,
+    BackSpace,
+    Tab,
+    Q,
+    W,
+    E,
+    R,
+    T,
+    Y,
+    U,
+    I,
+    O,
+    P,
+    LBracket,
+    RBracket,
+    BackSlash,
+    CapsLock,
+    A,
+    S,
+    D,
+    F,
+    G,
+    H,
+    J,
+    K,
+    L,
+    SemiColon,
+    Apostrophe,
+    Enter,
+    LShift,
+    Z,
+    X,
+    C,
+    V,
+    B,
+    N,
+    M,
+    Comma,
+    Period,
+    ForwardSlash,
+    RShift,
+    LCtrl,
+    LWin,
+    LAlt,
+    Space,
+    RAlt,
+    RWin,
+    RCtrl,
 
-    PrintScreen, ScrollLock, Pause,
+    PrintScreen,
+    ScrollLock,
+    Pause,
 
-    Insert, Home, PageUp,
-    Delete, End, PageDown,
+    Insert,
+    Home,
+    PageUp,
+    Delete,
+    End,
+    PageDown,
 
-    Up, Left, Down, Right,
+    Up,
+    Left,
+    Down,
+    Right,
 
-    NumLock, NumDivide, NumMultiply, NumSubtract,
-    Num7, Num8, Num9, NumAdd,
-    Num4, Num5, Num6,
-    Num1, Num2, Num3, NumEnter,
-    Num0, NumDecimal,
+    NumLock,
+    NumDivide,
+    NumMultiply,
+    NumSubtract,
+    Num7,
+    Num8,
+    Num9,
+    NumAdd,
+    Num4,
+    Num5,
+    Num6,
+    Num1,
+    Num2,
+    Num3,
+    NumEnter,
+    Num0,
+    NumDecimal,
 
     NotImplemented,
 }
 
-
-
 pub fn map_events(event: &winit::event::WindowEvent) -> Option<Event> {
     match event {
         winit::event::WindowEvent::KeyboardInput {
-            input: winit::event::KeyboardInput { scancode: _scancode, state, virtual_keycode, modifiers },
+            input:
+                winit::event::KeyboardInput {
+                    scancode: _scancode,
+                    state,
+                    virtual_keycode,
+                    modifiers,
+                },
             ..
         } => {
-            if virtual_keycode.is_none() {return None;}
+            if virtual_keycode.is_none() {
+                return None;
+            }
             Some(Event::KeyEvent {
                 state: match state {
-                    winit::event::ElementState::Pressed => {KeyState::Pressed}
-                    winit::event::ElementState::Released => {KeyState::Released}
+                    winit::event::ElementState::Pressed => KeyState::Pressed,
+                    winit::event::ElementState::Released => KeyState::Released,
                 },
-                key: map_keys(&virtual_keycode.unwrap() ),
-                modifiers: map_modifiers(modifiers)
-            })
-        },
-        winit::event::WindowEvent::MouseInput { device_id: _device_id, state, button, modifiers } => {
-            Some(Event::MouseButton {
-                state: match state {
-                    winit::event::ElementState::Pressed => {KeyState::Pressed}
-                    winit::event::ElementState::Released => {KeyState::Released}
-                },
-                button: map_mouse_buttons(button),
+                key: map_keys(&virtual_keycode.unwrap()),
                 modifiers: map_modifiers(modifiers),
-                position: [0.0,0.0]
             })
         }
-        _ => None
+        winit::event::WindowEvent::MouseInput {
+            device_id: _device_id,
+            state,
+            button,
+            modifiers,
+        } => Some(Event::MouseButton {
+            state: match state {
+                winit::event::ElementState::Pressed => KeyState::Pressed,
+                winit::event::ElementState::Released => KeyState::Released,
+            },
+            button: map_mouse_buttons(button),
+            modifiers: map_modifiers(modifiers),
+            position: [0.0, 0.0],
+        }),
+        _ => None,
     }
 }
 
@@ -121,10 +217,8 @@ fn map_modifiers(modifiers: &winit::event::ModifiersState) -> ModifierState {
 }
 
 fn map_keys(key: &winit::event::VirtualKeyCode) -> Key {
-
     use winit::event::VirtualKeyCode as V;
     use Key as G;
-
 
     let key = match key {
         V::Escape => G::Escape,
@@ -172,7 +266,7 @@ fn map_keys(key: &winit::event::VirtualKeyCode) -> Key {
         V::A => G::A,
         V::S => G::S,
         V::D => G::D,
-        V::F=> G::F,
+        V::F => G::F,
         V::G => G::G,
         V::H => G::H,
         V::J => G::J,

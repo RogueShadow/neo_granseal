@@ -1,6 +1,7 @@
 use crate::events::Key::V;
 use crate::*;
 use bytemuck::{Pod, Zeroable};
+use rand::{Rng, SeedableRng};
 use std::ops::Range;
 use wgpu::{BufferAddress, DynamicOffset, MultisampleState};
 
@@ -174,7 +175,7 @@ impl SSRLocals {
     }
 }
 
-#[derive(Copy,Clone,Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct SSRObjectInfo {
     start_vertice: u32,
     end_vertice: u32,
@@ -271,9 +272,10 @@ impl SimpleShapeRenderPipeline {
 }
 impl NGRenderPipeline for SimpleShapeRenderPipeline {
     fn render(&mut self, core: &mut NGCore) {
-        if self.data.is_none() { return; };
+        if self.data.is_none() {
+            return;
+        };
         let data = self.data.as_ref().expect("Couldn't get data");
-
         let uniform_alignment =
             core.device.limits().min_uniform_buffer_offset_alignment as DynamicOffset;
 
@@ -289,9 +291,11 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("SimpleShapeRenderPipeline Command Encoder"),
             });
+        let timer = std::time::Instant::now();
         {
+            let block_time = std::time::Instant::now();
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("SimpeShapeRenderPipeline Render Pass"),
+                label: Some("SimpleShapeRenderPipeline Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
                     resolve_target: None,
@@ -307,6 +311,7 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
                 })],
                 depth_stencil_attachment: None,
             });
+
             self.vertex_buffer =
                 core.device
                     .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -314,6 +319,7 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
                         contents: bytemuck::cast_slice(data.vertices.as_slice()),
                         usage: wgpu::BufferUsages::VERTEX,
                     });
+
             core.queue
                 .write_buffer(&self.locals.transform_buffer, 0, unsafe {
                     std::slice::from_raw_parts(
@@ -321,6 +327,7 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
                         data.transforms.len() * uniform_alignment as usize,
                     )
                 });
+
             core.queue
                 .write_buffer(&self.locals.material_buffer, 0, unsafe {
                     std::slice::from_raw_parts(
@@ -328,7 +335,6 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
                         data.materials.len() * uniform_alignment as usize,
                     )
                 });
-
             render_pass.set_pipeline(&self.pipeline);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_bind_group(0, &self.globals.bind_group, &[]);
@@ -339,13 +345,17 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
                 render_pass.set_bind_group(2, &self.locals.material_bg, &[offset]);
                 render_pass.draw(obj.start_vertice..obj.end_vertice, 0..1);
             }
+            println!("Inside: {:?}",block_time.elapsed()); // ~ 1ms
         }
-        core.queue.submit(Some(encoder.finish()));
+        println!("Outside: {:?}", timer.elapsed()); // ~ 21ms
+        core.queue.submit(std::iter::once(encoder.finish()));
         output.present();
     }
 
     fn set_data(&mut self, data: Box<dyn std::any::Any>) {
-        let rd = data.downcast::<SSRRenderData>().expect("");
+        let rd = data
+            .downcast::<SSRRenderData>()
+            .expect("Wrong type of data!");
         self.data = Some(*rd);
     }
 
@@ -354,10 +364,7 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
     }
 }
 
-
-pub trait RenderData {}
-
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub struct SSRRenderData {
     vertices: Vec<Vertex>,
     transforms: Vec<SSRTransform>,
@@ -380,14 +387,17 @@ impl AsRef<SSRRenderData> for SSRRenderData {
     }
 }
 
-impl RenderData for  SSRRenderData {}
-
 pub struct SSRGraphics {
     pub data: SSRRenderData,
     current_transform: SSRTransform,
     current_material: SSRMaterial,
 }
 impl SSRGraphics {
+    pub fn clear(&mut self) {
+        self.data.clear();
+        self.current_material = SSRMaterial::rgb(1.0, 1.0, 1.0);
+        self.current_transform = SSRTransform::new(0.0, 0.0);
+    }
     pub fn data(&self) -> &SSRRenderData {
         self.data.as_ref()
     }
@@ -397,7 +407,7 @@ impl SSRGraphics {
                 vertices: vec![],
                 transforms: vec![],
                 materials: vec![],
-                object_info: vec![]
+                object_info: vec![],
             },
             current_transform: SSRTransform {
                 x: 0.0,
@@ -409,18 +419,18 @@ impl SSRGraphics {
                 g: 1.0,
                 b: 1.0,
                 a: 1.0,
-                kind: 0
-            }
+                kind: 0,
+            },
         }
     }
     fn v_quad(x1: f32, y1: f32, x2: f32, y2: f32) -> [Vertex; 6] {
         [
-            Vertex::new_xy(x1,y1),
-            Vertex::new_xy(x1,y2),
-            Vertex::new_xy(x2,y2),
-            Vertex::new_xy(x2,y2),
-            Vertex::new_xy(x2,y1),
-            Vertex::new_xy(x1,y1),
+            Vertex::new_xy(x1, y1),
+            Vertex::new_xy(x1, y2),
+            Vertex::new_xy(x2, y2),
+            Vertex::new_xy(x2, y2),
+            Vertex::new_xy(x2, y1),
+            Vertex::new_xy(x1, y1),
         ]
     }
     pub fn fill_rect(&mut self, x: f32, y: f32, w: f32, h: f32) {
@@ -428,7 +438,7 @@ impl SSRGraphics {
         let hw = w / 2.0;
         let hh = h / 2.0;
 
-        for v in SSRGraphics::v_quad(-hw,-hh,hw,hh) {
+        for v in SSRGraphics::v_quad(-hw, -hh, hw, hh) {
             self.data.vertices.push(v);
         }
 
@@ -442,19 +452,19 @@ impl SSRGraphics {
         let transform = SSRTransform {
             x: self.current_transform.x + x,
             y: self.current_transform.y + y,
-            rotation: self.current_transform.rotation
+            rotation: self.current_transform.rotation,
         };
         self.data.transforms.push(transform);
         self.data.materials.push(self.current_material);
         self.data.object_info.push(info);
     }
-    pub fn fill_rgba(&mut self, r: f32, g: f32, b: f32, a: f32)  {
+    pub fn fill_rgba(&mut self, r: f32, g: f32, b: f32, a: f32) {
         self.current_material = SSRMaterial {
             r,
             g,
             b,
             a,
-            kind: 0
+            kind: 0,
         }
     }
 }

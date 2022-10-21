@@ -1,8 +1,8 @@
-use crate::{map_present_modes, GransealGameConfig, NGRenderPipeline, RenderData, SSRRenderData};
+use crate::shape_pipeline::SimpleShapeRenderPipeline;
+use crate::{map_present_modes, GransealGameConfig, NGRenderPipeline, SSRRenderData};
 use pollster::FutureExt;
 use winit::dpi::PhysicalSize;
 use winit::event_loop::EventLoop;
-use crate::shape_pipeline::SimpleShapeRenderPipeline;
 
 pub enum NGCommand {
     AddPipeline(Box<dyn NGRenderPipeline>),
@@ -77,7 +77,7 @@ impl NGCore {
             adapter,
             device,
             queue,
-            cmd_queue: vec![]
+            cmd_queue: vec![],
         }
     }
 }

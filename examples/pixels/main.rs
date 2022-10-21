@@ -1,24 +1,37 @@
-use neo_granseal::{
-    events::Event,
-    start,
-    GransealGameConfig,
-    NeoGransealEventHandler,
-    shape_pipeline,
-    VSyncMode,
-    core::{NGCommand,NGCore}
-};
 use neo_granseal::shape_pipeline::{SSRGraphics, SSRRenderData};
+use neo_granseal::{
+    core::{NGCommand, NGCore},
+    events::Event,
+    shape_pipeline, start, GransealGameConfig, NeoGransealEventHandler, VSyncMode,
+};
+use rand::{Rng, SeedableRng};
 
 fn main() {
     start(
         Game::new(),
         GransealGameConfig::new()
-              .vsync(VSyncMode::FastVSync)
-              .size(128 * 5, 128 * 5)
+            .vsync(VSyncMode::FastVSync)
+            .size(128 * 5, 128 * 5),
     );
 }
-struct Game {}
-impl Game { fn new() -> Self { Self {} } }
+struct Entity {
+    x: f32,
+    y: f32,
+}
+struct Game {
+    rng: rand_xorshift::XorShiftRng,
+    gfx: SSRGraphics,
+    entities: Vec<Entity>
+}
+impl Game {
+    fn new() -> Self {
+        Self {
+            rng: rand_xorshift::XorShiftRng::from_rng(rand::thread_rng()).expect("Getting Rng."),
+            gfx: SSRGraphics::new(),
+            entities: vec![],
+        }
+    }
+}
 
 impl NeoGransealEventHandler for Game {
     fn event(&mut self, core: &mut NGCore, e: Event) {
@@ -27,22 +40,27 @@ impl NeoGransealEventHandler for Game {
             Event::MouseButton { .. } => {}
             Event::MouseMoved { .. } => {}
             Event::Draw => {
-                let mut gfx = SSRGraphics::new();
-                gfx.fill_rgba(1.0,0.0,0.0,1.0);
-                gfx.fill_rect(core.config.width as f32 - 64.0,core.config.height as f32 - 64.0,128.0,128.0);
-                gfx.fill_rgba(0.0,1.0,0.0,1.0);
-                gfx.fill_rect(192.0,192.0,128.0,128.0);
-                gfx.fill_rgba(0.0,0.0,1.0,1.0);
-                gfx.fill_rect(64.0,64.0,128.0,128.0);
-                gfx.fill_rgba(1.0,0.0,1.0,1.0);
-                gfx.fill_rect(320.0,320.0,128.0,128.0);
-                gfx.fill_rgba(1.0,1.0,0.0,1.0);
-                gfx.fill_rect(448.0,448.0,128.0,128.0);
-                core.cmd(NGCommand::Render(0,Box::new(gfx.data)));
+                self.gfx.clear();
+                for e in &self.entities {
+                    self.gfx.fill_rgba(self.rng.gen(),self.rng.gen(),self.rng.gen(),1.0);
+                    self.gfx.fill_rect(e.x,e.y,16.0,16.0);
+                }
+                core.cmd(NGCommand::Render(0, Box::new(self.gfx.data.to_owned())));
             }
             Event::Update(_) => {}
             Event::Load => {
-                core.cmd(NGCommand::AddPipeline(Box::new(shape_pipeline::SimpleShapeRenderPipeline::new(&core))));
+                let step: usize = 16;
+                let half = step / 2;
+                for x in (half..core.config.width as usize).step_by(step) {
+                    for y in (half..core.config.height as usize).step_by(step) {
+                        let x = x as f32;
+                        let y = y as f32;
+                        self.entities.push(Entity {
+                            x,
+                            y,
+                        })
+                    }
+                }
             }
             Event::Resized(_, _) => {}
             Event::Fps(_) => {}
