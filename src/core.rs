@@ -1,6 +1,7 @@
 use crate::shape_pipeline::SimpleShapeRenderPipeline;
 use crate::{map_present_modes, GransealGameConfig, NGRenderPipeline, SSRRenderData};
 use pollster::FutureExt;
+use wgpu::Features;
 use winit::dpi::PhysicalSize;
 use winit::event_loop::EventLoop;
 
@@ -59,7 +60,7 @@ impl NGCore {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
-                    features: Default::default(),
+                    features: Features::STORAGE_RESOURCE_BINDING_ARRAY | Features::BUFFER_BINDING_ARRAY,
                     limits: Default::default(),
                 },
                 None,

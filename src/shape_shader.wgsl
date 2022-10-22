@@ -18,40 +18,40 @@ struct VertexOutput {
     @location(0) tex: vec2<f32>,
     @location(1) color: vec4<f32>,
 }
+
 struct Transform {
-    x: f32,
-    y: f32,
-    rotation: f32,
+    pos: vec2<f32>,
+    a: f32,
 }
 struct Material {
-    r: f32,
-    g: f32,
-    b: f32,
-    a: f32,
-    k: i32,
+    color: vec4<f32>,
+    kind: i32,
 }
+
+
 @group(0) @binding(0)
 var<uniform> screen: vec2<f32>;
 @group(0) @binding(1)
 var<uniform> timer: f32;
+
 @group(1) @binding(0)
-var<uniform> transform: Transform;
-@group(2) @binding(0)
-var<uniform> material: Material;
+var<storage,read> transforms: array<Transform>;
+
+@group(1) @binding(1)
+var<storage,read> materials: array<Material>;
 
 @vertex
-fn vs_main(@builtin(vertex_index) index: u32, in: VertexInput) -> VertexOutput {
-    let a = transform.rotation;
+fn vs_main(@builtin(vertex_index) index: u32, in: VertexInput, @builtin(instance_index) inst: u32) -> VertexOutput {
+    let a = transforms[inst].a;
     let rotation = mat2x2<f32>(cos(a),-sin(a),sin(a),cos(a));
     var pos = ((in.pos.xy) / screen) * 2.0;
-    var trans = ((vec2<f32>(transform.x,transform.y)  / screen) - 0.5) * 2.0 ;
+    var trans = ((transforms[inst].pos / screen) - 0.5) * 2.0 ;
     var output = (rotation * pos) + trans;
 
     var out: VertexOutput;
     out.clip_position = vec4<f32>(output,1.0,1.0);
     out.tex = in.tex;
-    out.color = vec4<f32>(material.r,material.g,material.b,material.a);
-    //out.color = vec4<f32>(1.0,0.0,0.0,1.0);
+    out.color = materials[inst].color;
     return out;
 }
 
