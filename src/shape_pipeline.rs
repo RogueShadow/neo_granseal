@@ -393,6 +393,7 @@ pub struct SSRGraphics<'draw> {
     core: &'draw mut NGCore,
     pub fill: bool,
     pub color: Color,
+    pub thickness: f32,
     pub data: SSRRenderData,
     current_transform: SSRTransform,
 }
@@ -402,6 +403,7 @@ impl <'draw>SSRGraphics<'draw> {
         self.data.clear();
         self.fill = true;
         self.color = Color::WHITE;
+        self.thickness = 1.0;
         self.current_transform = SSRTransform::new(0.0, 0.0, 0.0);
     }
     pub fn data(&self) -> &SSRRenderData {
@@ -412,6 +414,7 @@ impl <'draw>SSRGraphics<'draw> {
             core,
             fill: true,
             color: Color::WHITE,
+            thickness:  1.0,
             data: SSRRenderData {
                 vertices: vec![],
                 transforms: vec![],
@@ -449,16 +452,14 @@ impl <'draw>SSRGraphics<'draw> {
             (end,start)
         } else {(start,end)};
         let pi = std::f32::consts::PI;
-        let thickness = 4.0;
         let dx = (start.x - end.x) * 2.0; // width of line
         let dy = (start.y - end.y) * 2.0; // height of line
-        //let len = (dx*dx + dy*dy).sqrt(); // length of line
         let a = (dx/dy).atan(); // line slope in radians
         let sa = a - (pi/2.0);
         let sa2 = a + (pi/2.0);
 
-        let bump2 = Point2d::new(thickness * sa.sin(),thickness * sa.cos());
-        let bump = Point2d::new(thickness * sa2.sin(), thickness * sa2.cos());
+        let bump2 = Point2d::new(self.thickness * sa.sin(),self.thickness * sa.cos());
+        let bump = Point2d::new(self.thickness * sa2.sin(), self.thickness * sa2.cos());
 
         let p1 = Point2d::new(start.x + bump2.x,start.y + bump2.y);
         let p2 =  Point2d::new(start.x + bump.x, start.y + bump.y);
@@ -506,6 +507,21 @@ impl <'draw>SSRGraphics<'draw> {
             self.data.transforms.push(transform);
             self.data.materials.push(SSRMaterial::from(&self.color));
             self.data.object_info.push(info);
+        } else {
+
+        }
+    }
+    pub fn poly(&mut self, points: &Vec<Point2d>) {
+        if self.fill == false {
+            if points.len() > 2 {
+                let mut i = 0;
+                while i < (points.len() - 1) {
+                    self.line(points[i], points[i + 1]);
+                    i += 1;
+                }
+            } else if points.len() == 2 {
+                self.line(points[0], points[1])
+            }
         } else {
 
         }
