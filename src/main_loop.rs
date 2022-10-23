@@ -1,4 +1,4 @@
-use crate::shape_pipeline::{SSRGraphics, SimpleShapeRenderPipeline};
+use crate::shape_pipeline::{SSRGraphics, SimpleShapeRenderPipeline, SSRTransform, SSRMaterial};
 use crate::{
     core::{NGCommand, NGCore},
     events, shape_pipeline, GlobalUniforms, SSRRenderData,
@@ -7,6 +7,7 @@ use env_logger::init;
 use std::ops::{Deref, Index};
 use std::rc::Rc;
 use std::sync::Arc;
+use log::info;
 use wgpu::util::DeviceExt;
 use winit::{
     event::{Event, VirtualKeyCode, WindowEvent},
@@ -32,9 +33,8 @@ pub(crate) fn main_loop(
     e_loop.run(move |event, _, control_flow| {
         *control_flow = event_loop::ControlFlow::Poll;
         while !core.cmd_queue.is_empty() {
-            match core.cmd_queue.pop().expect("Couldn't get command.") {
+            match core.cmd_queue.pop().expect("Get Command") {
                 NGCommand::AddPipeline(p) => {
-                    println!("Added pipeline.");
                     pipelines.push(p);
                 }
                 NGCommand::GetFps => h.event(&mut core, events::Event::Fps(fps as u32)),
@@ -42,7 +42,7 @@ pub(crate) fn main_loop(
                     if !pipelines.is_empty() {
                         pipelines
                             .get_mut(index)
-                            .expect("Couldn't get render pipeline")
+                            .expect("Get Pipeline")
                             .set_data(data);
                     }
                 }
@@ -66,14 +66,10 @@ pub(crate) fn main_loop(
                 h.event(&mut core, events::Event::Update(delta.elapsed()));
                 h.event(&mut core, events::Event::Draw);
                 delta = std::time::Instant::now();
-
-                for p in pipelines.iter_mut() {
+                pipelines.iter_mut().for_each(|p| {
                     p.set_globals(GlobalUniforms::new(&core));
-                }
-
-                for p in pipelines.iter_mut() {
                     p.render(&mut core);
-                }
+                });
                 if frame_timer.elapsed().as_secs_f64() > 1.0 {
                     frame_timer = std::time::Instant::now();
                     fps = frames;
