@@ -5,7 +5,7 @@ use neo_granseal::{
     shape_pipeline, start, GransealGameConfig, NeoGransealEventHandler, VSyncMode,
 };
 use rand::{Rng, SeedableRng};
-use neo_granseal::util::{Color, Point2d};
+use neo_granseal::util::{Color, Point};
 
 fn main() {
     start(
@@ -16,14 +16,14 @@ fn main() {
     );
 }
 struct Entity {
-    pos: Point2d,
+    pos: Point,
     color: Color,
     rot: f32,
 }
 struct Game {
     rng: rand_xorshift::XorShiftRng,
     entities: Vec<Entity>,
-    size: Point2d,
+    size: Point,
     timer: std::time::Instant,
     toggle: bool,
 }
@@ -32,7 +32,7 @@ impl Game {
         Self {
             rng: rand_xorshift::XorShiftRng::from_rng(rand::thread_rng()).expect("Getting Rng."),
             entities: vec![],
-            size: Point2d::new(16.0,16.0),
+            size: Point::new(16.0, 16.0),
             timer: std::time::Instant::now(),
             toggle: true,
         }
@@ -75,7 +75,7 @@ impl NeoGransealEventHandler for Game {
                 let halfy = self.size.y / 2.0;
                 for x in (halfx.floor() as usize..core.config.width as usize).step_by(self.size.x.floor() as usize) {
                     for y in (halfy.floor() as usize..core.config.height as usize).step_by(self.size.y.floor() as usize) {
-                        let pos = Point2d::new(x as f32,y as f32);
+                        let pos = Point::new(x as f32, y as f32);
                         let color = Color::rgb(self.rng.gen(),self.rng.gen(),self.rng.gen());
                         self.entities.push(Entity {
                             pos,

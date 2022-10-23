@@ -5,8 +5,8 @@ use rand::{Rng, SeedableRng};
 use std::ops::Range;
 use wgpu::{BindGroup, BindingType, BufferAddress, BufferBindingType, BufferSize, BufferUsages, DynamicOffset, MultisampleState, ShaderStages, VertexStepMode};
 use wgpu::BufferBindingType::Storage;
-use wgpu::PolygonMode::Point;
-use crate::util::{Color, Point2d};
+use wgpu::PolygonMode;
+use crate::util::{Color, Point};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
@@ -37,7 +37,7 @@ impl Vertex {
         self.v = v;
         self
     }
-    pub fn pt(mut self, p: Point2d) -> Self {
+    pub fn pt(mut self, p: Point) -> Self {
         self.x = p.x;
         self.y = p.y;
         self
@@ -62,7 +62,7 @@ pub struct SSRTransform {
     r: f32,
 }
 impl SSRTransform {
-    pub fn new(pos: Point2d, r: f32) -> Self {
+    pub fn new(pos: Point, r: f32) -> Self {
         Self {
             x: pos.x,
             y: pos.y,
@@ -355,7 +355,7 @@ pub struct SSRGraphics<'draw> {
     pub color: Color,
     pub thickness: f32,
     pub data: SSRRenderData,
-    pub pos: Point2d,
+    pub pos: Point,
     pub rotation: f32,
     pub kind: i32,
 }
@@ -366,7 +366,7 @@ impl <'draw>SSRGraphics<'draw> {
         self.color = Color::WHITE;
         self.thickness = 1.0;
         self.data.clear();
-        self.pos = Point2d::new(0.0,0.0);
+        self.pos = Point::new(0.0, 0.0);
         self.rotation = 0.0;
         self.kind = 0;
     }
@@ -385,22 +385,22 @@ impl <'draw>SSRGraphics<'draw> {
                 materials: vec![],
                 object_info: vec![],
             },
-            pos: Point2d::new(0.0,0.0),
+            pos: Point::new(0.0, 0.0),
             rotation: 0.0,
             kind: 0,
         }
     }
-    fn pt_quad(p1: Point2d, p2: Point2d, p3: Point2d, p4: Point2d) -> [Vertex; 6] {
+    fn pt_quad(p1: Point, p2: Point, p3: Point, p4: Point) -> [Vertex; 6] {
         [
-            Vertex::new().pt(p1),
-            Vertex::new().pt(p2),
-            Vertex::new().pt(p3),
-            Vertex::new().pt(p3),
-            Vertex::new().pt(p4),
-            Vertex::new().pt(p1),
+            Vertex::new().pt(p1).uv(0.0,0.0),
+            Vertex::new().pt(p2).uv(0.0,1.0),
+            Vertex::new().pt(p3).uv(1.0,1.0),
+            Vertex::new().pt(p3).uv(1.0,1.0),
+            Vertex::new().pt(p4).uv(1.0,0.0),
+            Vertex::new().pt(p1).uv(0.0,0.0),
         ]
     }
-    fn pt_line_quad(start: Point2d, end: Point2d, width: f32) -> [Vertex; 6] {
+    fn pt_line_quad(start: Point, end: Point, width: f32) -> [Vertex; 6] {
         let (start,end) = if start.y < end.y {
             (end,start)
         } else {(start,end)};
@@ -411,40 +411,40 @@ impl <'draw>SSRGraphics<'draw> {
         let sa = a - (pi/2.0);
         let sa2 = a + (pi/2.0);
 
-        let bump2 = Point2d::new(width * sa.sin(),width * sa.cos());
-        let bump = Point2d::new(width * sa2.sin(),width * sa2.cos());
+        let bump2 = Point::new(width * sa.sin(), width * sa.cos());
+        let bump = Point::new(width * sa2.sin(), width * sa2.cos());
 
-        let p1 = Point2d::new(start.x + bump2.x,start.y + bump2.y);
-        let p2 =  Point2d::new(start.x + bump.x, start.y + bump.y);
-        let p3 =  Point2d::new(end.x + bump.x, end.y + bump.y);
-        let p4 = Point2d::new(end.x + bump2.x,end.y + bump2.y);
+        let p1 = Point::new(start.x + bump2.x, start.y + bump2.y);
+        let p2 =  Point::new(start.x + bump.x, start.y + bump.y);
+        let p3 =  Point::new(end.x + bump.x, end.y + bump.y);
+        let p4 = Point::new(end.x + bump2.x, end.y + bump2.y);
 
         Self::pt_quad(p1,p2,p3,p4)
     }
-    pub fn line(&mut self, start: Point2d, end: Point2d) {
+    pub fn line(&mut self, start: Point, end: Point) {
         self.draw_raw_vertices(Self::pt_line_quad(start,end,self.thickness),None,None,None);
     }
-    pub fn rect(&mut self, pos: Point2d, size: Point2d) {
+    pub fn rect(&mut self, pos: Point, size: Point) {
         if self.fill {
             let hx = size.x / 2.0;
             let hy = size.y / 2.0;
-            let p1 = Point2d::new(-hx,-hy);
-            let p2 = Point2d::new(-hx,hy);
-            let p3 = Point2d::new(hx,hy);
-            let p4 = Point2d::new(hx,-hy);
+            let p1 = Point::new(-hx, -hy);
+            let p2 = Point::new(-hx, hy);
+            let p3 = Point::new(hx, hy);
+            let p4 = Point::new(hx, -hy);
             let verts = SSRGraphics::pt_quad(p1,p2,p3,p4);
             self.draw_raw_vertices(verts,Some(pos),None,None);
         } else {
             let hx = size.x / 2.0;
             let hy = size.y / 2.0;
-            let p1 = Point2d::new(pos.x-hx,pos.y-hy);
-            let p2 = Point2d::new(pos.x-hx,pos.y+hy);
-            let p3 = Point2d::new(pos.x+hx,pos.y+hy);
-            let p4 = Point2d::new(pos.x+hx,pos.y-hy);
+            let p1 = Point::new(pos.x-hx, pos.y-hy);
+            let p2 = Point::new(pos.x-hx, pos.y+hy);
+            let p3 = Point::new(pos.x+hx, pos.y+hy);
+            let p4 = Point::new(pos.x+hx, pos.y-hy);
             self.poly(&vec![p1,p2,p3,p4,p1]);
         }
     }
-    pub fn poly(&mut self, points: &Vec<Point2d>) {
+    pub fn poly(&mut self, points: &Vec<Point>) {
         if self.fill == false {
             let mut verts: Vec<Vertex> = vec![];
             if points.len() > 2 {
@@ -466,7 +466,7 @@ impl <'draw>SSRGraphics<'draw> {
     pub fn draw_raw_vertices(
         &mut self,
         verts: impl IntoIterator<Item = Vertex>,
-        pos: Option<Point2d>,
+        pos: Option<Point>,
         rot: Option<f32>,
         kind: Option<i32>,
     ) {
@@ -498,18 +498,18 @@ impl <'draw>SSRGraphics<'draw> {
         self.data.materials.push(material);
         self.data.object_info.push(info);
     }
-    pub fn oval(&mut self, pos: Point2d, size: Point2d) {
+    pub fn oval(&mut self, pos: Point, size: Point) {
         if self.fill {
             let hx = size.x / 2.0;
             let hy = size.y / 2.0;
-            let p1 = Point2d::new(-hx,-hy);
-            let p2 = Point2d::new(-hx,hy);
-            let p3 = Point2d::new(hx,hy);
-            let p4 = Point2d::new(hx,-hy);
+            let p1 = Point::new(-hx, -hy);
+            let p2 = Point::new(-hx, hy);
+            let p3 = Point::new(hx, hy);
+            let p4 = Point::new(hx, -hy);
             let verts = SSRGraphics::pt_quad(p1,p2,p3,p4);
             self.draw_raw_vertices(verts,Some(pos),None, Some(1));
         } else {
-
+            todo!("un-filled ovals, not yet supported.")
         }
     }
     pub fn finish(&mut self) {

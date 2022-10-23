@@ -62,13 +62,13 @@ fn vs_main(@builtin(vertex_index) index: u32, in: VertexInput, @builtin(instance
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var color = in.color;
+    var ndcPos = in.tex * 2.0 - 0.5; // convert to -1,1 range for some functions
     if (in.kind == 0) {
         return color;
     }
     if (in.kind == 1) {
-
+        return color * oval(ndcPos);
     }
-
     return color;
 }
 

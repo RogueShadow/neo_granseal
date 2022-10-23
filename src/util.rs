@@ -1,3 +1,4 @@
+use std::ops::{Add, Mul, Sub};
 
 #[derive(Copy,Clone,Debug)]
 pub struct Color {
@@ -38,15 +39,54 @@ impl Color {
     }
 }
 #[derive(Copy,Clone,Debug)]
-pub struct Point2d {
+pub struct Point {
     pub x: f32,
     pub y: f32,
 }
-impl Point2d {
+impl Point {
     pub fn new(x: f32, y: f32) -> Self {
         Self {x,y}
     }
     pub fn len(&self) -> f32 {
         (self.x*self.x + self.y*self.y).sqrt()
+    }
+    pub fn norm(&self) -> Self {
+        let len = self.len();
+        Point::new(self.x / len, self.y / len)
+    }
+    pub fn angle(&self) -> f32 {
+        (self.x / self.y).atan()
+    }
+    pub fn rotate(&self, a: f32) -> Self {
+        let na = self.angle() + a;
+        Point::new(self.x * na.cos(), self.y * na.sin())
+    }
+}
+impl Add for Point {
+    type Output = Point;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Point::new(self.x + rhs.x, self.y + rhs.y)
+    }
+}
+impl Sub for Point {
+    type Output = Point;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Point::new(self.x + rhs.x, self.y + rhs.y)
+    }
+}
+impl Add<f32> for Point {
+    type Output = Point;
+
+    fn add(self, rhs: f32) -> Self::Output {
+        Point::new(self.x + rhs,self.y + rhs)
+    }
+}
+impl Mul<f32> for Point {
+    type Output = Point;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Point::new(self.x * rhs,self.y * rhs)
     }
 }
