@@ -5,6 +5,7 @@ use neo_granseal::{
     shape_pipeline, start, GransealGameConfig, NeoGransealEventHandler, VSyncMode,
 };
 use rand::{Rng, SeedableRng};
+use neo_granseal::util::Color;
 
 fn main() {
     start(
@@ -25,7 +26,6 @@ struct Entity {
 }
 struct Game {
     rng: rand_xorshift::XorShiftRng,
-    gfx: SSRGraphics,
     entities: Vec<Entity>,
     size: usize,
     timer: std::time::Instant,
@@ -35,7 +35,6 @@ impl Game {
     fn new() -> Self {
         Self {
             rng: rand_xorshift::XorShiftRng::from_rng(rand::thread_rng()).expect("Getting Rng."),
-            gfx: SSRGraphics::new(),
             entities: vec![],
             size: 16,
             timer: std::time::Instant::now(),
@@ -51,13 +50,13 @@ impl NeoGransealEventHandler for Game {
             Event::MouseButton { .. } => {}
             Event::MouseMoved { .. } => {}
             Event::Draw => {
-                self.gfx.clear();
+                let mut gfx = SSRGraphics::new(core);
                 for e in &self.entities {
-                    self.gfx.color(e.r, e.g, e.b, e.a);
-                    self.gfx.set_rotation(e.rot);
-                    self.gfx.rect(e.x, e.y, self.size as f32, self.size as f32);
+                    gfx.color = Color::rgb(e.r,e.g,e.b);
+                    gfx.rotation = e.rot;
+                    gfx.rect(e.x, e.y, self.size as f32, self.size as f32);
                 }
-                core.cmd(self.gfx.finish());
+                gfx.finish();
             }
             Event::Update(d) => {
                 self.entities.iter_mut().for_each(|e|

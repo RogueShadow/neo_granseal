@@ -1,7 +1,7 @@
 use rand::{Rng, SeedableRng};
 use wgpu::VertexFormat::Float32;
 use neo_granseal::{start, GransealGameConfig, VSyncMode, NeoGransealEventHandler, core::NGCore, events::Event, shape_pipeline::SSRGraphics};
-use neo_granseal::shape_pipeline::{Color, Point2d};
+use neo_granseal::util::{Color, Point2d};
 
 fn main() {
     start(Game {

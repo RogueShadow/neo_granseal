@@ -2,6 +2,7 @@ pub mod core;
 pub mod events;
 pub mod main_loop;
 pub mod shape_pipeline;
+pub mod util;
 
 use crate::core::NGCore;
 use crate::main_loop::main_loop;

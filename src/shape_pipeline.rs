@@ -7,6 +7,7 @@ use std::ops::Range;
 use wgpu::{BindGroup, BindingType, BufferAddress, BufferBindingType, BufferSize, BufferUsages, DynamicOffset, MultisampleState, ShaderStages, VertexStepMode};
 use wgpu::BufferBindingType::Storage;
 use wgpu::PolygonMode::Point;
+use crate::util::{Color, Point2d};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
@@ -62,10 +63,10 @@ pub struct SSRTransform {
     r: f32,
 }
 impl SSRTransform {
-    pub fn new(x: f32, y: f32, r: f32) -> Self {
+    pub fn new(pos: Point2d, r: f32) -> Self {
         Self {
-            x,
-            y,
+            x: pos.x,
+            y: pos.y,
             r,
         }
     }
@@ -345,49 +346,7 @@ impl AsRef<SSRRenderData> for SSRRenderData {
         self
     }
 }
-impl AsRef<Color> for Color {
-    fn as_ref(&self) -> &Color {
-        self
-    }
-}
-#[derive(Copy,Clone,Debug)]
-pub struct Color {
-    r: f32,
-    g: f32,
-    b: f32,
-    a: f32,
-}
-impl Color {
-    pub const BLACK: Self = Self::rgb(0.0,0.0,0.0);
-    pub const WHITE: Self = Self::rgb(1.0,1.0,1.0);
-    pub const RED: Self = Self::rgb(1.0, 0.0, 0.0);
-    pub const LIME: Self = Self::rgb(0.0, 1.0, 0.0);
-    pub const BLUE: Self = Self::rgb(0.0,0.0,1.0);
-    pub const YELLOW: Self = Self::rgb(1.0,1.0,0.0);
-    pub const CYAN: Self = Self::rgb(0.0,1.0,1.0);
-    pub const MAGENTA: Self = Self::rgb(1.0,0.0,1.0);
-    pub const SILVER: Self =  Self::rgb(0.75,0.75,0.75);
-    pub const GRAY: Self = Self::rgb(0.5,0.5,0.5);
-    pub const MAROON: Self = Self::rgb(0.5,0.0,0.0);
-    pub const OLIVE: Self = Self::rgb(0.5,0.5,0.0);
-    pub const GREEN: Self = Self::rgb(0.0,0.5,0.0);
-    pub const PURPLE: Self = Self::rgb(0.5,0.0,0.5);
-    pub const TEAL: Self = Self::rgb(0.0,0.5,0.5);
-    pub const NAVY: Self = Self::rgb(0.0,0.0,0.5);
 
-    pub const fn rgb(r: f32, g: f32, b: f32) -> Self {
-        Self::rgba(r,g,b,1.0)
-    }
-    pub const fn rgba(r: f32, g: f32, b: f32, a: f32) -> Self {
-        Self {r,g,b,a}
-    }
-    pub fn invert(&mut self) -> &Self {
-        self.r = 1.0 - self.r;
-        self.g = 1.0 - self.g;
-        self.b = 1.0 - self.b;
-        self
-    }
-}
 
 pub struct SSRGraphics<'draw> {
     core: &'draw mut NGCore,
@@ -395,16 +354,18 @@ pub struct SSRGraphics<'draw> {
     pub color: Color,
     pub thickness: f32,
     pub data: SSRRenderData,
-    current_transform: SSRTransform,
+    pub pos: Point2d,
+    pub rotation: f32,
 }
 
 impl <'draw>SSRGraphics<'draw> {
     pub fn clear(&mut self) {
-        self.data.clear();
         self.fill = true;
         self.color = Color::WHITE;
         self.thickness = 1.0;
-        self.current_transform = SSRTransform::new(0.0, 0.0, 0.0);
+        self.data.clear();
+        self.pos = Point2d::new(0.0,0.0);
+        self.rotation = 0.0;
     }
     pub fn data(&self) -> &SSRRenderData {
         self.data.as_ref()
@@ -421,7 +382,8 @@ impl <'draw>SSRGraphics<'draw> {
                 materials: vec![],
                 object_info: vec![],
             },
-            current_transform: SSRTransform::new(0.0,0.0,0.0),
+            pos: Point2d::new(0.0,0.0),
+            rotation: 0.0,
         }
     }
     fn v_quad(x1: f32, y1: f32, x2: f32, y2: f32) -> [Vertex; 6] {
@@ -475,7 +437,7 @@ impl <'draw>SSRGraphics<'draw> {
             start_vertice,
             end_vertice
         };
-        self.data.transforms.push(self.current_transform);
+        self.data.transforms.push(SSRTransform::new(self.pos,self.rotation));
         self.data.materials.push(SSRMaterial::from(&self.color));
         self.data.object_info.push(info);
     }
@@ -499,12 +461,7 @@ impl <'draw>SSRGraphics<'draw> {
                 end_vertice: end_vertex as u32,
             };
 
-            let transform = SSRTransform::new(
-                self.current_transform.x + x,
-                self.current_transform.y + y,
-                self.current_transform.r);
-
-            self.data.transforms.push(transform);
+            self.data.transforms.push(SSRTransform::new(Point2d::new(x,y),self.rotation));
             self.data.materials.push(SSRMaterial::from(&self.color));
             self.data.object_info.push(info);
         } else {
@@ -543,12 +500,7 @@ impl <'draw>SSRGraphics<'draw> {
                 end_vertice: end_vertex as u32,
             };
 
-            let transform = SSRTransform::new(
-                self.current_transform.x + x,
-                self.current_transform.y + y,
-                self.current_transform.r);
-
-            self.data.transforms.push(transform);
+            self.data.transforms.push(SSRTransform::new(self.pos,self.rotation));
             let mut material = SSRMaterial::from(self.color.as_ref());
             material.kind = 1;
             self.data.materials.push(material);
@@ -557,24 +509,8 @@ impl <'draw>SSRGraphics<'draw> {
 
         }
     }
-    pub fn set_rotation(&mut self, rot: f32) {
-        self.current_transform.r = rot;
-    }
     pub fn finish(&mut self) {
         self.core.cmd(core::NGCommand::Render(0, Box::new(self.data.to_owned())))
     }
 }
 
-#[derive(Copy,Clone,Debug)]
-pub struct Point2d {
-    pub x: f32,
-    pub y: f32,
-}
-impl Point2d {
-    pub fn new(x: f32, y: f32) -> Self {
-        Self {x,y}
-    }
-    pub fn len(&self) -> f32 {
-        (self.x*self.x + self.y*self.y).sqrt()
-    }
-}
