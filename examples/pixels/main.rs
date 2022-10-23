@@ -53,9 +53,9 @@ impl NeoGransealEventHandler for Game {
             Event::Draw => {
                 self.gfx.clear();
                 for e in &self.entities {
-                    self.gfx.fill_rgba(e.r,e.g,e.b,e.a);
+                    self.gfx.color(e.r, e.g, e.b, e.a);
                     self.gfx.set_rotation(e.rot);
-                    self.gfx.fill_rect(e.x,e.y,self.size as f32,self.size as f32);
+                    self.gfx.rect(e.x, e.y, self.size as f32, self.size as f32);
                 }
                 core.cmd(self.gfx.finish());
             }
