@@ -1,14 +1,10 @@
-impl AsRef<Color> for Color {
-    fn as_ref(&self) -> &Color {
-        self
-    }
-}
+
 #[derive(Copy,Clone,Debug)]
 pub struct Color {
-    pub(crate) r: f32,
-    pub(crate) g: f32,
-    pub(crate) b: f32,
-    pub(crate) a: f32,
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
+    pub a: f32,
 }
 impl Color {
     pub const BLACK: Self = Self::rgb(0.0,0.0,0.0);
@@ -34,7 +30,7 @@ impl Color {
     pub const fn rgba(r: f32, g: f32, b: f32, a: f32) -> Self {
         Self {r,g,b,a}
     }
-    pub fn invert(&mut self) -> &Self {
+    pub fn invert(mut self) -> Self {
         self.r = 1.0 - self.r;
         self.g = 1.0 - self.g;
         self.b = 1.0 - self.b;

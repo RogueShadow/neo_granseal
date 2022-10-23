@@ -31,7 +31,7 @@ impl GransealGameConfig {
             title: "Neo Granseal Engine".to_string(),
             width: 800,
             height: 600,
-            vsync: VSyncMode::VSyncOn,
+            vsync: VSyncMode::AutoVsync,
             clear_color: [0.0, 0.0, 0.0, 1.0],
             simple_pipeline: true,
         }
@@ -60,20 +60,20 @@ impl GransealGameConfig {
 pub enum VSyncMode {
     AutoVsync,
     AutoNoVsync,
-    VSyncOn,
-    AdaptiveVSync,
-    VSyncOff,
-    FastVSync,
+    // VSyncOn,
+    // AdaptiveVSync,
+    // VSyncOff,
+    // FastVSync,
 }
 
 pub fn map_present_modes(mode: VSyncMode) -> wgpu::PresentMode {
     match mode {
         VSyncMode::AutoVsync => wgpu::PresentMode::AutoVsync,
         VSyncMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
-        VSyncMode::VSyncOn => wgpu::PresentMode::Fifo,
-        VSyncMode::AdaptiveVSync => wgpu::PresentMode::FifoRelaxed,
-        VSyncMode::VSyncOff => wgpu::PresentMode::Immediate,
-        VSyncMode::FastVSync => wgpu::PresentMode::Mailbox,
+        // VSyncMode::VSyncOn => wgpu::PresentMode::Fifo,
+        // VSyncMode::AdaptiveVSync => wgpu::PresentMode::FifoRelaxed,
+        // VSyncMode::VSyncOff => wgpu::PresentMode::Immediate,
+        // VSyncMode::FastVSync => wgpu::PresentMode::Mailbox,
     }
 }
 

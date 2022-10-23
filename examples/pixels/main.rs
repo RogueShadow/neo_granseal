@@ -5,7 +5,7 @@ use neo_granseal::{
     shape_pipeline, start, GransealGameConfig, NeoGransealEventHandler, VSyncMode,
 };
 use rand::{Rng, SeedableRng};
-use neo_granseal::util::Color;
+use neo_granseal::util::{Color, Point2d};
 
 fn main() {
     start(
@@ -16,18 +16,14 @@ fn main() {
     );
 }
 struct Entity {
-    x: f32,
-    y: f32,
-    r: f32,
-    g: f32,
-    b: f32,
-    a: f32,
+    pos: Point2d,
+    color: Color,
     rot: f32,
 }
 struct Game {
     rng: rand_xorshift::XorShiftRng,
     entities: Vec<Entity>,
-    size: usize,
+    size: Point2d,
     timer: std::time::Instant,
     toggle: bool,
 }
@@ -36,7 +32,7 @@ impl Game {
         Self {
             rng: rand_xorshift::XorShiftRng::from_rng(rand::thread_rng()).expect("Getting Rng."),
             entities: vec![],
-            size: 16,
+            size: Point2d::new(16.0,16.0),
             timer: std::time::Instant::now(),
             toggle: true,
         }
@@ -52,15 +48,15 @@ impl NeoGransealEventHandler for Game {
             Event::Draw => {
                 let mut gfx = SSRGraphics::new(core);
                 for e in &self.entities {
-                    gfx.color = Color::rgb(e.r,e.g,e.b);
+                    gfx.color = e.color;
                     gfx.rotation = e.rot;
-                    gfx.rect(e.x, e.y, self.size as f32, self.size as f32);
+                    gfx.rect(e.pos, self.size);
                 }
                 gfx.finish();
             }
             Event::Update(d) => {
                 self.entities.iter_mut().for_each(|e|
-                    e.rot += d.as_secs_f32() * e.r
+                    e.rot += d.as_secs_f32() * e.color.r
                 );
                 if self.timer.elapsed().as_secs_f32() > 1.5 {
                     self.toggle = !self.toggle;
@@ -68,26 +64,22 @@ impl NeoGransealEventHandler for Game {
                 }
                 if self.toggle {
                     self.entities.iter_mut().for_each(|e| {
-                        e.r = self.rng.gen();
-                        e.g = self.rng.gen();
-                        e.b = self.rng.gen();
+                        e.color.r = self.rng.gen();
+                        e.color.g = self.rng.gen();
+                        e.color.b = self.rng.gen();
                     });
                 }
             }
             Event::Load => {
-                let step: usize = self.size;
-                let half = step / 2;
-                for x in (half..core.config.width as usize).step_by(step) {
-                    for y in (half..core.config.height as usize).step_by(step) {
-                        let x = x as f32;
-                        let y = y as f32;
+                let halfx = self.size.x / 2.0;
+                let halfy = self.size.y / 2.0;
+                for x in (halfx.floor() as usize..core.config.width as usize).step_by(self.size.x.floor() as usize) {
+                    for y in (halfy.floor() as usize..core.config.height as usize).step_by(self.size.y.floor() as usize) {
+                        let pos = Point2d::new(x as f32,y as f32);
+                        let color = Color::rgb(self.rng.gen(),self.rng.gen(),self.rng.gen());
                         self.entities.push(Entity {
-                            x,
-                            y,
-                            r: self.rng.gen(),
-                            g: self.rng.gen(),
-                            b: self.rng.gen(),
-                            a: 1.0,
+                            pos,
+                            color,
                             rot: 0.0,
                         })
                     }

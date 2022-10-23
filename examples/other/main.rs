@@ -1,5 +1,4 @@
 use rand::{Rng, SeedableRng};
-use wgpu::VertexFormat::Float32;
 use neo_granseal::{start, GransealGameConfig, VSyncMode, NeoGransealEventHandler, core::NGCore, events::Event, shape_pipeline::SSRGraphics};
 use neo_granseal::util::{Color, Point2d};
 
@@ -46,20 +45,22 @@ impl NeoGransealEventHandler for Game {
                 let time = core.timer.elapsed().as_secs_f32();
                 let mut gfx = SSRGraphics::new(core);
                 gfx.thickness = (time.sin() * 8.0).abs();
-                let size = 128.0;
-                let half = size / 2.0;
+                let size = Point2d::new(128.0,128.0);
+                let halfx = size.x / 2.0;
+                let halfy = size.y / 2.0;
+                gfx.fill = if time.sin().abs() > 0.5 {true} else {false};
                 gfx.color = Color::rgb(1.0, 0.0, 0.0);
-                gfx.rect(half, half, size, size);
+                gfx.rect(Point2d::new(halfx,halfy),size);
                 gfx.color = Color::rgb(0.0, 1.0, 0.0);
-                gfx.rect(half + size, half + size, size, size);
+                gfx.rect(Point2d::new(halfx + size.x, halfy + size.y), size);
                 gfx.color = Color::rgb(0.0, 0.0, 1.0);
-                gfx.rect(half + size * 2.0, half + size * 2.0, size, size);
+                gfx.rect(Point2d::new(halfx + size.x * 2.0, halfy + size.y * 2.0),size);
                 gfx.color = Color::rgb(1.0, 0.0, 1.0);
-                gfx.rect(half + size * 3.0, half + size * 3.0, size, size);
+                gfx.rect(Point2d::new(halfx + size.x * 3.0, halfy + size.y * 3.0), size);
                 gfx.color = Color::rgb(0.0, 1.0, 1.0);
-                gfx.rect(half + size * 4.0, half + size * 4.0, size, size);
+                gfx.rect(Point2d::new(halfx + size.x * 4.0, halfy + size.y * 4.0), size);
                 gfx.color = Color::rgb(1.0, 1.0, 1.0);
-                gfx.rect(half + size * 5.0, half + size * 5.0, size, size);
+                gfx.rect(Point2d::new(halfx + size.x * 5.0, halfy + size.y * 5.0), size);
                 gfx.color = Color::rgb(0.5,1.0,0.5);
 
                 self.entities.iter().for_each(|e| {

@@ -1,5 +1,4 @@
 use std::num::NonZeroU32;
-use crate::events::Key::V;
 use crate::*;
 use bytemuck::{Pod, Zeroable};
 use rand::{Rng, SeedableRng};
@@ -82,7 +81,7 @@ pub struct SSRMaterial {
 }
 
 impl SSRMaterial {
-    fn from(c: &Color) -> Self {
+    fn from(c: Color) -> Self {
         Self {
             r: c.r,
             g: c.g,
@@ -100,8 +99,11 @@ impl SSRMaterial {
             kind: 0,
         }
     }
+    pub fn oval(mut self) -> Self {
+        self.kind = 1;
+        self
+    }
 }
-
 
 #[derive(Copy, Clone, Debug)]
 pub struct SSRObjectInfo {
@@ -259,7 +261,7 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
         if self.data.is_none() {
             return;
         };
-        let data = self.data.as_ref().expect("Couldn't get data");
+        let data = self.data.as_ref().expect("Get data");
 
         self.vertex_buffer =
             core.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -272,7 +274,7 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
         core.queue.write_buffer(&self.mats_buffer, 0, bytemuck::cast_slice(data.materials.as_slice()));
 
         let output =
-            core.surface.get_current_texture().expect("Couldn't get Surface Texture.");
+            core.surface.get_current_texture().expect("Get Surface Texture");
         let view =
             output.texture.create_view(&wgpu::TextureViewDescriptor::default());
         let mut encoder =
@@ -315,7 +317,7 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
     fn set_data(&mut self, data: Box<dyn std::any::Any>) {
         let rd = data
             .downcast::<SSRRenderData>()
-            .expect("Wrong type of data!");
+            .expect("Get Render Data");
         self.data = Some(*rd);
     }
 
@@ -347,7 +349,6 @@ impl AsRef<SSRRenderData> for SSRRenderData {
     }
 }
 
-
 pub struct SSRGraphics<'draw> {
     core: &'draw mut NGCore,
     pub fill: bool,
@@ -356,6 +357,7 @@ pub struct SSRGraphics<'draw> {
     pub data: SSRRenderData,
     pub pos: Point2d,
     pub rotation: f32,
+    pub kind: i32,
 }
 
 impl <'draw>SSRGraphics<'draw> {
@@ -366,6 +368,7 @@ impl <'draw>SSRGraphics<'draw> {
         self.data.clear();
         self.pos = Point2d::new(0.0,0.0);
         self.rotation = 0.0;
+        self.kind = 0;
     }
     pub fn data(&self) -> &SSRRenderData {
         self.data.as_ref()
@@ -384,17 +387,8 @@ impl <'draw>SSRGraphics<'draw> {
             },
             pos: Point2d::new(0.0,0.0),
             rotation: 0.0,
+            kind: 0,
         }
-    }
-    fn v_quad(x1: f32, y1: f32, x2: f32, y2: f32) -> [Vertex; 6] {
-        [
-            Vertex::new().xy(x1, y1),
-            Vertex::new().xy(x1, y2),
-            Vertex::new().xy(x2, y2),
-            Vertex::new().xy(x2, y2),
-            Vertex::new().xy(x2, y1),
-            Vertex::new().xy(x1, y1),
-        ]
     }
     fn pt_quad(p1: Point2d, p2: Point2d, p3: Point2d, p4: Point2d) -> [Vertex; 6] {
         [
@@ -406,10 +400,7 @@ impl <'draw>SSRGraphics<'draw> {
             Vertex::new().pt(p1),
         ]
     }
-    pub fn line2(&mut self, x1: f32, y1: f32, x2: f32, y2: f32) {
-        self.line(Point2d::new(x1,y1),Point2d::new(x2,y2));
-    }
-    pub fn line(&mut self, start: Point2d, end: Point2d) {
+    fn pt_line_quad(start: Point2d, end: Point2d, width: f32) -> [Vertex; 6] {
         let (start,end) = if start.y < end.y {
             (end,start)
         } else {(start,end)};
@@ -420,91 +411,103 @@ impl <'draw>SSRGraphics<'draw> {
         let sa = a - (pi/2.0);
         let sa2 = a + (pi/2.0);
 
-        let bump2 = Point2d::new(self.thickness * sa.sin(),self.thickness * sa.cos());
-        let bump = Point2d::new(self.thickness * sa2.sin(), self.thickness * sa2.cos());
+        let bump2 = Point2d::new(width * sa.sin(),width * sa.cos());
+        let bump = Point2d::new(width * sa2.sin(),width * sa2.cos());
 
         let p1 = Point2d::new(start.x + bump2.x,start.y + bump2.y);
         let p2 =  Point2d::new(start.x + bump.x, start.y + bump.y);
         let p3 =  Point2d::new(end.x + bump.x, end.y + bump.y);
         let p4 = Point2d::new(end.x + bump2.x,end.y + bump2.y);
 
-        let start_vertice = self.data.vertices.len() as u32;
-        SSRGraphics::pt_quad(p1,p2,p3,p4).iter()
-            .for_each(|v| self.data.vertices.push(*v));
-
-        let end_vertice = self.data.vertices.len() as u32;
-        let info = SSRObjectInfo {
-            start_vertice,
-            end_vertice
-        };
-        self.data.transforms.push(SSRTransform::new(self.pos,self.rotation));
-        self.data.materials.push(SSRMaterial::from(&self.color));
-        self.data.object_info.push(info);
+        Self::pt_quad(p1,p2,p3,p4)
     }
-    pub fn rect2(&mut self, pos: Point2d, size: Point2d) {
-        self.rect(pos.x,pos.y,size.x,size.y);
+    pub fn line(&mut self, start: Point2d, end: Point2d) {
+        self.draw_raw_vertices(Self::pt_line_quad(start,end,self.thickness),None,None,None);
     }
-    pub fn rect(&mut self, x: f32, y: f32, w: f32, h: f32) {
+    pub fn rect(&mut self, pos: Point2d, size: Point2d) {
         if self.fill {
-            let start_vertex = self.data.vertices.len();
-            let hw = w / 2.0;
-            let hh = h / 2.0;
-
-            for v in SSRGraphics::v_quad(-hw, -hh, hw, hh) {
-                self.data.vertices.push(v);
-            }
-
-            let end_vertex = self.data.vertices.len();
-
-            let info = SSRObjectInfo {
-                start_vertice: start_vertex as u32,
-                end_vertice: end_vertex as u32,
-            };
-
-            self.data.transforms.push(SSRTransform::new(Point2d::new(x,y),self.rotation));
-            self.data.materials.push(SSRMaterial::from(&self.color));
-            self.data.object_info.push(info);
+            let hx = size.x / 2.0;
+            let hy = size.y / 2.0;
+            let p1 = Point2d::new(-hx,-hy);
+            let p2 = Point2d::new(-hx,hy);
+            let p3 = Point2d::new(hx,hy);
+            let p4 = Point2d::new(hx,-hy);
+            let verts = SSRGraphics::pt_quad(p1,p2,p3,p4);
+            self.draw_raw_vertices(verts,Some(pos),None,None);
         } else {
-
+            let hx = size.x / 2.0;
+            let hy = size.y / 2.0;
+            let p1 = Point2d::new(pos.x-hx,pos.y-hy);
+            let p2 = Point2d::new(pos.x-hx,pos.y+hy);
+            let p3 = Point2d::new(pos.x+hx,pos.y+hy);
+            let p4 = Point2d::new(pos.x+hx,pos.y-hy);
+            self.poly(&vec![p1,p2,p3,p4,p1]);
         }
     }
     pub fn poly(&mut self, points: &Vec<Point2d>) {
         if self.fill == false {
+            let mut verts: Vec<Vertex> = vec![];
             if points.len() > 2 {
                 let mut i = 0;
                 while i < (points.len() - 1) {
-                    self.line(points[i], points[i + 1]);
+                    let v = Self::pt_line_quad(points[i],points[i+1],self.thickness);
+                    v.iter().for_each(|v| verts.push(*v));
                     i += 1;
                 }
             } else if points.len() == 2 {
-                self.line(points[0], points[1])
+                let v = Self::pt_line_quad(points[0],points[1],self.thickness);
+                v.iter().for_each(|v| verts.push(*v));
             }
+            self.draw_raw_vertices(verts,None,None,None);
         } else {
-
+            todo!("Filled Polygons not yet supported.")
         }
     }
-    pub fn oval(&mut self, x: f32, y: f32, w: f32, h: f32) {
+    pub fn draw_raw_vertices(
+        &mut self,
+        verts: impl IntoIterator<Item = Vertex>,
+        pos: Option<Point2d>,
+        rot: Option<f32>,
+        kind: Option<i32>,
+    ) {
+        let start_vertex = self.data.vertices.len();
+        for v in verts { self.data.vertices.push(v); }
+        let end_vertex = self.data.vertices.len();
+        let info = SSRObjectInfo {
+            start_vertice: start_vertex as u32,
+            end_vertice: end_vertex as u32,
+        };
+        let rotation = match rot {
+            Some(r) => r,
+            None => 0.0,
+        };
+        let transform = match pos {
+            Some(p) => SSRTransform {
+            x: self.pos.x + p.x,
+            y: self.pos.y + p.y,
+            r: self.rotation + rotation,
+        },
+            None => SSRTransform::new(self.pos,self.rotation + rotation)
+        };
+        let material = match kind {
+            Some(1) => SSRMaterial::from(self.color).oval(),
+            None => SSRMaterial::from(self.color),
+            Some(_) => SSRMaterial::from(self.color),
+        };
+        self.data.transforms.push(transform);
+        self.data.materials.push(material);
+        self.data.object_info.push(info);
+    }
+    pub fn oval(&mut self, pos: Point2d, size: Point2d) {
         if self.fill {
-            let start_vertex = self.data.vertices.len();
-            let hw = w / 2.0;
-            let hh = h / 2.0;
-
-            for v in SSRGraphics::v_quad(-hw, -hh, hw, hh) {
-                self.data.vertices.push(v);
-            }
-
-            let end_vertex = self.data.vertices.len();
-
-            let info = SSRObjectInfo {
-                start_vertice: start_vertex as u32,
-                end_vertice: end_vertex as u32,
-            };
-
-            self.data.transforms.push(SSRTransform::new(self.pos,self.rotation));
-            let mut material = SSRMaterial::from(self.color.as_ref());
-            material.kind = 1;
-            self.data.materials.push(material);
-            self.data.object_info.push(info);
+            let hx = size.x / 2.0;
+            let hy = size.y / 2.0;
+            let p1 = Point2d::new(-hx,-hy);
+            let p2 = Point2d::new(-hx,hy);
+            let p3 = Point2d::new(hx,hy);
+            let p4 = Point2d::new(hx,-hy);
+            let verts = SSRGraphics::pt_quad(p1,p2,p3,p4);
+            self.draw_raw_vertices(verts,Some(pos),None, Some(1));
         } else {
 
         }
