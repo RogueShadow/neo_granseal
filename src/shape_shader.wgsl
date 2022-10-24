@@ -12,6 +12,7 @@ fn oval(st: vec2<f32>) -> f32 {
 struct VertexInput {
     @location(0) pos: vec3<f32>,
     @location(1) tex: vec2<f32>,
+    @location(2) color: vec4<f32>,
 }
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
@@ -30,10 +31,6 @@ struct Transform {
     a: f32,
 }
 struct Material {
-    r: f32,
-    g: f32,
-    b: f32,
-    a: f32,
     kind: i32,
 }
 @group(1) @binding(0)
@@ -53,7 +50,7 @@ fn vs_main(@builtin(vertex_index) index: u32, in: VertexInput, @builtin(instance
     var out: VertexOutput;
     out.clip_position = vec4<f32>(output,1.0,1.0);
     out.tex = in.tex;
-    out.color = vec4<f32>(materials[inst].r,materials[inst].g,materials[inst].b,materials[inst].a);
+    out.color = in.color;
     out.kind = materials[inst].kind;
     return out;
 }

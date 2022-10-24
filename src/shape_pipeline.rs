@@ -3,9 +3,7 @@ use crate::*;
 use bytemuck::{Pod, Zeroable};
 use rand::{Rng, SeedableRng};
 use std::ops::Range;
-use wgpu::{BindGroup, BindingType, BufferAddress, BufferBindingType, BufferSize, BufferUsages, DynamicOffset, IndexFormat, MultisampleState, ShaderStages, VertexStepMode};
-use wgpu::BufferBindingType::Storage;
-use wgpu::PolygonMode;
+use crate::core::NGError;
 use crate::util::{Color, Point};
 
 #[repr(C)]
@@ -16,6 +14,10 @@ pub struct Vertex {
     pub z: f32,
     pub u: f32,
     pub v: f32,
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
+    pub a: f32,
 }
 impl Vertex {
     pub fn new() -> Self {
@@ -25,6 +27,10 @@ impl Vertex {
             z: 0.0,
             u: 0.0,
             v: 0.0,
+            r: 1.0,
+            g: 1.0,
+            b: 1.0,
+            a: 1.0,
         }
     }
     pub fn xy(mut self,x: f32, y: f32) -> Self {
@@ -40,6 +46,13 @@ impl Vertex {
     pub fn pt(mut self, p: Point) -> Self {
         self.x = p.x;
         self.y = p.y;
+        self
+    }
+    pub fn rgba(mut self, c: Color) -> Self {
+        self.r = c.r;
+        self.g = c.g;
+        self.b = c.b;
+        self.a = c.a;
         self
     }
 }
@@ -73,29 +86,12 @@ impl SSRTransform {
 #[repr(C)]
 #[derive(Copy, Clone, Debug,Zeroable,Pod)]
 pub struct SSRMaterial {
-    r: f32,
-    g: f32,
-    b: f32,
-    a: f32,
     pub kind: i32,
 }
 
 impl SSRMaterial {
-    fn from(c: Color) -> Self {
+    fn new() -> Self {
         Self {
-            r: c.r,
-            g: c.g,
-            b: c.b,
-            a: c.a,
-            kind: 0,
-        }
-    }
-    pub fn rgba(r: f32, g: f32, b: f32,a: f32) -> Self {
-        Self {
-            r,
-            g,
-            b,
-            a,
             kind: 0,
         }
     }
@@ -143,14 +139,14 @@ impl SimpleShapeRenderPipeline {
         });
         let trans_buffer = core.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("SSR Trans Buffer"),
-            size: (max * std::mem::size_of::<SSRTransform>()) as BufferAddress,
-            usage: wgpu::BufferUsages::STORAGE | BufferUsages::COPY_DST,
+            size: (max * std::mem::size_of::<SSRTransform>()) as wgpu::BufferAddress,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false
         });
         let mats_buffer = core.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("SSR Materials Buffer"),
-            size: (max * std::mem::size_of::<SSRMaterial>()) as BufferAddress,
-            usage: wgpu::BufferUsages::STORAGE | BufferUsages::COPY_DST,
+            size: (max * std::mem::size_of::<SSRMaterial>()) as wgpu::BufferAddress,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false
         });
         let data_bgl = core.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -158,9 +154,9 @@ impl SimpleShapeRenderPipeline {
             entries: &[
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: ShaderStages::VERTEX,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Storage {
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage {
                             read_only: true
                         },
                         has_dynamic_offset: false,
@@ -170,9 +166,9 @@ impl SimpleShapeRenderPipeline {
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
-                    visibility: ShaderStages::VERTEX,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Storage {
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage {
                             read_only: true
                         },
                         has_dynamic_offset: false,
@@ -196,7 +192,7 @@ impl SimpleShapeRenderPipeline {
                 }
             ]
         });
-        let globals = crate::GlobalUniforms::new(&core);
+        let globals = GlobalUniforms::new(&core);
         let clear_color = core.config.clear_color;
         let shader = core
             .device
@@ -224,9 +220,9 @@ impl SimpleShapeRenderPipeline {
                     entry_point: "vs_main",
                     buffers: &[
                         wgpu::VertexBufferLayout {
-                            array_stride: std::mem::size_of::<Vertex>() as BufferAddress,
-                            step_mode: VertexStepMode::Vertex,
-                            attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2],
+                            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
+                            step_mode: wgpu::VertexStepMode::Vertex,
+                            attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2,  2 => Float32x4],
                         }
                     ],
                 },
@@ -240,7 +236,7 @@ impl SimpleShapeRenderPipeline {
                     conservative: false,
                 },
                 depth_stencil: None,
-                multisample: MultisampleState::default(),
+                multisample: wgpu::MultisampleState::default(),
                 fragment: Some(wgpu::FragmentState {
                     module: &shader,
                     entry_point: "fs_main",
@@ -267,11 +263,11 @@ impl SimpleShapeRenderPipeline {
     }
 }
 impl NGRenderPipeline for SimpleShapeRenderPipeline {
-    fn render(&mut self, core: &mut NGCore) {
-        if self.data.is_none() {
-            return;
+    fn render(&mut self, core: &mut NGCore) -> Result<(),NGError>{
+        let data = match self.data.as_ref() {
+            Some(d) => d,
+            None => return Ok(()),
         };
-        let data = self.data.as_ref().expect("Get data");
 
         self.vertex_buffer =
             core.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -290,7 +286,7 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
         core.queue.write_buffer(&self.mats_buffer, 0, bytemuck::cast_slice(data.materials.as_slice()));
 
         let output =
-            core.surface.get_current_texture().expect("Get Surface Texture");
+            core.surface.get_current_texture()?;
         let view =
             output.texture.create_view(&wgpu::TextureViewDescriptor::default());
         let mut encoder =
@@ -317,7 +313,7 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
 
         render_pass.set_pipeline(&self.pipeline);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        render_pass.set_index_buffer(self.index_buffer.slice(..),IndexFormat::Uint32);
+        render_pass.set_index_buffer(self.index_buffer.slice(..),wgpu::IndexFormat::Uint32);
         render_pass.set_bind_group(0, &self.globals.bind_group, &[]);
         render_pass.set_bind_group(1, &self.data_bind_group,&[]);
 
@@ -329,6 +325,7 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
         drop(render_pass);
         core.queue.submit(std::iter::once(encoder.finish()));
         output.present();
+        Ok(())
     }
 
     fn set_data(&mut self, data: Box<dyn std::any::Any>) {
@@ -415,17 +412,17 @@ impl <'draw>SSRGraphics<'draw> {
             kind: 0,
         }
     }
-    fn pt_quad(p1: Point, p2: Point, p3: Point, p4: Point) -> Mesh {
+    fn pt_quad(&self, p1: Point, p2: Point, p3: Point, p4: Point) -> Mesh {
         Mesh {
             vertices: vec![
-            Vertex::new().pt(p1).uv(0.0,0.0),
-            Vertex::new().pt(p2).uv(0.0,1.0),
-            Vertex::new().pt(p3).uv(1.0,1.0),
-            Vertex::new().pt(p4).uv(1.0,0.0)],
+            Vertex::new().pt(p1).uv(0.0,0.0).rgba(self.color),
+            Vertex::new().pt(p2).uv(0.0,1.0).rgba(self.color),
+            Vertex::new().pt(p3).uv(1.0,1.0).rgba(self.color),
+            Vertex::new().pt(p4).uv(1.0,0.0).rgba(self.color)],
             indices: vec![0,1,2,2,3,0]
         }
     }
-    fn pt_line_quad(start: Point, end: Point, width: f32) -> Mesh {
+    fn pt_line_quad(&self, start: Point, end: Point, width: f32) -> Mesh {
         let (start,end) = if start.y < end.y {
             (end,start)
         } else {(start,end)};
@@ -444,10 +441,12 @@ impl <'draw>SSRGraphics<'draw> {
         let p3 =  Point::new(end.x + bump.x, end.y + bump.y);
         let p4 = Point::new(end.x + bump2.x, end.y + bump2.y);
 
-        Self::pt_quad(p1,p2,p3,p4)
+        self.pt_quad(p1,p2,p3,p4)
     }
     pub fn line(&mut self, start: Point, end: Point) {
-        self.draw_raw_vertices(Self::pt_line_quad(start,end,self.thickness),None,None,None);
+        let mut mesh = self.pt_line_quad(start,end,self.thickness);
+        //mesh.vertices.iter_mut().for_each(|v| {v.rgba(self.color)});
+        self.draw_raw_vertices(mesh,None,None,None)
     }
     pub fn rect(&mut self, pos: Point, size: Point) {
         if self.fill {
@@ -457,7 +456,7 @@ impl <'draw>SSRGraphics<'draw> {
             let p2 = Point::new(-hx, hy);
             let p3 = Point::new(hx, hy);
             let p4 = Point::new(hx, -hy);
-            let mesh = SSRGraphics::pt_quad(p1,p2,p3,p4);
+            let mesh = self.pt_quad(p1,p2,p3,p4);
             self.draw_raw_vertices(mesh,Some(pos),None,None);
         } else {
             let hx = size.x / 2.0;
@@ -470,7 +469,7 @@ impl <'draw>SSRGraphics<'draw> {
         }
     }
     pub fn poly(&mut self, points: &Vec<Point>) {
-        if self.fill == false {
+        if !self.fill  {
             if points.len() > 2 {
                 let mut i = 0;
                 while i < points.len() - 1 {
@@ -481,7 +480,7 @@ impl <'draw>SSRGraphics<'draw> {
                 self.line(points[0],points[1]);
             }
         } else {
-            todo!("Filled Polygons not yet supported.")
+
         }
     }
     pub fn draw_raw_vertices(
@@ -516,9 +515,9 @@ impl <'draw>SSRGraphics<'draw> {
             None => SSRTransform::new(self.pos,self.rotation + rotation)
         };
         let material = match kind {
-            Some(1) => SSRMaterial::from(self.color).oval(),
-            None => SSRMaterial::from(self.color),
-            Some(_) => SSRMaterial::from(self.color),
+            Some(1) => SSRMaterial::new().oval(),
+            None => SSRMaterial::new(),
+            Some(_) => SSRMaterial::new(),
         };
         self.data.transforms.push(transform);
         self.data.materials.push(material);
@@ -532,10 +531,10 @@ impl <'draw>SSRGraphics<'draw> {
             let p2 = Point::new(-hx, hy);
             let p3 = Point::new(hx, hy);
             let p4 = Point::new(hx, -hy);
-            let verts = SSRGraphics::pt_quad(p1,p2,p3,p4);
+            let verts = self.pt_quad(p1,p2,p3,p4);
             self.draw_raw_vertices(verts,Some(pos),None, Some(1));
         } else {
-            todo!("un-filled ovals, not yet supported.")
+
         }
     }
     pub fn finish(&mut self) {

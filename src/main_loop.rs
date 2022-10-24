@@ -7,12 +7,13 @@ use env_logger::init;
 use std::ops::{Deref, Index};
 use std::rc::Rc;
 use std::sync::Arc;
-use log::info;
+use log::{error, info};
 use wgpu::util::DeviceExt;
 use winit::{
     event::{Event, VirtualKeyCode, WindowEvent},
     event_loop,
 };
+use crate::core::NGError;
 
 pub(crate) fn main_loop(
     e_loop: event_loop::EventLoop<()>,
@@ -33,17 +34,21 @@ pub(crate) fn main_loop(
     e_loop.run(move |event, _, control_flow| {
         *control_flow = event_loop::ControlFlow::Poll;
         while !core.cmd_queue.is_empty() {
-            match core.cmd_queue.pop().expect("Get Command") {
+            match core.cmd_queue.pop().unwrap() {
                 NGCommand::AddPipeline(p) => {
                     pipelines.push(p);
                 }
                 NGCommand::GetFps => h.event(&mut core, events::Event::Fps(fps as u32)),
                 NGCommand::Render(index, data) => {
-                    if !pipelines.is_empty() {
-                        pipelines
-                            .get_mut(index)
-                            .expect("Get Pipeline")
-                            .set_data(data);
+                    if index >= 0 && index <= pipelines.len() {
+                        if !pipelines.is_empty() {
+                            pipelines
+                                .get_mut(index)
+                                .unwrap()
+                                .set_data(data);
+                        }
+                    } else {
+                        error!("Index out of bounds for pipeline.")
                     }
                 }
             };

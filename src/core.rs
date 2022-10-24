@@ -1,10 +1,35 @@
 use crate::shape_pipeline::SimpleShapeRenderPipeline;
 use crate::{map_present_modes, GransealGameConfig, NGRenderPipeline, SSRRenderData};
 use pollster::FutureExt;
-use wgpu::Features;
+use wgpu::{Features, Surface};
 use winit::dpi::PhysicalSize;
 use winit::event_loop::EventLoop;
 
+#[derive(Debug)]
+pub enum NGError {
+    OsError(winit::error::OsError),
+    WgpuError(wgpu::RequestDeviceError),
+    NoAdapterFound,
+    NoFormatFound,
+    NoPipeline,
+    NoCommand,
+    SurfaceError(wgpu::SurfaceError)
+}
+impl From<winit::error::OsError> for NGError {
+    fn from(e: winit::error::OsError) -> Self {
+        NGError::OsError(e)
+    }
+}
+impl From<wgpu::RequestDeviceError> for NGError {
+    fn from(e: wgpu::RequestDeviceError) -> Self {
+        NGError::WgpuError(e)
+    }
+}
+impl From<wgpu::SurfaceError> for NGError {
+    fn from(e: wgpu::SurfaceError) -> Self {
+        NGError::SurfaceError(e)
+    }
+}
 pub enum NGCommand {
     AddPipeline(Box<dyn NGRenderPipeline>),
     Render(usize, Box<dyn std::any::Any>),
@@ -28,14 +53,13 @@ impl NGCore {
     pub fn cmd(&mut self, cmd: NGCommand) {
         self.cmd_queue.push(cmd);
     }
-    pub fn new(event_loop: &EventLoop<()>, config: GransealGameConfig) -> Self {
+    pub fn new(event_loop: &EventLoop<()>, config: GransealGameConfig) -> Result<Self,NGError> {
         let timer = std::time::Instant::now();
         let window = winit::window::WindowBuilder::new()
             .with_title(&config.title)
             .with_resizable(false)
             .with_inner_size(PhysicalSize::new(config.width, config.height))
-            .build(&event_loop)
-            .expect("Failed to build window");
+            .build(&event_loop)?;
         let instance = wgpu::Instance::new(wgpu::Backends::all());
         let surface = unsafe { instance.create_surface(&window) };
         let adapter = instance
@@ -44,14 +68,12 @@ impl NGCore {
                 force_fallback_adapter: false,
                 compatible_surface: None,
             })
-            .block_on()
-            .expect("Failed to create adapter");
+            .block_on().ok_or(NGError::NoAdapterFound)?;
         let surface_configuration = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: surface
                 .get_supported_formats(&adapter)
-                .pop()
-                .expect("Failed to get surface format."),
+                .pop().ok_or(NGError::NoFormatFound)?,
             width: window.inner_size().width,
             height: window.inner_size().height,
             present_mode: map_present_modes(config.vsync),
@@ -65,10 +87,9 @@ impl NGCore {
                 },
                 None,
             )
-            .block_on()
-            .expect("Failed to create device");
+            .block_on()?;
         surface.configure(&device, &surface_configuration);
-        Self {
+        Ok(Self {
             config,
             timer,
             window,
@@ -79,6 +100,6 @@ impl NGCore {
             device,
             queue,
             cmd_queue: vec![],
-        }
+        })
     }
 }

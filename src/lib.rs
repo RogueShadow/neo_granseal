@@ -4,7 +4,7 @@ pub mod main_loop;
 pub mod shape_pipeline;
 pub mod util;
 
-use crate::core::NGCore;
+use crate::core::{NGCore, NGError};
 use crate::main_loop::main_loop;
 use crate::shape_pipeline::SSRRenderData;
 use image::EncodableLayout;
@@ -82,7 +82,7 @@ pub trait NeoGransealEventHandler {
 }
 
 pub trait NGRenderPipeline {
-    fn render(&mut self, core: &mut NGCore);
+    fn render(&mut self, core: &mut NGCore) -> Result<(),NGError>;
     fn set_data(&mut self, data: Box<dyn std::any::Any>);
     fn set_globals(&mut self, globals: GlobalUniforms);
 }
@@ -172,7 +172,7 @@ where
     T: 'static + NeoGransealEventHandler,
 {
     let event_loop = EventLoopBuilder::new().build();
-    let core = NGCore::new(&event_loop, config);
+    let core = NGCore::new(&event_loop, config).expect("Initializing Core");
     main_loop(event_loop, core, Box::new(handler));
 }
 
