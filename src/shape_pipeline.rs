@@ -3,7 +3,7 @@ use crate::*;
 use bytemuck::{Pod, Zeroable};
 use rand::{Rng, SeedableRng};
 use std::ops::Range;
-use wgpu::{BindGroup, BindingType, BufferAddress, BufferBindingType, BufferSize, BufferUsages, DynamicOffset, MultisampleState, ShaderStages, VertexStepMode};
+use wgpu::{BindGroup, BindingType, BufferAddress, BufferBindingType, BufferSize, BufferUsages, DynamicOffset, IndexFormat, MultisampleState, ShaderStages, VertexStepMode};
 use wgpu::BufferBindingType::Storage;
 use wgpu::PolygonMode;
 use crate::util::{Color, Point};
@@ -109,10 +109,13 @@ impl SSRMaterial {
 pub struct SSRObjectInfo {
     start_vertice: u32,
     end_vertice: u32,
+    start_index: u32,
+    end_index: u32,
 }
 
 pub struct SimpleShapeRenderPipeline {
     vertex_buffer: wgpu::Buffer,
+    index_buffer: wgpu::Buffer,
     trans_buffer: wgpu::Buffer,
     mats_buffer: wgpu::Buffer,
     data_bind_group: wgpu::BindGroup,
@@ -131,6 +134,12 @@ impl SimpleShapeRenderPipeline {
             size: 0,
             usage: wgpu::BufferUsages::VERTEX,
             mapped_at_creation: false,
+        });
+        let index_buffer = core.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("SSR Index Buffer"),
+            size: 0,
+            usage: wgpu::BufferUsages::INDEX,
+            mapped_at_creation: false
         });
         let trans_buffer = core.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("SSR Trans Buffer"),
@@ -245,6 +254,7 @@ impl SimpleShapeRenderPipeline {
             });
         Self {
             vertex_buffer,
+            index_buffer,
             trans_buffer,
             mats_buffer,
             data_bind_group,
@@ -268,6 +278,12 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
                 label: Some("SSRP Vertex Buffer"),
                 contents: bytemuck::cast_slice(data.vertices.as_slice()),
                 usage: wgpu::BufferUsages::VERTEX,
+            });
+        self.index_buffer =
+            core.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("SSRP Index Buffer"),
+                contents: bytemuck::cast_slice(data.indices.as_slice()),
+                usage: wgpu::BufferUsages::INDEX,
             });
 
         core.queue.write_buffer(&self.trans_buffer, 0, bytemuck::cast_slice(data.transforms.as_slice()));
@@ -301,12 +317,13 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
 
         render_pass.set_pipeline(&self.pipeline);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        render_pass.set_index_buffer(self.index_buffer.slice(..),IndexFormat::Uint32);
         render_pass.set_bind_group(0, &self.globals.bind_group, &[]);
         render_pass.set_bind_group(1, &self.data_bind_group,&[]);
 
         for (i,obj) in data.object_info.iter().enumerate() {
             let index = i as u32..i as u32 + 1;
-            render_pass.draw(obj.start_vertice..obj.end_vertice, index);
+            render_pass.draw_indexed(obj.start_index..obj.end_index,obj.start_vertice as i32,index);
         }
 
         drop(render_pass);
@@ -329,6 +346,7 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
 #[derive(Clone, Debug)]
 pub struct SSRRenderData {
     vertices: Vec<Vertex>,
+    indices: Vec<u32>,
     transforms: Vec<SSRTransform>,
     materials: Vec<SSRMaterial>,
     object_info: Vec<SSRObjectInfo>,
@@ -338,6 +356,7 @@ impl SSRRenderData {
     pub(crate) fn clear(&mut self) {
         self.transforms.clear();
         self.vertices.clear();
+        self.indices.clear();
         self.materials.clear();
         self.object_info.clear();
     }
@@ -358,6 +377,11 @@ pub struct SSRGraphics<'draw> {
     pub pos: Point,
     pub rotation: f32,
     pub kind: i32,
+}
+
+pub struct Mesh {
+    vertices: Vec<Vertex>,
+    indices: Vec<u32>,
 }
 
 impl <'draw>SSRGraphics<'draw> {
@@ -381,6 +405,7 @@ impl <'draw>SSRGraphics<'draw> {
             thickness:  1.0,
             data: SSRRenderData {
                 vertices: vec![],
+                indices: vec![],
                 transforms: vec![],
                 materials: vec![],
                 object_info: vec![],
@@ -390,17 +415,17 @@ impl <'draw>SSRGraphics<'draw> {
             kind: 0,
         }
     }
-    fn pt_quad(p1: Point, p2: Point, p3: Point, p4: Point) -> [Vertex; 6] {
-        [
+    fn pt_quad(p1: Point, p2: Point, p3: Point, p4: Point) -> Mesh {
+        Mesh {
+            vertices: vec![
             Vertex::new().pt(p1).uv(0.0,0.0),
             Vertex::new().pt(p2).uv(0.0,1.0),
             Vertex::new().pt(p3).uv(1.0,1.0),
-            Vertex::new().pt(p3).uv(1.0,1.0),
-            Vertex::new().pt(p4).uv(1.0,0.0),
-            Vertex::new().pt(p1).uv(0.0,0.0),
-        ]
+            Vertex::new().pt(p4).uv(1.0,0.0)],
+            indices: vec![0,1,2,2,3,0]
+        }
     }
-    fn pt_line_quad(start: Point, end: Point, width: f32) -> [Vertex; 6] {
+    fn pt_line_quad(start: Point, end: Point, width: f32) -> Mesh {
         let (start,end) = if start.y < end.y {
             (end,start)
         } else {(start,end)};
@@ -432,8 +457,8 @@ impl <'draw>SSRGraphics<'draw> {
             let p2 = Point::new(-hx, hy);
             let p3 = Point::new(hx, hy);
             let p4 = Point::new(hx, -hy);
-            let verts = SSRGraphics::pt_quad(p1,p2,p3,p4);
-            self.draw_raw_vertices(verts,Some(pos),None,None);
+            let mesh = SSRGraphics::pt_quad(p1,p2,p3,p4);
+            self.draw_raw_vertices(mesh,Some(pos),None,None);
         } else {
             let hx = size.x / 2.0;
             let hy = size.y / 2.0;
@@ -446,36 +471,37 @@ impl <'draw>SSRGraphics<'draw> {
     }
     pub fn poly(&mut self, points: &Vec<Point>) {
         if self.fill == false {
-            let mut verts: Vec<Vertex> = vec![];
             if points.len() > 2 {
                 let mut i = 0;
-                while i < (points.len() - 1) {
-                    let v = Self::pt_line_quad(points[i],points[i+1],self.thickness);
-                    v.iter().for_each(|v| verts.push(*v));
+                while i < points.len() - 1 {
+                    self.line(points[i],points[i+1]);
                     i += 1;
                 }
             } else if points.len() == 2 {
-                let v = Self::pt_line_quad(points[0],points[1],self.thickness);
-                v.iter().for_each(|v| verts.push(*v));
+                self.line(points[0],points[1]);
             }
-            self.draw_raw_vertices(verts,None,None,None);
         } else {
             todo!("Filled Polygons not yet supported.")
         }
     }
     pub fn draw_raw_vertices(
         &mut self,
-        verts: impl IntoIterator<Item = Vertex>,
+        mesh: Mesh,
         pos: Option<Point>,
         rot: Option<f32>,
         kind: Option<i32>,
     ) {
         let start_vertex = self.data.vertices.len();
-        for v in verts { self.data.vertices.push(v); }
+        let start_index = self.data.indices.len();
+        for v in mesh.vertices { self.data.vertices.push(v); }
+        for i in mesh.indices { self.data.indices.push(i); }
         let end_vertex = self.data.vertices.len();
+        let end_index = self.data.indices.len();
         let info = SSRObjectInfo {
             start_vertice: start_vertex as u32,
             end_vertice: end_vertex as u32,
+            start_index: start_index as u32,
+            end_index: end_index as u32,
         };
         let rotation = match rot {
             Some(r) => r,
