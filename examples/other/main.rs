@@ -1,5 +1,6 @@
 use rand::{Rng, SeedableRng};
 use neo_granseal::{start, GransealGameConfig, VSyncMode, NeoGransealEventHandler, core::NGCore, events::Event, shape_pipeline::SSRGraphics};
+use neo_granseal::shape_pipeline::FillStyle;
 use neo_granseal::util::{Color, Point};
 
 fn main() {
@@ -40,6 +41,7 @@ impl NeoGransealEventHandler for Game {
             Event::MouseButton { .. } => {}
             Event::MouseMoved { .. } => {}
             Event::Draw => {
+                use FillStyle::*;
                 let width = core.config.width as f32;
                 let height = core.config.height as f32;
                 let time = core.timer.elapsed().as_secs_f32();
@@ -50,25 +52,25 @@ impl NeoGransealEventHandler for Game {
                 let halfx = size.x / 2.0;
                 let halfy = size.y / 2.0;
                 //gfx.fill = if time.sin().abs() > 0.5 {true} else {false};
-                gfx.color = Color::rgb(1.0, 0.0, 0.0);
+                gfx.color = FadeDown(Color::RED,Color::NAVY);
                 gfx.rect(Point::new(halfx, halfy), size);
-                gfx.color = Color::rgb(0.0, 1.0, 0.0);
+                gfx.color = FadeLeft(Color::GREEN,Color::MAGENTA);
                 gfx.rect(Point::new(halfx + size.x, halfy + size.y), size);
-                gfx.color = Color::rgb(0.0, 0.0, 1.0);
+                gfx.color = Corners(Color::RED,Color::GREEN,Color::BLUE,Color::BLACK);
                 gfx.rect(Point::new(halfx + size.x * 2.0, halfy + size.y * 2.0), size);
-                gfx.color = Color::rgb(1.0, 0.0, 1.0);
+                //gfx.color = Solid(Color::rgb(1.0, 0.0, 1.0));
                 gfx.oval(Point::new(halfx + size.x * 3.0, halfy + size.y * 3.0), size);
-                gfx.color = Color::rgb(0.0, 1.0, 1.0);
+                gfx.color = Solid(Color::rgb(0.0, 1.0, 1.0));
                 gfx.rect(Point::new(halfx + size.x * 4.0, halfy + size.y * 4.0), size);
-                gfx.color = Color::rgb(1.0, 1.0, 1.0);
+                gfx.color = Solid(Color::rgb(1.0, 1.0, 1.0));
                 gfx.rect(Point::new(halfx + size.x * 5.0, halfy + size.y * 5.0), size);
-                gfx.color = Color::rgb(0.5,1.0,0.5);
+                gfx.color = Solid(Color::rgb(0.5,1.0,0.5));
 
                 self.entities.iter().for_each(|e| {
                    gfx.line(e.pos,e.center);
                 });
                 gfx.fill = false;
-                gfx.color = Color::NAVY;
+                gfx.color = FillStyle::Solid(Color::NAVY);
 
                 gfx.poly(&self.points);
                 gfx.finish();

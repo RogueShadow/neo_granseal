@@ -365,10 +365,17 @@ impl AsRef<SSRRenderData> for SSRRenderData {
     }
 }
 
+pub enum FillStyle {
+    Solid(Color),
+    FadeDown(Color,Color),
+    FadeLeft(Color,Color),
+    Corners(Color,Color,Color,Color),
+}
+
 pub struct SSRGraphics<'draw> {
     core: &'draw mut NGCore,
     pub fill: bool,
-    pub color: Color,
+    pub color: FillStyle,
     pub thickness: f32,
     pub data: SSRRenderData,
     pub pos: Point,
@@ -384,7 +391,7 @@ pub struct Mesh {
 impl <'draw>SSRGraphics<'draw> {
     pub fn clear(&mut self) {
         self.fill = true;
-        self.color = Color::WHITE;
+        self.color = FillStyle::Solid(Color::WHITE);
         self.thickness = 1.0;
         self.data.clear();
         self.pos = Point::new(0.0, 0.0);
@@ -398,7 +405,7 @@ impl <'draw>SSRGraphics<'draw> {
         Self {
             core,
             fill: true,
-            color: Color::WHITE,
+            color: FillStyle::Solid(Color::WHITE),
             thickness:  1.0,
             data: SSRRenderData {
                 vertices: vec![],
@@ -413,12 +420,18 @@ impl <'draw>SSRGraphics<'draw> {
         }
     }
     fn pt_quad(&self, p1: Point, p2: Point, p3: Point, p4: Point) -> Mesh {
+        let (c1,c2,c3,c4) = match self.color {
+            FillStyle::Solid(color) => {(color,color,color,color)}
+            FillStyle::FadeDown(color1, color2) => {(color2,color1,color1,color2)}
+            FillStyle::FadeLeft(color1, color2) => {(color1,color1,color2,color2)}
+            FillStyle::Corners(c1, c2, c3, c4) => {(c1,c2,c3,c4)}
+        };
         Mesh {
             vertices: vec![
-            Vertex::new().pt(p1).uv(0.0,0.0).rgba(self.color),
-            Vertex::new().pt(p2).uv(0.0,1.0).rgba(self.color),
-            Vertex::new().pt(p3).uv(1.0,1.0).rgba(self.color),
-            Vertex::new().pt(p4).uv(1.0,0.0).rgba(self.color)],
+            Vertex::new().pt(p1).uv(0.0,0.0).rgba(c1),
+            Vertex::new().pt(p2).uv(0.0,1.0).rgba(c2),
+            Vertex::new().pt(p3).uv(1.0,1.0).rgba(c3),
+            Vertex::new().pt(p4).uv(1.0,0.0).rgba(c4)],
             indices: vec![0,1,2,2,3,0]
         }
     }

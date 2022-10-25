@@ -17,7 +17,7 @@ struct VertexInput {
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) tex: vec2<f32>,
-    @location(1) color: vec4<f32>,
+    @location(1) @interpolate(linear) color: vec4<f32>,
     @location(2) kind: i32,
 }
 @group(0) @binding(0)
