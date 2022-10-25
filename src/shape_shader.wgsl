@@ -6,7 +6,12 @@ fn border(st: vec2<f32>, t: vec2<f32>) -> f32 {
 }
 fn oval(st: vec2<f32>) -> f32 {
     var pct = distance(vec2<f32>(0.5,0.5),st);
-    pct = smoothstep(0.0,0.05,1.0 - pct);
+    pct = smoothstep(0.0,0.01,1.0 - pct);
+    return pct;
+}
+fn oval2(st: vec2<f32>) -> f32 {
+    var pct = distance(vec2<f32>(0.5,0.5),st);
+    pct = step(0.0,1.0 - pct);
     return pct;
 }
 struct VertexInput {
@@ -64,7 +69,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         return color;
     }
     if (in.kind == 1) {
-        return color * oval(ndcPos);
+        return color * oval2(ndcPos);
     }
     return color;
 }

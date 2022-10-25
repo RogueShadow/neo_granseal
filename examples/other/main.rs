@@ -48,12 +48,12 @@ impl NeoGransealEventHandler for Game {
                 let time = core.timer.elapsed().as_secs_f32();
                 let mut gfx = SSRGraphics::new(core);
                 //gfx.thickness = (time.sin() * 8.0).abs();
-                gfx.thickness = 32.0;
-                //gfx.rotation = time.sin() * std::f32::consts::PI * 2.0;
+                gfx.thickness = 4.0;
+                gfx.rotation = time.sin() * std::f32::consts::PI * 2.0;
                 let size = Point::new(128.0, 128.0);
                 let halfx = size.x / 2.0;
                 let halfy = size.y / 2.0;
-                //gfx.fill = if time.sin().abs() > 0.5 {true} else {false};
+                gfx.fill = true;
                 gfx.color = FadeDown(Color::RED,Color::NAVY);
                 gfx.rect(Point::new(halfx, halfy), size);
                 gfx.color = FadeLeft(Color::GREEN,Color::MAGENTA);
@@ -66,22 +66,21 @@ impl NeoGransealEventHandler for Game {
                 gfx.rect(Point::new(halfx + size.x * 4.0, halfy + size.y * 4.0), size);
                 gfx.color = Solid(Color::rgb(1.0, 1.0, 1.0));
                 gfx.rect(Point::new(halfx + size.x * 5.0, halfy + size.y * 5.0), size);
-
+                gfx.rotation = 0.0;
                 gfx.fill = false;
-                gfx.color = FillStyle::Solid(Color::NAVY);
+                gfx.color = FillStyle::Solid(Color::MAGENTA);
+
                 gfx.poly(&self.points);
 
-                gfx.line_style = LineStyle::Center(false);
+                gfx.line_style = LineStyle::Center;
                 gfx.color = Solid(Color::rgb(0.5,1.0,0.5));
-                gfx.color = FadeDown(Color::rgba(0.2,0.2,0.7,0.0),Color::MAROON);
+                gfx.color = Solid(Color::LIME);
                 let mut center = Point::new(0.0,0.0);
                 self.entities.iter().for_each(|e| {
                     center = e.center;
                     gfx.line(e.pos,e.center);
                 });
-                gfx.fill = true;
-                gfx.color = Corners(Color::MAGENTA,Color::LIME,Color::BLACK,Color::RED);
-                gfx.oval(center,Point::new(8.0,8.0));
+
                 gfx.finish();
             }
             Event::Update(d) => {

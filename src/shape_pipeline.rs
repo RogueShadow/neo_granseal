@@ -365,16 +365,18 @@ impl AsRef<SSRRenderData> for SSRRenderData {
     }
 }
 
+#[derive(Copy,Clone,Debug)]
 pub enum FillStyle {
     Solid(Color),
     FadeDown(Color,Color),
     FadeLeft(Color,Color),
     Corners(Color,Color,Color,Color),
 }
+#[derive(Copy,Clone,Debug)]
 pub enum LineStyle {
-    Center(bool),
-    Left(bool),
-    Right(bool),
+    Center,
+    Left,
+    Right,
 }
 
 pub struct SSRGraphics<'draw> {
@@ -399,7 +401,7 @@ impl <'draw>SSRGraphics<'draw> {
         self.fill = true;
         self.color = FillStyle::Solid(Color::WHITE);
         self.thickness = 1.0;
-        self.line_style = LineStyle::Center(false);
+        self.line_style = LineStyle::Center;
         self.data.clear();
         self.pos = Point::new(0.0, 0.0);
         self.rotation = 0.0;
@@ -414,7 +416,7 @@ impl <'draw>SSRGraphics<'draw> {
             fill: true,
             color: FillStyle::Solid(Color::WHITE),
             thickness:  1.0,
-            line_style: LineStyle::Center(false),
+            line_style: LineStyle::Center,
             data: SSRRenderData {
                 vertices: vec![],
                 indices: vec![],
@@ -444,7 +446,7 @@ impl <'draw>SSRGraphics<'draw> {
         }
     }
     fn pt_line_quad(&self, start: Point, end: Point, width: f32) -> Mesh {
-        let mut swap = if start.y < end.y {-1.0} else {1.0};
+        let mut swap = if start.y <= end.y {-1.0} else {1.0};
         let pi = std::f32::consts::PI;
         let dx = (start.x - end.x) * 2.0; // width of line
         let dy = (start.y - end.y) * 2.0; // height of line
@@ -456,21 +458,21 @@ impl <'draw>SSRGraphics<'draw> {
         let bump = Point::new(width * sa2.sin(), width * sa2.cos());
 
         let (p1,p2,p3,p4) = match self.line_style {
-            LineStyle::Center(_) => {
+            LineStyle::Center => {
             (
                 Point::new(start.x + bump2.x, start.y + bump2.y),
                 Point::new(start.x + bump.x, start.y + bump.y),
                 Point::new(end.x + bump.x, end.y + bump.y),
                 Point::new(end.x + bump2.x, end.y + bump2.y),
             )}
-            LineStyle::Left(_) => {
+            LineStyle::Left => {
             (
                 Point::new(start.x + bump2.x * 2.0 * swap, start.y + bump2.y * 2.0 * swap),
                 Point::new(start.x, start.y),
                 Point::new(end.x, end.y),
                 Point::new(end.x + bump2.x * 2.0 * swap, end.y + bump2.y * 2.0 * swap),
             )}
-            LineStyle::Right(_) => {
+            LineStyle::Right => {
             (
                 Point::new(start.x, start.y),
                 Point::new(start.x + bump.x * 2.0 * swap, start.y + bump.y * 2.0 * swap),
@@ -478,15 +480,18 @@ impl <'draw>SSRGraphics<'draw> {
                 Point::new(end.x, end.y),
             )}
         };
+
         if swap < 0.0 {
             return self.pt_quad(p2,p1,p4,p3);
+        } else {
+            self.pt_quad(p1,p2,p3,p4)
         }
-        self.pt_quad(p1,p2,p3,p4)
     }
     pub fn line(&mut self, start: Point, end: Point) {
         let mut mesh = self.pt_line_quad(start,end,self.thickness);
         //mesh.vertices.iter_mut().for_each(|v| {v.rgba(self.color)});
-        self.draw_raw_vertices(mesh,None,None,None)
+        let kind = self.kind;
+        self.draw_raw_vertices(mesh,None,None,Some(kind))
     }
     pub fn rect(&mut self, pos: Point, size: Point) {
         if self.fill {
@@ -501,11 +506,22 @@ impl <'draw>SSRGraphics<'draw> {
         } else {
             let hx = size.x / 2.0;
             let hy = size.y / 2.0;
-            let p1 = Point::new(pos.x-hx, pos.y-hy);
-            let p2 = Point::new(pos.x-hx, pos.y+hy);
-            let p3 = Point::new(pos.x+hx, pos.y+hy);
-            let p4 = Point::new(pos.x+hx, pos.y-hy);
-            self.poly(&vec![p1,p2,p3,p4,p1]);
+            let p1 = Point::new(-hx, -hy);
+            let p2 = Point::new(-hx, hy);
+            let p3 = Point::new(hx, hy);
+            let p4 = Point::new(hx, -hy);
+            let t = self.thickness;
+            let ip1 = Point::new(-hx + t, -hy + t);
+            let ip2 = Point::new(-hx + t, hy - t);
+            let ip3 = Point::new(hx - t, hy - t);
+            let ip4 = Point::new(hx - t, -hy + t);
+            let mesh = self.pt_quad(p1,p2,p3,p4);
+            let mesh2 = self.pt_quad(ip1,ip2,ip3,ip4);
+            self.draw_raw_vertices(mesh,Some(pos),None,None);
+            let old_color = self.color;
+            self.color = FillStyle::Solid(Color::BLACK);
+            self.draw_raw_vertices(mesh2,Some(pos),None,None);
+            self.color = old_color;
         }
     }
     pub fn poly(&mut self, points: &Vec<Point>) {
