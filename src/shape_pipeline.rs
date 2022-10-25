@@ -371,12 +371,18 @@ pub enum FillStyle {
     FadeLeft(Color,Color),
     Corners(Color,Color,Color,Color),
 }
+pub enum LineStyle {
+    Center(bool),
+    Left(bool),
+    Right(bool),
+}
 
 pub struct SSRGraphics<'draw> {
     core: &'draw mut NGCore,
     pub fill: bool,
     pub color: FillStyle,
     pub thickness: f32,
+    pub line_style: LineStyle,
     pub data: SSRRenderData,
     pub pos: Point,
     pub rotation: f32,
@@ -393,6 +399,7 @@ impl <'draw>SSRGraphics<'draw> {
         self.fill = true;
         self.color = FillStyle::Solid(Color::WHITE);
         self.thickness = 1.0;
+        self.line_style = LineStyle::Center(false);
         self.data.clear();
         self.pos = Point::new(0.0, 0.0);
         self.rotation = 0.0;
@@ -407,6 +414,7 @@ impl <'draw>SSRGraphics<'draw> {
             fill: true,
             color: FillStyle::Solid(Color::WHITE),
             thickness:  1.0,
+            line_style: LineStyle::Center(false),
             data: SSRRenderData {
                 vertices: vec![],
                 indices: vec![],
@@ -436,9 +444,7 @@ impl <'draw>SSRGraphics<'draw> {
         }
     }
     fn pt_line_quad(&self, start: Point, end: Point, width: f32) -> Mesh {
-        let (start,end) = if start.y < end.y {
-            (end,start)
-        } else {(start,end)};
+        let mut swap = if start.y < end.y {-1.0} else {1.0};
         let pi = std::f32::consts::PI;
         let dx = (start.x - end.x) * 2.0; // width of line
         let dy = (start.y - end.y) * 2.0; // height of line
@@ -449,11 +455,32 @@ impl <'draw>SSRGraphics<'draw> {
         let bump2 = Point::new(width * sa.sin(), width * sa.cos());
         let bump = Point::new(width * sa2.sin(), width * sa2.cos());
 
-        let p1 = Point::new(start.x + bump2.x, start.y + bump2.y);
-        let p2 =  Point::new(start.x + bump.x, start.y + bump.y);
-        let p3 =  Point::new(end.x + bump.x, end.y + bump.y);
-        let p4 = Point::new(end.x + bump2.x, end.y + bump2.y);
-
+        let (p1,p2,p3,p4) = match self.line_style {
+            LineStyle::Center(_) => {
+            (
+                Point::new(start.x + bump2.x, start.y + bump2.y),
+                Point::new(start.x + bump.x, start.y + bump.y),
+                Point::new(end.x + bump.x, end.y + bump.y),
+                Point::new(end.x + bump2.x, end.y + bump2.y),
+            )}
+            LineStyle::Left(_) => {
+            (
+                Point::new(start.x + bump2.x * 2.0 * swap, start.y + bump2.y * 2.0 * swap),
+                Point::new(start.x, start.y),
+                Point::new(end.x, end.y),
+                Point::new(end.x + bump2.x * 2.0 * swap, end.y + bump2.y * 2.0 * swap),
+            )}
+            LineStyle::Right(_) => {
+            (
+                Point::new(start.x, start.y),
+                Point::new(start.x + bump.x * 2.0 * swap, start.y + bump.y * 2.0 * swap),
+                Point::new(end.x + bump.x * 2.0 * swap, end.y + bump.y * 2.0 * swap),
+                Point::new(end.x, end.y),
+            )}
+        };
+        if swap < 0.0 {
+            return self.pt_quad(p2,p1,p4,p3);
+        }
         self.pt_quad(p1,p2,p3,p4)
     }
     pub fn line(&mut self, start: Point, end: Point) {

@@ -1,4 +1,4 @@
-use neo_granseal::shape_pipeline::{SSRGraphics, SSRRenderData};
+use neo_granseal::shape_pipeline::{FillStyle, SSRGraphics, SSRRenderData};
 use neo_granseal::{
     core::{NGCommand, NGCore},
     events::Event,
@@ -48,7 +48,7 @@ impl NeoGransealEventHandler for Game {
             Event::Draw => {
                 let mut gfx = SSRGraphics::new(core);
                 for e in &self.entities {
-                    gfx.color = e.color;
+                    gfx.color = FillStyle::Solid(e.color);
                     gfx.rotation = e.rot;
                     gfx.rect(e.pos, self.size);
                 }
