@@ -515,13 +515,36 @@ impl <'draw>SSRGraphics<'draw> {
             let ip2 = Point::new(-hx + t, hy - t);
             let ip3 = Point::new(hx - t, hy - t);
             let ip4 = Point::new(hx - t, -hy + t);
-            let mesh = self.pt_quad(p1,p2,p3,p4);
-            let mesh2 = self.pt_quad(ip1,ip2,ip3,ip4);
+
+            let (c1,c2,c3,c4) = match self.color {
+                FillStyle::Solid(color) => {(color,color,color,color)}
+                FillStyle::FadeDown(color1, color2) => {(color2,color1,color1,color2)}
+                FillStyle::FadeLeft(color1, color2) => {(color1,color1,color2,color2)}
+                FillStyle::Corners(c1, c2, c3, c4) => {(c1,c2,c3,c4)}
+            };
+            let vertices = vec![
+                Vertex::new().pt(p1).uv(0.0,0.0).rgba(c1), // 0
+                Vertex::new().pt(p2).uv(0.0,1.0).rgba(c2), // 1
+                Vertex::new().pt(p3).uv(1.0,1.0).rgba(c3), // 2
+                Vertex::new().pt(p4).uv(1.0,0.0).rgba(c4), // 3
+                Vertex::new().pt(ip1).uv(0.0,0.0).rgba(c1),// 4
+                Vertex::new().pt(ip2).uv(0.0,1.0).rgba(c2),// 5
+                Vertex::new().pt(ip3).uv(1.0,1.0).rgba(c3),// 6
+                Vertex::new().pt(ip4).uv(1.0,0.0).rgba(c4),// 7
+            ];
+            let indices = vec![
+                0,1,4,   1,5,4,
+                1,2,5,   5,2,6,
+                2,3,6,   6,3,7,
+                4,7,3,   4,3,0,
+            ];
+
+            let mesh = Mesh {
+                vertices,
+                indices,
+            };
+
             self.draw_raw_vertices(mesh,Some(pos),None,None);
-            let old_color = self.color;
-            self.color = FillStyle::Solid(Color::BLACK);
-            self.draw_raw_vertices(mesh2,Some(pos),None,None);
-            self.color = old_color;
         }
     }
     pub fn poly(&mut self, points: &Vec<Point>) {

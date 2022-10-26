@@ -48,12 +48,12 @@ impl NeoGransealEventHandler for Game {
                 let time = core.timer.elapsed().as_secs_f32();
                 let mut gfx = SSRGraphics::new(core);
                 //gfx.thickness = (time.sin() * 8.0).abs();
-                gfx.thickness = 4.0;
-                gfx.rotation = time.sin() * std::f32::consts::PI * 2.0;
+                gfx.thickness = 1.0;
+                //gfx.rotation = time.sin() * std::f32::consts::PI * 2.0;
                 let size = Point::new(128.0, 128.0);
                 let halfx = size.x / 2.0;
                 let halfy = size.y / 2.0;
-                gfx.fill = true;
+                gfx.fill = false;
                 gfx.color = FadeDown(Color::RED,Color::NAVY);
                 gfx.rect(Point::new(halfx, halfy), size);
                 gfx.color = FadeLeft(Color::GREEN,Color::MAGENTA);
@@ -70,7 +70,7 @@ impl NeoGransealEventHandler for Game {
                 gfx.fill = false;
                 gfx.color = FillStyle::Solid(Color::MAGENTA);
 
-                gfx.poly(&self.points);
+                //gfx.poly(&self.points);
 
                 gfx.line_style = LineStyle::Center;
                 gfx.color = Solid(Color::rgb(0.5,1.0,0.5));
