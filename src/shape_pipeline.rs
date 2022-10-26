@@ -2,7 +2,7 @@ use std::num::NonZeroU32;
 use crate::*;
 use bytemuck::{Pod, Zeroable};
 use rand::{Rng, SeedableRng};
-use std::ops::Range;
+use std::ops::{Not, Range};
 use crate::core::NGError;
 use crate::util::{Color, Point};
 
@@ -430,12 +430,7 @@ impl <'draw>SSRGraphics<'draw> {
         }
     }
     fn pt_quad(&self, p1: Point, p2: Point, p3: Point, p4: Point) -> Mesh {
-        let (c1,c2,c3,c4) = match self.color {
-            FillStyle::Solid(color) => {(color,color,color,color)}
-            FillStyle::FadeDown(color1, color2) => {(color2,color1,color1,color2)}
-            FillStyle::FadeLeft(color1, color2) => {(color1,color1,color2,color2)}
-            FillStyle::Corners(c1, c2, c3, c4) => {(c1,c2,c3,c4)}
-        };
+        let (c1,c2,c3,c4) = self.corners();
         Mesh {
             vertices: vec![
             Vertex::new().pt(p1).uv(0.0,0.0).rgba(c1),
@@ -488,7 +483,7 @@ impl <'draw>SSRGraphics<'draw> {
         }
     }
     pub fn line(&mut self, start: Point, end: Point) {
-        let mut mesh = self.pt_line_quad(start,end,self.thickness);
+        let mut mesh = self.pt_line_quad(start,end,self.thickness / 2.0);
         //mesh.vertices.iter_mut().for_each(|v| {v.rgba(self.color)});
         let kind = self.kind;
         self.draw_raw_vertices(mesh,None,None,Some(kind))
@@ -516,12 +511,7 @@ impl <'draw>SSRGraphics<'draw> {
             let ip3 = Point::new(hx - t, hy - t);
             let ip4 = Point::new(hx - t, -hy + t);
 
-            let (c1,c2,c3,c4) = match self.color {
-                FillStyle::Solid(color) => {(color,color,color,color)}
-                FillStyle::FadeDown(color1, color2) => {(color2,color1,color1,color2)}
-                FillStyle::FadeLeft(color1, color2) => {(color1,color1,color2,color2)}
-                FillStyle::Corners(c1, c2, c3, c4) => {(c1,c2,c3,c4)}
-            };
+            let (c1,c2,c3,c4) = self.corners();
             let vertices = vec![
                 Vertex::new().pt(p1).uv(0.0,0.0).rgba(c1), // 0
                 Vertex::new().pt(p2).uv(0.0,1.0).rgba(c2), // 1
@@ -561,6 +551,40 @@ impl <'draw>SSRGraphics<'draw> {
         } else {
 
         }
+    }
+    pub fn arc(&mut self, center: Point, radius: f32, arc_begin: f32, arc_end: f32, resolution: f32) {
+        let (c1,c2,c3,c4) = self.corners();
+        let mut vertices = vec![Vertex::new().xy(0.0,0.0).rgba(c1)];
+        let mut indices: Vec<u32> = vec![];
+        let start_angle = arc_begin.to_radians();
+        let end_angle = arc_end.to_radians();
+        //let circumference = 2 * std::f32::consts::PI * radius;
+        let arc_length = (end_angle - start_angle).abs() * radius;
+        let vertice_count = arc_length.floor() / resolution;
+        let angle_step = (end_angle - start_angle).abs() / vertice_count;
+        let mut a = start_angle;
+
+        (0..=(vertice_count as u32 + 1)).for_each(|i| {
+            vertices.push(
+                Vertex::new().xy(
+                    radius * a.cos(),
+                    radius * a.sin()
+                ).rgba(c4)
+            );
+            if i > 1 {
+                indices.push(0);
+                indices.push(i);
+                indices.push(i - 1);
+            }
+
+            a += angle_step;
+        });
+        let mesh = Mesh {
+            vertices,
+            indices,
+        };
+
+        self.draw_raw_vertices(mesh,Some(center),None,None)
     }
     pub fn draw_raw_vertices(
         &mut self,
@@ -614,6 +638,14 @@ impl <'draw>SSRGraphics<'draw> {
             self.draw_raw_vertices(verts,Some(pos),None, Some(1));
         } else {
 
+        }
+    }
+    fn corners(&self) -> (Color,Color,Color,Color) {
+        match self.color {
+            FillStyle::Solid(color) => {(color,color,color,color)}
+            FillStyle::FadeDown(color1, color2) => {(color2,color1,color1,color2)}
+            FillStyle::FadeLeft(color1, color2) => {(color1,color1,color2,color2)}
+            FillStyle::Corners(c1, c2, c3, c4) => {(c1,c2,c3,c4)}
         }
     }
     pub fn finish(&mut self) {

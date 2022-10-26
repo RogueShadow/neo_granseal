@@ -1,3 +1,4 @@
+use std::ops::Rem;
 use rand::{Rng, SeedableRng};
 use neo_granseal::{start, GransealGameConfig, VSyncMode, NeoGransealEventHandler, core::NGCore, events::Event, shape_pipeline::SSRGraphics};
 use neo_granseal::events::Key::P;
@@ -13,6 +14,7 @@ fn main() {
           GransealGameConfig::new()
               .size(128*6,128*6)
               .vsync(VSyncMode::AutoNoVsync)
+              .clear_color([0.5,0.5,0.5,1.0])
     )
 }
 
@@ -45,15 +47,15 @@ impl NeoGransealEventHandler for Game {
                 use FillStyle::*;
                 let width = core.config.width as f32;
                 let height = core.config.height as f32;
-                let time = core.timer.elapsed().as_secs_f32();
+                let time = core.timer.elapsed().as_secs_f32() / 2.0;
                 let mut gfx = SSRGraphics::new(core);
-                //gfx.thickness = (time.sin() * 8.0).abs();
-                gfx.thickness = 1.0;
-                //gfx.rotation = time.sin() * std::f32::consts::PI * 2.0;
+                gfx.thickness = (time.sin() * 16.0).abs();
+
+                gfx.rotation = time.sin();
                 let size = Point::new(128.0, 128.0);
                 let halfx = size.x / 2.0;
                 let halfy = size.y / 2.0;
-                gfx.fill = false;
+                gfx.fill = if time.sin() < 0.5 {true} else {false};
                 gfx.color = FadeDown(Color::RED,Color::NAVY);
                 gfx.rect(Point::new(halfx, halfy), size);
                 gfx.color = FadeLeft(Color::GREEN,Color::MAGENTA);
@@ -64,12 +66,14 @@ impl NeoGransealEventHandler for Game {
                 gfx.oval(Point::new(halfx + size.x * 3.0, halfy + size.y * 3.0), size);
                 gfx.color = Solid(Color::rgb(0.0, 1.0, 1.0));
                 gfx.rect(Point::new(halfx + size.x * 4.0, halfy + size.y * 4.0), size);
-                gfx.color = Solid(Color::rgb(1.0, 1.0, 1.0));
+                gfx.color = Corners(Color::YELLOW,Color::TRANSPARENT,Color::TRANSPARENT,Color::TRANSPARENT);
                 gfx.rect(Point::new(halfx + size.x * 5.0, halfy + size.y * 5.0), size);
+                gfx.arc(Point::new(400.0,200.0),64.0,0.0,90.0, 1.0);
                 gfx.rotation = 0.0;
                 gfx.fill = false;
-                gfx.color = FillStyle::Solid(Color::MAGENTA);
+                gfx.color = FadeLeft(Color::OLIVE,Color::TRANSPARENT);
 
+                gfx.thickness = 1.0;
                 //gfx.poly(&self.points);
 
                 gfx.line_style = LineStyle::Center;
@@ -87,7 +91,7 @@ impl NeoGransealEventHandler for Game {
                 self.entities.iter_mut().for_each(|e| e.update(d));
             }
             Event::Load => {
-                (0..10).for_each(|i|{
+                (0..100).for_each(|i|{
                     self.points.push(
                         Point::new(
                             self.rng.gen::<f32>() * core.config.width as f32,

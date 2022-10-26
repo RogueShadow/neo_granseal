@@ -24,6 +24,7 @@ impl Color {
     pub const PURPLE: Self = Self::rgb(0.5,0.0,0.5);
     pub const TEAL: Self = Self::rgb(0.0,0.5,0.5);
     pub const NAVY: Self = Self::rgb(0.0,0.0,0.5);
+    pub const TRANSPARENT: Self = Self::rgba(1.0,1.0,1.0,0.0);
 
     pub const fn rgb(r: f32, g: f32, b: f32) -> Self {
         Self::rgba(r,g,b,1.0)
