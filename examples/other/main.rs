@@ -3,7 +3,6 @@ use std::ops::Rem;
 use std::time::Instant;
 use rand::{Rng, SeedableRng};
 use neo_granseal::{start, GransealGameConfig, VSyncMode, NeoGransealEventHandler, core::NGCore, events::Event, shape_pipeline::SSRGraphics};
-use neo_granseal::events::Key::P;
 use neo_granseal::shape_pipeline::{FillStyle, LineStyle};
 use neo_granseal::util::{Color, Point};
 
@@ -13,12 +12,12 @@ fn main() {
         rng: rand_xorshift::XorShiftRng::from_rng(rand::thread_rng()).expect("Get Rng"),
         points: vec![],
         queue: VecDeque::new(),
-        timer: std::time::Instant::now(),
+        timer: Instant::now(),
     },
           GransealGameConfig::new()
               .size(128*6,128*6)
               .vsync(VSyncMode::AutoNoVsync)
-              .clear_color(Color::rgb_u8(25,25,112))
+              .clear_color(Color::rgb_u8(5,5,12))
     )
 }
 
@@ -69,15 +68,73 @@ impl NeoGransealEventHandler for Game {
                 gfx.thickness = 1.0;
                 gfx.color = Solid(Color::DIM_GRAY);
                 grid(&mut gfx, Point::new(width,height),Point::new(32.0,32.0));
-                gfx.color = Solid(Color::MAGENTA);
                 gfx.thickness = 1.0;
+                let cx = width / 2.0 - 256.0;
+                let cy = height / 2.0;
+                gfx.color = FadeLeft(Color::TRANSPARENT,Color::SADDLE_BROWN);
+                gfx.arc(Point::new(cx,cy),64.0,90.0,180.0,4.0);
+                gfx.color = FadeLeft(Color::SADDLE_BROWN,Color::TRANSPARENT);
+                gfx.rect(Point::new(cx-32.0,cy-32.0),Point::new(64.0,64.0));
+                gfx.color = FadeLeft(Color::TRANSPARENT,Color::SADDLE_BROWN);
+                gfx.arc(Point::new(cx,cy - 64.0),64.0,180.0,270.0,4.0);
+                gfx.color = FadeDown(Color::SADDLE_BROWN,Color::TRANSPARENT);
+                gfx.rect(Point::new(cx+32.0,cy+32.0),Point::new(64.0,64.0));
+                gfx.color = FadeLeft(Color::TRANSPARENT,Color::SADDLE_BROWN);
+                gfx.arc(Point::new(cx + 64.0,cy - 64.0),64.0,270.0,360.0,4.0);
+                gfx.color = FadeLeft(Color::TRANSPARENT,Color::SADDLE_BROWN);
+                gfx.rect(Point::new(cx+96.0,cy-32.0),Point::new(64.0,64.0));
+                gfx.color = FadeLeft(Color::TRANSPARENT,Color::SADDLE_BROWN);
+                gfx.arc(Point::new(cx + 64.0,cy),64.0,0.0,90.0,4.0);
+                gfx.color = FadeDown(Color::TRANSPARENT,Color::SADDLE_BROWN);
+                gfx.rect(Point::new(cx+32.0,cy-96.0),Point::new(64.0,64.0));
+
+                let cx = width / 2.0 - 32.0;
+                let cy = height / 2.0;
+                gfx.color = FadeLeft(Color::SADDLE_BROWN,Color::TRANSPARENT);
+                //gfx.arc(Point::new(cx,cy),64.0,90.0,180.0,4.0);
+                gfx.rect(Point::new(cx-32.0,cy+32.0),Point::new(64.0,64.0));
+
+                gfx.color = FadeLeft(Color::SADDLE_BROWN,Color::TRANSPARENT);
+                gfx.rect(Point::new(cx-32.0,cy-32.0),Point::new(64.0,64.0));
+                gfx.color = FadeLeft(Color::TRANSPARENT,Color::SADDLE_BROWN);
+                gfx.arc(Point::new(cx,cy - 64.0),64.0,180.0,270.0,4.0);
+                gfx.color = FadeDown(Color::SADDLE_BROWN,Color::TRANSPARENT);
+                //gfx.rect(Point::new(cx+32.0,cy+32.0),Point::new(64.0,64.0));
+                gfx.color = FadeLeft(Color::TRANSPARENT,Color::SADDLE_BROWN);
+                //gfx.arc(Point::new(cx + 64.0,cy - 64.0),64.0,270.0,360.0,4.0);
+                gfx.color = FadeLeft(Color::TRANSPARENT,Color::SADDLE_BROWN);
+                //gfx.rect(Point::new(cx+96.0,cy-32.0),Point::new(64.0,64.0));
+                gfx.color = FadeLeft(Color::TRANSPARENT,Color::SADDLE_BROWN);
+                //gfx.arc(Point::new(cx + 64.0,cy),64.0,0.0,90.0,4.0);
+                gfx.color = FadeDown(Color::TRANSPARENT,Color::SADDLE_BROWN);
+                gfx.rect(Point::new(cx+32.0,cy-96.0),Point::new(64.0,64.0));
+
+                let cx = width / 2.0 + 256.0 - 128.0;
+                let cy = height / 2.0;
+                gfx.color = FadeLeft(Color::TRANSPARENT,Color::SADDLE_BROWN);
+                gfx.arc(Point::new(cx,cy),64.0,90.0,180.0,4.0);
+                gfx.color = FadeLeft(Color::SADDLE_BROWN,Color::TRANSPARENT);
+                gfx.rect(Point::new(cx-32.0,cy-32.0),Point::new(64.0,64.0));
+                gfx.color = FadeLeft(Color::TRANSPARENT,Color::SADDLE_BROWN);
+                gfx.arc(Point::new(cx,cy - 64.0),64.0,180.0,270.0,4.0);
+                gfx.color = FadeDown(Color::SADDLE_BROWN,Color::TRANSPARENT);
+                gfx.rect(Point::new(cx+32.0,cy+32.0),Point::new(64.0,64.0));
+                gfx.color = FadeLeft(Color::TRANSPARENT,Color::SADDLE_BROWN);
+                gfx.arc(Point::new(cx + 64.0,cy - 64.0),64.0,270.0,360.0,4.0);
+                gfx.color = FadeLeft(Color::TRANSPARENT,Color::SADDLE_BROWN);
+                //gfx.rect(Point::new(cx+96.0,cy-32.0),Point::new(64.0,64.0));
+                gfx.color = FadeLeft(Color::TRANSPARENT,Color::SADDLE_BROWN);
+                gfx.arc(Point::new(cx + 64.0,cy),64.0,0.0,90.0,4.0);
+                gfx.color = FadeDown(Color::TRANSPARENT,Color::SADDLE_BROWN);
+                gfx.rect(Point::new(cx+32.0,cy-96.0),Point::new(64.0,64.0));
                 for (i,p) in self.queue.iter().enumerate() {
-                    gfx.color = FadeLeft(Color::rgb(p.x/200.0,p.y/height,0.5),Color::RED);
-                    gfx.line(Point::new(i as f32 * gfx.thickness,0.0),Point::new(i as f32 * gfx.thickness,p.y))
+                    //gfx.color = FadeLeft(Color::rgb(p.x/200.0,p.y/height,0.5),Color::RED);
+                    //gfx.line(Point::new(i as f32 * gfx.thickness,0.0),Point::new(i as f32 * gfx.thickness,p.y))
                 };
                 gfx.fill = false;
                 gfx.thickness = 172.0 * time.rem(3.15).sin();
-                gfx.circle(Point::new(500.0,500.0),172.0,180.0);
+                gfx.circle(Point::new(700.0,700.0),172.0,180.0);
+
                 gfx.finish();
             }
             Event::Update(d) => {
