@@ -115,7 +115,7 @@ pub struct SimpleShapeRenderPipeline {
     trans_buffer: wgpu::Buffer,
     mats_buffer: wgpu::Buffer,
     data_bind_group: wgpu::BindGroup,
-    clear_color: [f64; 4],
+    clear_color: Color,
     globals: GlobalUniforms,
     data: Option<SSRRenderData>,
     pipeline: wgpu::RenderPipeline,
@@ -299,12 +299,7 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
                 view: &view,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color {
-                        r: core.config.clear_color[0],
-                        g: core.config.clear_color[1],
-                        b: core.config.clear_color[2],
-                        a: core.config.clear_color[3],
-                    }),
+                    load: wgpu::LoadOp::Clear(core.config.clear_color.into()),
                     store: true,
                 },
             })],
@@ -441,7 +436,7 @@ impl <'draw>SSRGraphics<'draw> {
         }
     }
     fn pt_line_quad(&self, start: Point, end: Point, width: f32) -> Mesh {
-        let mut swap = if start.y <= end.y {-1.0} else {1.0};
+        let mut swap = if start.y < end.y {-1.0} else {1.0};
         let pi = std::f32::consts::PI;
         let dx = (start.x - end.x) * 2.0; // width of line
         let dy = (start.y - end.y) * 2.0; // height of line
@@ -552,13 +547,74 @@ impl <'draw>SSRGraphics<'draw> {
 
         }
     }
+    pub fn circle(&mut self, center: Point, radius: f32, resolution: f32) {
+        if self.fill {
+            let (c1, c2, c3, c4) = self.corners();
+            let mut vertices = vec![Vertex::new().xy(0.0, 0.0).rgba(c1)];
+            let mut indices: Vec<u32> = vec![];
+            let circumference = 2.0 * std::f32::consts::PI * radius;
+            let vertex_count = circumference / resolution;
+            let angle_step = (2.0 * std::f32::consts::PI) / (vertex_count - 1.0);
+            let mut a: f32 = 0.0;
+            (0..=(vertex_count as u32 + 1)).for_each(|i| {
+                vertices.push(
+                    Vertex::new().xy(radius * a.cos(), radius * a.sin()).rgba(c4)
+                );
+                if i > 1 {
+                    indices.push(0);
+                    indices.push(i);
+                    indices.push(i - 1);
+                }
+                a += angle_step;
+            });
+            let mesh = Mesh {
+                vertices,
+                indices,
+            };
+            self.draw_raw_vertices(mesh, Some(center), None, None)
+        } else {
+            let (c1, c2, c3, c4) = self.corners();
+            let mut vertices = vec![];
+            let mut indices: Vec<u32> = vec![];
+            let circumference = 2.0 * std::f32::consts::PI * radius;
+            let vertex_count = circumference / resolution;
+            let angle_step = (2.0 * std::f32::consts::PI) / vertex_count;
+            let mut a: f32 = 0.0;
+            (0..=(vertex_count as u32 + 2)).for_each(|i| {
+                vertices.push(
+                    Vertex::new().xy(radius * a.cos(), radius * a.sin()).rgba(c4)
+                );
+                vertices.push(
+                    Vertex::new().xy( (radius - self.thickness) * a.cos(), (radius - self.thickness) * a.sin()).rgba(c1)
+                );
+                if i > 1 {
+                    let v1 = i*2;
+                    let v2 = i*2 - 1;
+                    let v3 = i*2 - 3;
+                    let v4 = i*2 - 2;
+                    indices.push(v3);
+                    indices.push(v2);
+                    indices.push(v1);
+
+                    indices.push(v4);
+                    indices.push(v3);
+                    indices.push(v1);
+                }
+                a += angle_step;
+            });
+            let mesh = Mesh {
+                vertices,
+                indices,
+            };
+            self.draw_raw_vertices(mesh, Some(center), None, None)
+        }
+    }
     pub fn arc(&mut self, center: Point, radius: f32, arc_begin: f32, arc_end: f32, resolution: f32) {
         let (c1,c2,c3,c4) = self.corners();
         let mut vertices = vec![Vertex::new().xy(0.0,0.0).rgba(c1)];
         let mut indices: Vec<u32> = vec![];
         let start_angle = arc_begin.to_radians();
         let end_angle = arc_end.to_radians();
-        //let circumference = 2 * std::f32::consts::PI * radius;
         let arc_length = (end_angle - start_angle).abs() * radius;
         let vertice_count = arc_length.floor() / resolution;
         let angle_step = (end_angle - start_angle).abs() / vertice_count;
@@ -566,24 +622,19 @@ impl <'draw>SSRGraphics<'draw> {
 
         (0..=(vertice_count as u32 + 1)).for_each(|i| {
             vertices.push(
-                Vertex::new().xy(
-                    radius * a.cos(),
-                    radius * a.sin()
-                ).rgba(c4)
+                Vertex::new().xy(radius * a.cos(),radius * a.sin()).rgba(c4)
             );
             if i > 1 {
                 indices.push(0);
                 indices.push(i);
                 indices.push(i - 1);
             }
-
             a += angle_step;
         });
         let mesh = Mesh {
             vertices,
             indices,
         };
-
         self.draw_raw_vertices(mesh,Some(center),None,None)
     }
     pub fn draw_raw_vertices(

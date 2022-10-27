@@ -1,4 +1,6 @@
+use std::collections::VecDeque;
 use std::ops::Rem;
+use std::time::Instant;
 use rand::{Rng, SeedableRng};
 use neo_granseal::{start, GransealGameConfig, VSyncMode, NeoGransealEventHandler, core::NGCore, events::Event, shape_pipeline::SSRGraphics};
 use neo_granseal::events::Key::P;
@@ -9,12 +11,14 @@ fn main() {
     start(Game {
         entities: vec![],
         rng: rand_xorshift::XorShiftRng::from_rng(rand::thread_rng()).expect("Get Rng"),
-        points: vec![]
+        points: vec![],
+        queue: VecDeque::new(),
+        timer: std::time::Instant::now(),
     },
           GransealGameConfig::new()
               .size(128*6,128*6)
               .vsync(VSyncMode::AutoNoVsync)
-              .clear_color([0.5,0.5,0.5,1.0])
+              .clear_color(Color::rgb_u8(25,25,112))
     )
 }
 
@@ -36,6 +40,19 @@ struct Game {
     rng: rand_xorshift::XorShiftRng,
     entities: Vec<Entity>,
     points: Vec<Point>,
+    queue: VecDeque<Point>,
+    timer: Instant,
+}
+fn grid(g: &mut SSRGraphics, screen_size: Point, grid_size: Point) {
+    for x in 0..((screen_size.x/ grid_size.x).floor() as i32){
+        let px = x as f32 * grid_size.x;
+        for y in 0..((screen_size.y/ grid_size.y).floor() as i32) {
+            let py = y as f32 * grid_size.y;
+            g.line(Point::new(0.0,py),Point::new(screen_size.x,py));
+
+        }
+        g.line(Point::new(px,0.0),Point::new(px,screen_size.y));
+    }
 }
 impl NeoGransealEventHandler for Game {
     fn event(&mut self, core: &mut NGCore, e: Event) {
@@ -49,45 +66,26 @@ impl NeoGransealEventHandler for Game {
                 let height = core.config.height as f32;
                 let time = core.timer.elapsed().as_secs_f32() / 2.0;
                 let mut gfx = SSRGraphics::new(core);
-                gfx.thickness = (time.sin() * 16.0).abs();
-
-                gfx.rotation = time.sin();
-                let size = Point::new(128.0, 128.0);
-                let halfx = size.x / 2.0;
-                let halfy = size.y / 2.0;
-                gfx.fill = if time.sin() < 0.5 {true} else {false};
-                gfx.color = FadeDown(Color::RED,Color::NAVY);
-                gfx.rect(Point::new(halfx, halfy), size);
-                gfx.color = FadeLeft(Color::GREEN,Color::MAGENTA);
-                gfx.rect(Point::new(halfx + size.x, halfy + size.y), size);
-                gfx.color = Corners(Color::RED,Color::GREEN,Color::BLUE,Color::BLACK);
-                gfx.rect(Point::new(halfx + size.x * 2.0, halfy + size.y * 2.0), size);
-                //gfx.color = Solid(Color::rgb(1.0, 0.0, 1.0));
-                gfx.oval(Point::new(halfx + size.x * 3.0, halfy + size.y * 3.0), size);
-                gfx.color = Solid(Color::rgb(0.0, 1.0, 1.0));
-                gfx.rect(Point::new(halfx + size.x * 4.0, halfy + size.y * 4.0), size);
-                gfx.color = Corners(Color::YELLOW,Color::TRANSPARENT,Color::TRANSPARENT,Color::TRANSPARENT);
-                gfx.rect(Point::new(halfx + size.x * 5.0, halfy + size.y * 5.0), size);
-                gfx.arc(Point::new(400.0,200.0),64.0,0.0,90.0, 1.0);
-                gfx.rotation = 0.0;
-                gfx.fill = false;
-                gfx.color = FadeLeft(Color::OLIVE,Color::TRANSPARENT);
-
                 gfx.thickness = 1.0;
-                //gfx.poly(&self.points);
-
-                gfx.line_style = LineStyle::Center;
-                gfx.color = Solid(Color::rgb(0.5,1.0,0.5));
-                gfx.color = Solid(Color::LIME);
-                let mut center = Point::new(0.0,0.0);
-                self.entities.iter().for_each(|e| {
-                    center = e.center;
-                    gfx.line(e.pos,e.center);
-                });
-
+                gfx.color = Solid(Color::DIM_GRAY);
+                grid(&mut gfx, Point::new(width,height),Point::new(32.0,32.0));
+                gfx.color = Solid(Color::MAGENTA);
+                gfx.thickness = 1.0;
+                for (i,p) in self.queue.iter().enumerate() {
+                    gfx.color = FadeLeft(Color::rgb(p.x/200.0,p.y/height,0.5),Color::RED);
+                    gfx.line(Point::new(i as f32 * gfx.thickness,0.0),Point::new(i as f32 * gfx.thickness,p.y))
+                };
+                gfx.fill = false;
+                gfx.thickness = 172.0 * time.rem(3.15).sin();
+                gfx.circle(Point::new(500.0,500.0),172.0,180.0);
                 gfx.finish();
             }
             Event::Update(d) => {
+                if self.timer.elapsed().as_secs_f32() > 0.005 {
+                    self.queue.get_mut(0).unwrap().y = core.timer.elapsed().as_secs_f32().rem(3.14).sin() * 500.0 + self.rng.gen::<f32>() * 100.0;
+                    self.queue.rotate_right(1);
+                    self.timer = std::time::Instant::now();
+                }
                 self.entities.iter_mut().for_each(|e| e.update(d));
             }
             Event::Load => {
@@ -98,6 +96,9 @@ impl NeoGransealEventHandler for Game {
                             self.rng.gen::<f32>()*core.config.height as f32
                         )
                     );
+                });
+                (0..core.config.width).for_each(|i| {
+                   self.queue.push_back(Point::new(i as f32,self.rng.gen::<f32>() * 400.0));
                 });
                 self.entities.push(Entity {
                     pos: Point::new(0.0, 0.0),

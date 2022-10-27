@@ -77,6 +77,7 @@ impl NGCore {
             width: window.inner_size().width,
             height: window.inner_size().height,
             present_mode: map_present_modes(config.vsync),
+            alpha_mode: wgpu::CompositeAlphaMode::Auto
         };
         let (device, queue) = adapter
             .request_device(

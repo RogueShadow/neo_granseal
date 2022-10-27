@@ -15,6 +15,7 @@ use winit::dpi::PhysicalSize;
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
 use winit::{event, event_loop};
+use crate::util::Color;
 
 #[derive(Clone, Debug)]
 pub struct GransealGameConfig {
@@ -22,7 +23,7 @@ pub struct GransealGameConfig {
     pub height: i32,
     pub title: String,
     pub vsync: VSyncMode,
-    pub clear_color: [f64; 4],
+    pub clear_color: Color,
     pub simple_pipeline: bool,
 }
 impl GransealGameConfig {
@@ -32,7 +33,7 @@ impl GransealGameConfig {
             width: 800,
             height: 600,
             vsync: VSyncMode::AutoVsync,
-            clear_color: [0.0, 0.0, 0.0, 1.0],
+            clear_color: Color::WHITE,
             simple_pipeline: true,
         }
     }
@@ -44,7 +45,7 @@ impl GransealGameConfig {
         self.vsync = mode;
         self
     }
-    pub fn clear_color(mut self, color: [f64; 4]) -> Self {
+    pub fn clear_color(mut self, color: Color) -> Self {
         self.clear_color = color;
         self
     }

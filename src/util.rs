@@ -1,4 +1,6 @@
 use std::ops::{Add, Mul, Sub};
+use std::str::FromStr;
+use crate::util;
 
 #[derive(Copy,Clone,Debug)]
 pub struct Color {
@@ -18,25 +20,44 @@ impl Color {
     pub const MAGENTA: Self = Self::rgb(1.0,0.0,1.0);
     pub const SILVER: Self =  Self::rgb(0.75,0.75,0.75);
     pub const GRAY: Self = Self::rgb(0.5,0.5,0.5);
+    pub const DIM_GRAY: Self = Self::rgb(0.4117647,0.4117647,0.4117647);
     pub const MAROON: Self = Self::rgb(0.5,0.0,0.0);
     pub const OLIVE: Self = Self::rgb(0.5,0.5,0.0);
     pub const GREEN: Self = Self::rgb(0.0,0.5,0.0);
     pub const PURPLE: Self = Self::rgb(0.5,0.0,0.5);
     pub const TEAL: Self = Self::rgb(0.0,0.5,0.5);
     pub const NAVY: Self = Self::rgb(0.0,0.0,0.5);
-    pub const TRANSPARENT: Self = Self::rgba(1.0,1.0,1.0,0.0);
+    pub const TRANSPARENT: Self = Self::new(1.0, 1.0, 1.0, 0.0);
+    pub const SADDLE_BROWN: Self = Self::rgb(0.5451, 0.2706, 0.0745);
 
     pub const fn rgb(r: f32, g: f32, b: f32) -> Self {
-        Self::rgba(r,g,b,1.0)
+        Self::new(r, g, b, 1.0)
     }
-    pub const fn rgba(r: f32, g: f32, b: f32, a: f32) -> Self {
+    pub const fn new(r: f32, g: f32, b: f32, a: f32) -> Self {
         Self {r,g,b,a}
+    }
+    pub fn rgb_u8(r: u8,g: u8, b: u8) -> Self {
+        Self::new(
+            (r as f32/u8::MAX as f32),
+            (g as f32/u8::MAX as f32),
+            (b as f32/u8::MAX as f32),
+            1.0)
     }
     pub fn invert(mut self) -> Self {
         self.r = 1.0 - self.r;
         self.g = 1.0 - self.g;
         self.b = 1.0 - self.b;
         self
+    }
+}
+impl From<Color> for wgpu::Color {
+    fn from(c: Color) -> Self {
+        Self {
+            r: c.r.into(),
+            g: c.g.into(),
+            b: c.b.into(),
+            a: c.a.into(),
+        }
     }
 }
 #[derive(Copy,Clone,Debug)]
