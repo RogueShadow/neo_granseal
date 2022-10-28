@@ -5,7 +5,7 @@ use rand::{Rng, SeedableRng};
 use neo_granseal::{start, GransealGameConfig, VSyncMode, NeoGransealEventHandler, core::NGCore, events::Event, shape_pipeline::SSRGraphics};
 use neo_granseal::core::NGCommand;
 use neo_granseal::events::Key;
-use neo_granseal::shape_pipeline::{FillStyle, LineStyle};
+use neo_granseal::shape_pipeline::{FillStyle};
 use neo_granseal::util::{Color, Point};
 
 fn main() {
@@ -62,7 +62,7 @@ fn grid(g: &mut SSRGraphics, screen_size: Point, grid_size: Point) {
 impl NeoGransealEventHandler for Game {
     fn event(&mut self, core: &mut NGCore, e: Event) {
         match e {
-            Event::KeyEvent { key, state, .. } => {
+            Event::KeyEvent { key , .. } => {
                 match key {
                     Key::F1 => {
                         core.cmd(NGCommand::GetFps);
@@ -149,10 +149,10 @@ impl NeoGransealEventHandler for Game {
                 gfx.arc(Point::new(cx + 64.0,cy),64.0,0.0,90.0,4.0);
                 gfx.color = FadeDown(c2,c1);
                 gfx.rect(Point::new(cx+32.0,cy-96.0),Point::new(64.0,64.0));
-                for (i,p) in self.queue.iter().enumerate() {
-                    //gfx.color = FadeLeft(Color::rgb(p.x/200.0,p.y/height,0.5),Color::RED);
-                    //gfx.line(Point::new(i as f32 * gfx.thickness,0.0),Point::new(i as f32 * gfx.thickness,p.y))
-                };
+                // for (i,p) in self.queue.iter().enumerate() {
+                //     gfx.color = FadeLeft(Color::rgb(p.x/200.0,p.y/height,0.5),Color::RED);
+                //     gfx.line(Point::new(i as f32 * gfx.thickness,0.0),Point::new(i as f32 * gfx.thickness,p.y))
+                // };
                 gfx.fill = false;
                 gfx.thickness = 256.0 * time.rem(3.15).sin();
                 gfx.color = FadeLeft(Color::CORAL,Color::CRIMSON);
@@ -164,12 +164,12 @@ impl NeoGransealEventHandler for Game {
                 if self.timer.elapsed().as_secs_f32() > 0.005 {
                     self.queue.get_mut(0).unwrap().y = core.timer.elapsed().as_secs_f32().rem(3.14).sin() * 500.0 + self.rng.gen::<f32>() * 100.0;
                     self.queue.rotate_right(1);
-                    self.timer = std::time::Instant::now();
+                    self.timer = Instant::now();
                 }
                 self.entities.iter_mut().for_each(|e| e.update(d));
             }
             Event::Load => {
-                (0..100).for_each(|i|{
+                (0..100).for_each(|_|{
                     self.points.push(
                         Point::new(
                             self.rng.gen::<f32>() * core.config.width as f32,

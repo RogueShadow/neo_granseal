@@ -1,8 +1,8 @@
-use neo_granseal::shape_pipeline::{FillStyle, SSRGraphics, SSRRenderData};
+use neo_granseal::shape_pipeline::{FillStyle, SSRGraphics};
 use neo_granseal::{
-    core::{NGCommand, NGCore},
+    core::{NGCore},
     events::Event,
-    shape_pipeline, start, GransealGameConfig, NeoGransealEventHandler, VSyncMode,
+    start, GransealGameConfig, NeoGransealEventHandler, VSyncMode,
 };
 use rand::{Rng, SeedableRng};
 use neo_granseal::util::{Color, Point};

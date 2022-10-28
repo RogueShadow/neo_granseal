@@ -5,12 +5,10 @@ pub enum Event {
     KeyEvent {
         state: KeyState,
         key: Key,
-        modifiers: ModifierState,
     },
     MouseButton {
         state: KeyState,
         button: MouseButton,
-        modifiers: ModifierState,
         position: [f64; 2],
     },
     MouseMoved {
@@ -36,7 +34,7 @@ pub enum KeyState {
     Pressed,
     Released,
 }
-
+#[allow(unused)]
 #[derive(Copy, Clone, Debug)]
 pub struct ModifierState {
     pub(crate) shift: bool,
@@ -165,7 +163,7 @@ pub fn map_events(event: &winit::event::WindowEvent) -> Option<Event> {
                     scancode: _scancode,
                     state,
                     virtual_keycode,
-                    modifiers,
+                    ..
                 },
             ..
         } => {
@@ -178,21 +176,19 @@ pub fn map_events(event: &winit::event::WindowEvent) -> Option<Event> {
                     winit::event::ElementState::Released => KeyState::Released,
                 },
                 key: map_keys(&virtual_keycode.unwrap()),
-                modifiers: map_modifiers(modifiers),
             })
         }
         winit::event::WindowEvent::MouseInput {
             device_id: _device_id,
             state,
             button,
-            modifiers,
+            ..
         } => Some(Event::MouseButton {
             state: match state {
                 winit::event::ElementState::Pressed => KeyState::Pressed,
                 winit::event::ElementState::Released => KeyState::Released,
             },
             button: map_mouse_buttons(button),
-            modifiers: map_modifiers(modifiers),
             position: [0.0, 0.0],
         }),
         _ => None,
@@ -205,14 +201,6 @@ fn map_mouse_buttons(button: &winit::event::MouseButton) -> MouseButton {
         winit::event::MouseButton::Right => MouseButton::Right,
         winit::event::MouseButton::Middle => MouseButton::Middle,
         winit::event::MouseButton::Other(b) => MouseButton::Other(*b),
-    }
-}
-
-fn map_modifiers(modifiers: &winit::event::ModifiersState) -> ModifierState {
-    ModifierState {
-        shift: modifiers.shift(),
-        alt: modifiers.alt(),
-        ctrl: modifiers.ctrl(),
     }
 }
 

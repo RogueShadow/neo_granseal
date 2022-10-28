@@ -6,15 +6,9 @@ pub mod util;
 
 use crate::core::{NGCore, NGError};
 use crate::main_loop::main_loop;
-use crate::shape_pipeline::SSRRenderData;
 use image::EncodableLayout;
-use pollster::FutureExt;
-use std::ops::{Deref, DerefMut};
 use wgpu::util::DeviceExt;
-use winit::dpi::PhysicalSize;
-use winit::event::{Event, WindowEvent};
-use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
-use winit::{event, event_loop};
+use winit::event_loop::{ EventLoopBuilder};
 use crate::util::Color;
 
 #[derive(Clone, Debug)]
@@ -89,8 +83,6 @@ pub trait NGRenderPipeline {
 }
 
 pub struct GlobalUniforms {
-    screen_uniform_buffer: wgpu::Buffer,
-    time_uniform_buffer: wgpu::Buffer,
     bind_group_layout: wgpu::BindGroupLayout,
     bind_group: wgpu::BindGroup,
 }
@@ -160,8 +152,6 @@ impl GlobalUniforms {
             ],
         });
         Self {
-            screen_uniform_buffer,
-            time_uniform_buffer,
             bind_group_layout,
             bind_group,
         }
