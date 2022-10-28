@@ -1,6 +1,4 @@
 use std::ops::{Add, Mul, Sub};
-use std::str::FromStr;
-use crate::util;
 
 #[derive(Copy,Clone,Debug)]
 pub struct Color {
@@ -75,9 +73,9 @@ impl Color {
     }
     pub fn rgb_u8(r: u8,g: u8, b: u8) -> Self {
         Self::new(
-            (r as f32/u8::MAX as f32),
-            (g as f32/u8::MAX as f32),
-            (b as f32/u8::MAX as f32),
+            r as f32/u8::MAX as f32,
+            g as f32/u8::MAX as f32,
+            b as f32/u8::MAX as f32,
             1.0)
     }
     pub fn invert(mut self) -> Self {

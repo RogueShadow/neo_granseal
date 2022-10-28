@@ -1,7 +1,6 @@
-use crate::shape_pipeline::SimpleShapeRenderPipeline;
-use crate::{map_present_modes, GransealGameConfig, NGRenderPipeline, SSRRenderData};
+use crate::{map_present_modes, GransealGameConfig, NGRenderPipeline};
 use pollster::FutureExt;
-use wgpu::{Features, Surface};
+use wgpu::{Features};
 use winit::dpi::PhysicalSize;
 use winit::event_loop::EventLoop;
 

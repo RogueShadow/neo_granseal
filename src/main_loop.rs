@@ -1,19 +1,14 @@
-use crate::shape_pipeline::{SSRGraphics, SimpleShapeRenderPipeline, SSRTransform, SSRMaterial};
+use crate::shape_pipeline::{ SimpleShapeRenderPipeline};
 use crate::{
     core::{NGCommand, NGCore},
-    events, shape_pipeline, GlobalUniforms, SSRRenderData,
+    events, GlobalUniforms,
 };
-use std::ops::{Deref, Index};
-use std::rc::Rc;
-use std::sync::Arc;
 use log::{error, info};
-use wgpu::util::DeviceExt;
 use winit::{
     event::{Event, VirtualKeyCode, WindowEvent},
     event_loop,
 };
 use winit::event::KeyboardInput;
-use crate::core::NGError;
 use crate::events::map_events;
 
 pub(crate) fn main_loop(
@@ -43,7 +38,7 @@ pub(crate) fn main_loop(
                 }
                 NGCommand::GetFps => h.event(&mut core, events::Event::Fps(fps as u32)),
                 NGCommand::Render(index, data) => {
-                    if index >= 0 && index <= pipelines.len() {
+                    if index < pipelines.len() {
                         if !pipelines.is_empty() {
                             pipelines
                                 .get_mut(index)
@@ -79,7 +74,7 @@ pub(crate) fn main_loop(
                     WindowEvent::Focused(_) => {}
                     WindowEvent::KeyboardInput {input, ..} => {
                         match input {
-                            KeyboardInput {virtual_keycode, state, ..} => {
+                            KeyboardInput {virtual_keycode, ..} => {
                                 match virtual_keycode {
                                     None => {}
                                     Some(key) => {
@@ -92,7 +87,7 @@ pub(crate) fn main_loop(
                             }
                         }
                     }
-                    WindowEvent::ModifiersChanged(state) => {}
+                    WindowEvent::ModifiersChanged(..) => {}
                     WindowEvent::Ime(_) => {}
                     WindowEvent::CursorMoved { position, .. } => {
                         h.event(
@@ -118,7 +113,7 @@ pub(crate) fn main_loop(
                 delta = std::time::Instant::now();
                 pipelines.iter_mut().for_each(|p| {
                     p.set_globals(GlobalUniforms::new(&core));
-                    p.render(&mut core);
+                    p.render(&mut core).expect("Render");
                 });
                 if frame_timer.elapsed().as_secs_f64() > 1.0 {
                     frame_timer = std::time::Instant::now();

@@ -1,8 +1,5 @@
-use std::num::NonZeroU32;
 use crate::*;
 use bytemuck::{Pod, Zeroable};
-use rand::{Rng, SeedableRng};
-use std::ops::{Not, Range};
 use crate::core::NGError;
 use crate::util::{Color, Point};
 
@@ -56,16 +53,6 @@ impl Vertex {
         self
     }
 }
-pub struct MeshBuilder {
-    verts: Vec<Vertex>
-}
-impl  MeshBuilder {
-    pub fn new() -> Self {
-        Self {
-            verts: vec![]
-        }
-    }
-}
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug,Zeroable,Pod)]
@@ -104,7 +91,6 @@ impl SSRMaterial {
 #[derive(Copy, Clone, Debug)]
 pub struct SSRObjectInfo {
     start_vertice: u32,
-    end_vertice: u32,
     start_index: u32,
     end_index: u32,
 }
@@ -115,11 +101,9 @@ pub struct SimpleShapeRenderPipeline {
     trans_buffer: wgpu::Buffer,
     mats_buffer: wgpu::Buffer,
     data_bind_group: wgpu::BindGroup,
-    clear_color: Color,
     globals: GlobalUniforms,
     data: Option<SSRRenderData>,
     pipeline: wgpu::RenderPipeline,
-    update_buffers: bool,
 }
 impl SimpleShapeRenderPipeline {
     const MAX: usize = 1_000_000;
@@ -193,7 +177,6 @@ impl SimpleShapeRenderPipeline {
             ]
         });
         let globals = GlobalUniforms::new(&core);
-        let clear_color = core.config.clear_color;
         let shader = core
             .device
             .create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -254,11 +237,9 @@ impl SimpleShapeRenderPipeline {
             trans_buffer,
             mats_buffer,
             data_bind_group,
-            clear_color,
             globals,
             data: None,
             pipeline,
-            update_buffers: true,
         }
     }
 }
@@ -436,7 +417,7 @@ impl <'draw>SSRGraphics<'draw> {
         }
     }
     fn pt_line_quad(&self, start: Point, end: Point, width: f32) -> Mesh {
-        let mut swap = if start.y < end.y {-1.0} else {1.0};
+        let swap = if start.y < end.y {-1.0} else {1.0};
         let pi = std::f32::consts::PI;
         let dx = (start.x - end.x) * 2.0; // width of line
         let dy = (start.y - end.y) * 2.0; // height of line
@@ -478,7 +459,7 @@ impl <'draw>SSRGraphics<'draw> {
         }
     }
     pub fn line(&mut self, start: Point, end: Point) {
-        let mut mesh = self.pt_line_quad(start,end,self.thickness / 2.0);
+        let mesh = self.pt_line_quad(start,end,self.thickness / 2.0);
         //mesh.vertices.iter_mut().for_each(|v| {v.rgba(self.color)});
         let kind = self.kind;
         self.draw_raw_vertices(mesh,None,None,Some(kind))
@@ -549,7 +530,7 @@ impl <'draw>SSRGraphics<'draw> {
     }
     pub fn circle(&mut self, center: Point, radius: Point, resolution: f32) {
         if self.fill {
-            let (c1, c2, c3, c4) = self.corners();
+            let (c1, _, _, c4) = self.corners();
             let mut vertices = vec![Vertex::new().xy(0.0, 0.0).rgba(c1)];
             let mut indices: Vec<u32> = vec![];
             let circumference = 2.0 * std::f32::consts::PI * radius.len();
@@ -573,7 +554,7 @@ impl <'draw>SSRGraphics<'draw> {
             };
             self.draw_raw_vertices(mesh, Some(center), None, None)
         } else {
-            let (c1, c2, c3, c4) = self.corners();
+            let (c1, _, _, c4) = self.corners();
             let mut vertices = vec![];
             let mut indices: Vec<u32> = vec![];
             let circumference = 2.0 * std::f32::consts::PI * radius.len();
@@ -610,7 +591,7 @@ impl <'draw>SSRGraphics<'draw> {
         }
     }
     pub fn arc(&mut self, center: Point, radius: f32, arc_begin: f32, arc_end: f32, resolution: f32) {
-        let (c1,c2,c3,c4) = self.corners();
+        let (c1,_,_,c4) = self.corners();
         let mut vertices = vec![Vertex::new().xy(0.0,0.0).rgba(c1)];
         let mut indices: Vec<u32> = vec![];
         let start_angle = arc_begin.to_radians();
@@ -648,11 +629,9 @@ impl <'draw>SSRGraphics<'draw> {
         let start_index = self.data.indices.len();
         for v in mesh.vertices { self.data.vertices.push(v); }
         for i in mesh.indices { self.data.indices.push(i); }
-        let end_vertex = self.data.vertices.len();
         let end_index = self.data.indices.len();
         let info = SSRObjectInfo {
             start_vertice: start_vertex as u32,
-            end_vertice: end_vertex as u32,
             start_index: start_index as u32,
             end_index: end_index as u32,
         };
