@@ -34,6 +34,8 @@ pub enum NGCommand {
     AddPipeline(Box<dyn NGRenderPipeline>),
     Render(usize, Box<dyn std::any::Any>),
     GetFps,
+    SetCursorVisibility(bool),
+    SetTitle(String),
 }
 
 pub struct NGCore {

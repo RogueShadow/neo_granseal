@@ -12,7 +12,6 @@ pub struct Color {
 impl Color {
     pub const BLACK: Self = Self::rgb(0.0,0.0,0.0);
     pub const WHITE: Self = Self::rgb(1.0,1.0,1.0);
-    pub const RED: Self = Self::rgb(1.0, 0.0, 0.0);
     pub const LIME: Self = Self::rgb(0.0, 1.0, 0.0);
     pub const BLUE: Self = Self::rgb(0.0,0.0,1.0);
     pub const YELLOW: Self = Self::rgb(1.0,1.0,0.0);
@@ -29,7 +28,45 @@ impl Color {
     pub const NAVY: Self = Self::rgb(0.0,0.0,0.5);
     pub const TRANSPARENT: Self = Self::new(1.0, 1.0, 1.0, 0.0);
     pub const SADDLE_BROWN: Self = Self::rgb(0.5451, 0.2706, 0.0745);
+    // red colors
+    pub const LIGHT_SALMON: Self = Self::rgb(1.0, 160.0/255.0,122.0/255.0);
+    pub const SALMON: Self = Self::rgb(250.0/255.0,0.5,114.0/255.0);
+    pub const DARK_SALMON: Self = Self::rgb(233.0/255.0,150.0/255.0,122.0/255.0);
+    pub const LIGHT_CORAL: Self = Self::rgb(240.0/255.0,0.5,0.5);
+    pub const INDIAN_RED: Self = Self::rgb(205.0/255.0,92.0/255.0,92.0/255.0);
+    pub const CRIMSON: Self = Self::rgb(220.0/255.0,20.0/255.0,60.0/255.0);
+    pub const FIRE_BRICK: Self = Self::rgb(178.0/255.0,34.0/255.0,34.0/255.0);
+    pub const RED: Self = Self::rgb(1.0,0.0,0.0);
+    pub const DARK_RED: Self = Self::rgb(139.0/255.0,0.0,0.0);
+    // orange colors
+    pub const CORAL: Self = Self::rgb(1.0,127.0/255.0,80.0/255.0);
+    pub const TOMATO: Self = Self::rgb(1.0,99.0/255.0,71.0/255.0);
+    pub const ORANGE_RED: Self = Self::rgb(1.0,69.0/255.0,0.0);
+    pub const GOLD: Self = Self::rgb(1.0,215.0/255.0,0.0);
+    pub const ORANGE: Self = Self::rgb(1.0,165.0/255.0,0.0);
+    pub const DARK_ORANGE: Self = Self::rgb(1.0,140.0/255.0,0.0);
+    // yellow colors
 
+    // green colors
+
+    // cyan colors
+
+    // blue colors
+
+    // purple colors
+
+    // pink colors
+
+    // white colors
+
+    // gray colors
+
+    // brown colors
+
+
+}
+
+impl Color {
     pub const fn rgb(r: f32, g: f32, b: f32) -> Self {
         Self::new(r, g, b, 1.0)
     }

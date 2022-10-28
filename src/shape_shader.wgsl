@@ -51,6 +51,7 @@ fn vs_main(@builtin(vertex_index) index: u32, in: VertexInput, @builtin(instance
     var pos = ((in.pos.xy) / screen) * 2.0;
     var trans = ((vec2<f32>(transforms[inst].x,transforms[inst].y) / screen) - 0.5) * 2.0 ;
     var output = (rotation * pos) + trans;
+    output = vec2<f32>(output.x,output.y *  -1.0);
 
     var out: VertexOutput;
     out.clip_position = vec4<f32>(output,1.0,1.0);

@@ -11,6 +11,7 @@ fn main() {
     start(
         Game::new(),
         GransealGameConfig::new()
+            .clear_color(Color::BLACK)
             .vsync(VSyncMode::AutoNoVsync)
             .size(128 * 5, 128 * 5),
     );
@@ -32,7 +33,7 @@ impl Game {
         Self {
             rng: rand_xorshift::XorShiftRng::from_rng(rand::thread_rng()).expect("Getting Rng."),
             entities: vec![],
-            size: Point::new(16.0, 16.0),
+            size: Point::new(4.0, 4.0),
             timer: std::time::Instant::now(),
             toggle: true,
         }
@@ -47,6 +48,8 @@ impl NeoGransealEventHandler for Game {
             Event::MouseMoved { .. } => {}
             Event::Draw => {
                 let mut gfx = SSRGraphics::new(core);
+                gfx.fill = false;
+
                 for e in &self.entities {
                     gfx.color = FillStyle::Solid(e.color);
                     gfx.rotation = e.rot;
@@ -84,6 +87,7 @@ impl NeoGransealEventHandler for Game {
                         })
                     }
                 }
+                println!("Boxes: {}",self.entities.len());
             }
             Event::Resized(_, _) => {}
             Event::Fps(_) => {}

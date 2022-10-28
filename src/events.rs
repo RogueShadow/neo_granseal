@@ -216,7 +216,7 @@ fn map_modifiers(modifiers: &winit::event::ModifiersState) -> ModifierState {
     }
 }
 
-fn map_keys(key: &winit::event::VirtualKeyCode) -> Key {
+pub fn map_keys(key: &winit::event::VirtualKeyCode) -> Key {
     use winit::event::VirtualKeyCode as V;
     use Key as G;
 

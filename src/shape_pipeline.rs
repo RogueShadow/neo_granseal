@@ -229,7 +229,7 @@ impl SimpleShapeRenderPipeline {
                 primitive: wgpu::PrimitiveState {
                     topology: wgpu::PrimitiveTopology::TriangleList,
                     strip_index_format: None,
-                    front_face: wgpu::FrontFace::Cw,
+                    front_face: wgpu::FrontFace::Ccw,
                     cull_mode: Some(wgpu::Face::Back),
                     unclipped_depth: false,
                     polygon_mode: wgpu::PolygonMode::Fill,
@@ -547,18 +547,18 @@ impl <'draw>SSRGraphics<'draw> {
 
         }
     }
-    pub fn circle(&mut self, center: Point, radius: f32, resolution: f32) {
+    pub fn circle(&mut self, center: Point, radius: Point, resolution: f32) {
         if self.fill {
             let (c1, c2, c3, c4) = self.corners();
             let mut vertices = vec![Vertex::new().xy(0.0, 0.0).rgba(c1)];
             let mut indices: Vec<u32> = vec![];
-            let circumference = 2.0 * std::f32::consts::PI * radius;
+            let circumference = 2.0 * std::f32::consts::PI * radius.len();
             let vertex_count = circumference / resolution;
             let angle_step = (2.0 * std::f32::consts::PI) / (vertex_count - 1.0);
             let mut a: f32 = 0.0;
             (0..=(vertex_count as u32 + 1)).for_each(|i| {
                 vertices.push(
-                    Vertex::new().xy(radius * a.cos(), radius * a.sin()).rgba(c4)
+                    Vertex::new().xy(radius.x * a.cos(), radius.y * a.sin()).rgba(c4)
                 );
                 if i > 1 {
                     indices.push(0);
@@ -576,16 +576,16 @@ impl <'draw>SSRGraphics<'draw> {
             let (c1, c2, c3, c4) = self.corners();
             let mut vertices = vec![];
             let mut indices: Vec<u32> = vec![];
-            let circumference = 2.0 * std::f32::consts::PI * radius;
+            let circumference = 2.0 * std::f32::consts::PI * radius.len();
             let vertex_count = circumference / resolution;
             let angle_step = (2.0 * std::f32::consts::PI) / vertex_count;
             let mut a: f32 = 0.0;
             (0..=(vertex_count as u32 + 2)).for_each(|i| {
                 vertices.push(
-                    Vertex::new().xy(radius * a.cos(), radius * a.sin()).rgba(c4)
+                    Vertex::new().xy(radius.x * a.cos(), radius.y * a.sin()).rgba(c4)
                 );
                 vertices.push(
-                    Vertex::new().xy( (radius - self.thickness) * a.cos(), (radius - self.thickness) * a.sin()).rgba(c1)
+                    Vertex::new().xy( (radius.x - self.thickness) * a.cos(), (radius.y - self.thickness) * a.sin()).rgba(c1)
                 );
                 if i > 1 {
                     let v1 = i*2;
