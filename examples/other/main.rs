@@ -4,7 +4,7 @@ use std::time::Instant;
 use rand::{Rng, SeedableRng};
 use neo_granseal::{start, GransealGameConfig, VSyncMode, NeoGransealEventHandler, core::NGCore, events::Event, shape_pipeline::SSRGraphics};
 use neo_granseal::core::NGCommand;
-use neo_granseal::events::Key;
+use neo_granseal::events::{Key, KeyState, MouseButton};
 use neo_granseal::shape_pipeline::{FillStyle};
 use neo_granseal::util::{Color, Point};
 
@@ -54,7 +54,6 @@ fn grid(g: &mut SSRGraphics, screen_size: Point, grid_size: Point) {
         for y in 0..((screen_size.y/ grid_size.y).floor() as i32) {
             let py = y as f32 * grid_size.y;
             g.line(Point::new(0.0,py),Point::new(screen_size.x,py));
-
         }
         g.line(Point::new(px,0.0),Point::new(px,screen_size.y));
     }
@@ -62,23 +61,9 @@ fn grid(g: &mut SSRGraphics, screen_size: Point, grid_size: Point) {
 impl NeoGransealEventHandler for Game {
     fn event(&mut self, core: &mut NGCore, e: Event) {
         match e {
-            Event::KeyEvent { key , .. } => {
-                match key {
-                    Key::F1 => {
-                        core.cmd(NGCommand::GetFps);
-                    }
-                    Key::F2 => {
-                        core.cmd(NGCommand::SetCursorVisibility(false));
-                    }
-                    _ => {}
-                }
-            }
-            Event::MouseButton { .. } => {}
-            Event::MouseMoved {
-                position
-            } => {
-                self.center.x = position[0] as f32;
-                self.center.y = position[1] as f32;
+            Event::KeyEvent { key , state: KeyState::Pressed } => {
+                if key == Key::F1 { core.cmd(NGCommand::GetFps); }
+                if key == Key::F2 { core.cmd(NGCommand::SetCursorVisibility(false));}
             }
             Event::Draw => {
                 use FillStyle::*;
@@ -166,6 +151,7 @@ impl NeoGransealEventHandler for Game {
                 gfx.finish();
             }
             Event::Update(d) => {
+                if core.state.mouse.left { self.center = core.state.mouse.pos }
                 if self.timer.elapsed().as_secs_f32() > 0.005 {
                     self.queue.get_mut(0).unwrap().y = core.timer.elapsed().as_secs_f32().rem(3.14).sin() * 500.0 + self.rng.gen::<f32>() * 100.0;
                     self.queue.rotate_right(1);
@@ -200,10 +186,10 @@ impl NeoGransealEventHandler for Game {
                     speed: 1.0,
                 });
             }
-            Event::Resized(_, _) => {}
             Event::Fps(fps) => {
                 core.cmd(NGCommand::SetTitle(format!("{}: {}",self.title.as_str(),fps)));
             }
+            _ => {}
         }
     }
 }

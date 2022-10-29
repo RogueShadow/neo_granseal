@@ -8,7 +8,7 @@ use winit::{
     event::{Event, VirtualKeyCode, WindowEvent},
     event_loop,
 };
-use winit::event::KeyboardInput;
+use winit::event::{ElementState, KeyboardInput, MouseButton};
 use crate::events::map_events;
 
 pub(crate) fn main_loop(
@@ -90,14 +90,26 @@ pub(crate) fn main_loop(
                     WindowEvent::ModifiersChanged(..) => {}
                     WindowEvent::Ime(_) => {}
                     WindowEvent::CursorMoved { position, .. } => {
-                        h.event(
-                            &mut core,events::Event::MouseMoved { position: [position.x,position.y]}
-                        )
+                        core.state.mouse.pos.x = position.x as f32;
+                        core.state.mouse.pos.y = position.y as f32;
                     }
                     WindowEvent::CursorEntered { .. } => {}
                     WindowEvent::CursorLeft { .. } => {}
                     WindowEvent::MouseWheel { .. } => {}
-                    WindowEvent::MouseInput { .. } => {}
+                    WindowEvent::MouseInput {button,state, .. } => {
+                        match button {
+                            MouseButton::Left => {core.state.mouse.left = match state {
+                                ElementState::Pressed => {true},ElementState::Released => {false}}
+                            }
+                            MouseButton::Right => {core.state.mouse.right = match state {
+                                ElementState::Pressed => {true},ElementState::Released => {false}}
+                            }
+                            MouseButton::Middle => {core.state.mouse.middle = match state {
+                                ElementState::Pressed => {true},ElementState::Released => {false}}
+                            }
+                            MouseButton::Other(_) => {}
+                        }
+                    }
                     WindowEvent::TouchpadPressure { .. } => {}
                     WindowEvent::AxisMotion { .. } => {}
                     WindowEvent::Touch(_) => {}

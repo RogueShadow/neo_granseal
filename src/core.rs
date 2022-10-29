@@ -37,6 +37,29 @@ pub enum NGCommand {
     SetTitle(String),
 }
 
+pub struct MouseState {
+    pub pos: crate::util::Point,
+    pub left: bool,
+    pub right: bool,
+    pub middle: bool,
+}
+// It's so common to check if buttons are held down, let's add that right in.
+pub struct EngineState {
+    pub mouse: MouseState,
+}
+impl EngineState {
+    pub fn new() -> Self {
+        Self {
+            mouse: MouseState {
+                pos: crate::util::Point::new(0.0,0.0),
+                left: false,
+                right: false,
+                middle: false,
+            },
+        }
+    }
+}
+
 pub struct NGCore {
     pub config: GransealGameConfig,
     pub timer: std::time::Instant,
@@ -48,6 +71,7 @@ pub struct NGCore {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub cmd_queue: Vec<NGCommand>,
+    pub state: EngineState,
 }
 
 impl NGCore {
@@ -91,6 +115,7 @@ impl NGCore {
             )
             .block_on()?;
         surface.configure(&device, &surface_configuration);
+        let state = EngineState::new();
         Ok(Self {
             config,
             timer,
@@ -102,6 +127,7 @@ impl NGCore {
             device,
             queue,
             cmd_queue: vec![],
+            state,
         })
     }
 }

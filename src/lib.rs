@@ -11,13 +11,6 @@ use wgpu::util::DeviceExt;
 use winit::event_loop::{ EventLoopBuilder};
 use crate::util::Color;
 
-#[derive(Clone, Debug, Copy)]
-pub enum MSAA {
-    Disabled,
-    Enable4x,
-   // Enable8x,
-   // Enable16x,
-}
 #[derive(Clone, Debug)]
 pub struct GransealGameConfig {
     pub width: i32,
@@ -62,8 +55,14 @@ impl GransealGameConfig {
         self
     }
 }
+#[derive(Clone, Debug, Copy)]
+pub enum MSAA {
+    Disabled,
+    Enable4x,
+    // Enable8x,
+    // Enable16x,
+}
 
-#[repr(C)]
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum VSyncMode {
     AutoVsync,

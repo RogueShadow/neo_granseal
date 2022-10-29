@@ -1,4 +1,5 @@
 use std::time::Duration;
+use crate::util::Point;
 
 #[derive(Copy, Clone, Debug)]
 pub enum Event {
@@ -9,10 +10,9 @@ pub enum Event {
     MouseButton {
         state: KeyState,
         button: MouseButton,
-        position: [f64; 2],
     },
     MouseMoved {
-        position: [f64; 2],
+        position: Point,
     },
     Draw,
     Update(Duration),
@@ -21,7 +21,7 @@ pub enum Event {
     Fps(u32),
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum MouseButton {
     Left,
     Middle,
@@ -29,7 +29,7 @@ pub enum MouseButton {
     Other(u16),
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum KeyState {
     Pressed,
     Released,
@@ -189,8 +189,10 @@ pub fn map_events(event: &winit::event::WindowEvent) -> Option<Event> {
                 winit::event::ElementState::Released => KeyState::Released,
             },
             button: map_mouse_buttons(button),
-            position: [0.0, 0.0],
         }),
+        winit::event::WindowEvent::CursorMoved {position, ..} => {
+            Some(Event::MouseMoved {position: Point::new(position.x as f32,position.y as f32)})
+        }
         _ => None,
     }
 }
