@@ -1,9 +1,5 @@
 use neo_granseal::shape_pipeline::{FillStyle, SSRGraphics};
-use neo_granseal::{
-    core::{NGCore},
-    events::Event,
-    start, GransealGameConfig, NeoGransealEventHandler, VSyncMode,
-};
+use neo_granseal::{core::{NGCore}, events::Event, start, GransealGameConfig, NeoGransealEventHandler, VSyncMode, MSAA};
 use rand::{Rng, SeedableRng};
 use neo_granseal::util::{Color, Point};
 
@@ -13,7 +9,7 @@ fn main() {
         GransealGameConfig::new()
             .clear_color(Color::BLACK)
             .vsync(VSyncMode::AutoNoVsync)
-            .size(128 * 5, 128 * 5),
+            .size(128 * 5, 128 * 5)
     );
 }
 struct Entity {

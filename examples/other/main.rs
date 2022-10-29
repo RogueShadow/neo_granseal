@@ -158,6 +158,11 @@ impl NeoGransealEventHandler for Game {
                 gfx.color = FadeLeft(Color::CORAL,Color::CRIMSON);
                 gfx.circle(Point::new(256.0,256.0),Point::new(172.0,32.0),16.0);
 
+                self.entities.iter().for_each(|e|{
+                    gfx.color = FadeLeft(Color::DARK_SALMON,Color::GOLD);
+                    gfx.thickness = 8.0;
+                    gfx.line(e.center,e.pos);
+                });
                 gfx.finish();
             }
             Event::Update(d) => {

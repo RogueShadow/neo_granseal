@@ -96,6 +96,7 @@ pub struct SSRObjectInfo {
 }
 
 pub struct SimpleShapeRenderPipeline {
+    multisample: Option<wgpu::Texture>,
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     trans_buffer: wgpu::Buffer,
@@ -109,6 +110,28 @@ impl SimpleShapeRenderPipeline {
     const MAX: usize = 1_000_000;
     pub fn new(core: &NGCore) -> Self {
         let max = SimpleShapeRenderPipeline::MAX as usize;
+        let get_msaa_tex = |sample_count: u32| -> wgpu::Texture {
+            core.device.create_texture(&wgpu::TextureDescriptor {
+                label: Some("MultiSample Texture"),
+                size: wgpu::Extent3d {
+                    width: core.surface_configuration.width,
+                    height: core.surface_configuration.height,
+                    depth_or_array_layers: 1
+                },
+                mip_level_count: 1,
+                sample_count,
+                dimension: wgpu::TextureDimension::D2,
+                format: core.surface_configuration.format,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+            })
+        };
+        let multisample = match &core.config.msaa {
+            MSAA::Disabled => {None}
+            MSAA::Enable4x => {Some(get_msaa_tex(4))}
+            //MSAA::Enable8x => {Some(get_msaa_tex(8))}
+            //MSAA::Enable16x => {Some(get_msaa_tex(16))}
+        };
+
         let vertex_buffer = core.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("SSR Vertex Buffer"),
             size: 0,
@@ -193,6 +216,13 @@ impl SimpleShapeRenderPipeline {
                 ],
                 push_constant_ranges: &[],
             });
+        let multisample_state = match &core.config.msaa {
+            MSAA::Disabled => {wgpu::MultisampleState::default()}
+            MSAA::Enable4x => {
+                wgpu::MultisampleState { count: 4, mask: !0, alpha_to_coverage_enabled: false }}
+            //MSAA::Enable8x => {wgpu::MultisampleState { count: 8, mask: !0, alpha_to_coverage_enabled: true }}
+            //MSAA::Enable16x => {wgpu::MultisampleState { count: 16, mask: !0, alpha_to_coverage_enabled: true }}
+        };
         let pipeline = core
             .device
             .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -219,7 +249,7 @@ impl SimpleShapeRenderPipeline {
                     conservative: false,
                 },
                 depth_stencil: None,
-                multisample: wgpu::MultisampleState::default(),
+                multisample: multisample_state,
                 fragment: Some(wgpu::FragmentState {
                     module: &shader,
                     entry_point: "fs_main",
@@ -232,6 +262,7 @@ impl SimpleShapeRenderPipeline {
                 multiview: None,
             });
         Self {
+            multisample,
             vertex_buffer,
             index_buffer,
             trans_buffer,
@@ -266,10 +297,22 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
         core.queue.write_buffer(&self.trans_buffer, 0, bytemuck::cast_slice(data.transforms.as_slice()));
         core.queue.write_buffer(&self.mats_buffer, 0, bytemuck::cast_slice(data.materials.as_slice()));
 
-        let output =
-            core.surface.get_current_texture()?;
-        let view =
-            output.texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let output = core.surface.get_current_texture()?;
+        let output_view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let (view, resolve_target) = match &self.multisample {
+            None => {
+                (
+                    output_view,
+                    None,
+                )
+            }
+            Some(t) => {
+                (
+                    t.create_view(&wgpu::TextureViewDescriptor::default()),
+                    Some(&output_view),
+                )
+            }
+        };
         let mut encoder =
             core.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("SimpleShapeRenderPipeline Command Encoder"),
@@ -278,7 +321,7 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
             label: Some("SimpleShapeRenderPipeline Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: &view,
-                resolve_target: None,
+                resolve_target,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(core.config.clear_color.into()),
                     store: true,
