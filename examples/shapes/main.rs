@@ -1,5 +1,4 @@
 use std::ops::Rem;
-use winit::platform::windows::WindowExtWindows;
 use neo_granseal::core::{NGCommand, NGCore};
 use neo_granseal::events::Event;
 use neo_granseal::{GransealGameConfig, NeoGransealEventHandler, start};
@@ -11,7 +10,7 @@ fn main() {
         .vsync(false)
         .title("Shape Showcase".to_string())
         .clear_color(Color::DARK_OLIVE_GREEN)
-        .size(600,600))
+        .size(900,500))
 }
 
 struct Shapes {}

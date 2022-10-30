@@ -48,9 +48,10 @@ var<storage,read> materials: array<Material>;
 fn vs_main(@builtin(vertex_index) index: u32, in: VertexInput, @builtin(instance_index) inst: u32) -> VertexOutput {
     let a = transforms[inst].a;
     let rotation = mat2x2<f32>(cos(a),-sin(a),sin(a),cos(a));
-    var pos = ((in.pos.xy) / screen) * 2.0;
+    var raw_pos = in.pos.xy * rotation;
+    var pos = (raw_pos / screen) * 2.0;
     var trans = ((vec2<f32>(transforms[inst].x,transforms[inst].y) / screen) - 0.5) * 2.0 ;
-    var output = (rotation * pos) + trans;
+    var output = pos + trans;
     output = vec2<f32>(output.x,output.y *  -1.0);
 
     var out: VertexOutput;
