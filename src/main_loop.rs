@@ -17,10 +17,8 @@ pub(crate) fn main_loop(
     mut h: Box<dyn crate::NeoGransealEventHandler>,
 ) {
     env_logger::init();
-    info!("Teest starting up.");
     let mut delta = std::time::Instant::now();
     let mut frames = 0;
-    let mut fps = 0;
     let mut frame_timer = std::time::Instant::now();
     let mut pipelines: Vec<Box<dyn crate::NGRenderPipeline>> = vec![];
     if core.config.simple_pipeline {
@@ -36,7 +34,6 @@ pub(crate) fn main_loop(
                 NGCommand::AddPipeline(p) => {
                     pipelines.push(p);
                 }
-                NGCommand::GetFps => h.event(&mut core, events::Event::Fps(fps as u32)),
                 NGCommand::Render(index, data) => {
                     if index < pipelines.len() {
                         if !pipelines.is_empty() {
@@ -129,9 +126,9 @@ pub(crate) fn main_loop(
                 });
                 if frame_timer.elapsed().as_secs_f64() > 1.0 {
                     frame_timer = std::time::Instant::now();
-                    fps = frames;
+                    core.state.fps = frames;
                     frames = 0;
-                    println!("Fps: {}", fps);
+                    println!("Fps: {}", core.state.fps);
                 }
                 frames += 1;
             }

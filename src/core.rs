@@ -32,7 +32,6 @@ impl From<wgpu::SurfaceError> for NGError {
 pub enum NGCommand {
     AddPipeline(Box<dyn NGRenderPipeline>),
     Render(usize, Box<dyn std::any::Any>),
-    GetFps,
     SetCursorVisibility(bool),
     SetTitle(String),
 }
@@ -46,6 +45,7 @@ pub struct MouseState {
 // It's so common to check if buttons are held down, let's add that right in.
 pub struct EngineState {
     pub mouse: MouseState,
+    pub fps: i32,
 }
 impl EngineState {
     pub fn new() -> Self {
@@ -56,6 +56,7 @@ impl EngineState {
                 right: false,
                 middle: false,
             },
+            fps: 0
         }
     }
 }

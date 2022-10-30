@@ -3,13 +3,21 @@ pub mod events;
 pub mod main_loop;
 pub mod shape_pipeline;
 pub mod util;
-
-use crate::core::{NGCore, NGError};
+pub mod prelude {
+    pub use {
+        crate::GransealGameConfig,
+        crate::NeoGransealEventHandler,
+        crate::start,
+        crate::core::{NGCore,NGError},
+        crate::events::Event,
+        crate::shape_pipeline::ShapeGfx,
+        crate::util::{Color,Point},
+    };
+}
+use prelude::*;
 use crate::main_loop::main_loop;
-use image::EncodableLayout;
 use wgpu::util::DeviceExt;
 use winit::event_loop::{ EventLoopBuilder};
-use crate::util::Color;
 
 #[derive(Clone, Debug)]
 pub struct GransealGameConfig {
@@ -85,7 +93,7 @@ pub fn map_present_modes(mode: VSyncMode) -> wgpu::PresentMode {
 }
 
 pub trait NeoGransealEventHandler {
-    fn event(&mut self, core: &mut NGCore, e: events::Event);
+    fn event(&mut self, core: &mut NGCore, e: Event);
 }
 
 pub trait NGRenderPipeline {
@@ -108,8 +116,7 @@ impl GlobalUniforms {
                         [
                             core.window.inner_size().width as f32,
                             core.window.inner_size().height as f32,
-                        ]
-                        .as_bytes(),
+                        ].as_slice(),
                     ),
                     usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                 });

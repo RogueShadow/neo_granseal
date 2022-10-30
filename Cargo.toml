@@ -30,3 +30,7 @@ test = false
 [[example]]
 name = "shapes"
 test = false
+
+[[example]]
+name = "simplest_box"
+test = false

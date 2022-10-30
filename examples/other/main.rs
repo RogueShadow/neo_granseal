@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::ops::Rem;
 use std::time::Instant;
 use rand::{Rng, SeedableRng};
-use neo_granseal::{start, GransealGameConfig, VSyncMode, NeoGransealEventHandler, core::NGCore, events::Event, shape_pipeline::ShapeGfx};
+use neo_granseal::{start, GransealGameConfig, NeoGransealEventHandler, core::NGCore, events::Event, shape_pipeline::ShapeGfx};
 use neo_granseal::core::NGCommand;
 use neo_granseal::events::{Key, KeyState};
 use neo_granseal::shape_pipeline::{FillStyle};
@@ -19,7 +19,6 @@ fn main() {
         center: Point::new(0.0,0.0),
     },
           GransealGameConfig::new()
-              .size(128*6,128*6)
               .vsync(false)
               .clear_color(Color::rgb_u8(5,5,12))
     )
@@ -62,8 +61,10 @@ impl NeoGransealEventHandler for Game {
     fn event(&mut self, core: &mut NGCore, e: Event) {
         match e {
             Event::KeyEvent { key , state: KeyState::Pressed } => {
-                if key == Key::F1 { core.cmd(NGCommand::GetFps); }
-                if key == Key::F2 { core.cmd(NGCommand::SetCursorVisibility(false));}
+                if key == Key::F1 { core.cmd(NGCommand::SetCursorVisibility(false));}
+                if key == Key::F2 {
+                    core.cmd(NGCommand::SetTitle(format!("{}: {}",self.title.as_str(),core.state.fps)));
+                }
             }
             Event::Draw => {
                 use FillStyle::*;
@@ -177,9 +178,6 @@ impl NeoGransealEventHandler for Game {
                     angle: std::f32::consts::PI,
                     speed: 1.0,
                 });
-            }
-            Event::Fps(fps) => {
-                core.cmd(NGCommand::SetTitle(format!("{}: {}",self.title.as_str(),fps)));
             }
             _ => {}
         }

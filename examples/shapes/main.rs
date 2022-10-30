@@ -6,20 +6,15 @@ use neo_granseal::shape_pipeline::{FillStyle, ShapeGfx};
 use neo_granseal::util::{Color, Point};
 
 fn main() {
-    start(Shapes {},GransealGameConfig::new()
-        .vsync(false)
-        .title("Shape Showcase".to_string())
-        .clear_color(Color::DARK_OLIVE_GREEN)
-        .size(900,500))
+    start(Shapes {},GransealGameConfig::new())
 }
 
 struct Shapes {}
 impl NeoGransealEventHandler for Shapes {
     fn event(&mut self, core: &mut NGCore, e: Event) {
         match e {
-            Event::Fps(fps) => core.cmd(NGCommand::SetTitle(format!("{} Fps: {}", "Shapes Showcase", fps))),
             Event::Draw => {
-                core.cmd(NGCommand::GetFps);
+                core.cmd(NGCommand::SetTitle(format!("Shapes Showcase Fps: {}", core.state.fps)));
                 let time = core.timer.elapsed().as_secs_f32();
                 let angle = (time * 100.0).rem(360.0);
                 let thickness = 1.0 + ((time * 2.0).sin() * 16.0).abs();
@@ -35,98 +30,97 @@ impl NeoGransealEventHandler for Shapes {
                 let size = Point::new(64.0, 64.0);
                 let step = Point::new(96.0, 0.0);
                 let mut g = ShapeGfx::new(core);
+                {
+                    g.set_rotation(rotation);
 
-                g.set_rotation(rotation);
+                    g.set_line_thickness(thickness);
+                    g.set_fill_style(styles[0]);
+                    g.translate(size);
+                    g.rect(zero, size);
+                    g.translate(step);
+                    g.circle(zero, size / 2.0, 4.0);
+                    g.translate(step);
+                    g.set_fill(false);
+                    g.rect(zero, size);
+                    g.translate(step);
+                    g.circle(zero, size / 2.0, 4.0);
+                    g.translate(step);
+                    g.line(Point::new(-32.0, -32.0), size / 2.0);
+                    g.translate(step);
+                    g.arc(zero, 32.0, angle - 90.0, angle, 1.0);
 
-                g.set_line_thickness(thickness);
-                g.set_fill_style(styles[0]);
-                g.translate(size);
-                g.rect(zero, size);
-                g.translate(step);
-                g.circle(zero, size / 2.0, 4.0);
-                g.translate(step);
-                g.set_fill(false);
-                g.rect(zero, size);
-                g.translate(step);
-                g.circle(zero, size / 2.0, 4.0);
-                g.translate(step);
-                g.line(Point::new(-32.0, -32.0), size / 2.0);
-                g.translate(step);
-                g.arc(zero, 32.0, angle - 90.0, angle, 1.0);
+                    g.set_fill(true);
+                    g.set_fill_style(styles[1]);
+                    g.set_position(zero);
+                    g.translate(size);
+                    g.translate(Point::new(0.0, 96.0));
+                    g.rect(zero, size);
+                    g.translate(step);
+                    g.circle(zero, size / 2.0, 4.0);
+                    g.translate(step);
+                    g.set_fill(false);
+                    g.rect(zero, size);
+                    g.translate(step);
+                    g.circle(zero, size / 2.0, 4.0);
+                    g.translate(step);
+                    g.line(Point::new(-32.0, -32.0), size / 2.0);
+                    g.translate(step);
+                    g.arc(zero, 32.0, angle - 90.0, angle, 1.0);
 
-                g.set_fill(true);
-                g.set_fill_style(styles[1]);
-                g.set_position(zero);
-                g.translate(size);
-                g.translate(Point::new(0.0, 96.0));
-                g.rect(zero, size);
-                g.translate(step);
-                g.circle(zero, size / 2.0, 4.0);
-                g.translate(step);
-                g.set_fill(false);
-                g.rect(zero, size);
-                g.translate(step);
-                g.circle(zero, size / 2.0, 4.0);
-                g.translate(step);
-                g.line(Point::new(-32.0, -32.0), size / 2.0);
-                g.translate(step);
-                g.arc(zero, 32.0, angle - 90.0, angle, 1.0);
+                    g.set_fill(true);
+                    g.set_fill_style(styles[2]);
+                    g.set_position(zero);
+                    g.translate(size);
+                    g.translate(Point::new(0.0, 96.0 * 2.0));
+                    g.rect(zero, size);
+                    g.translate(step);
+                    g.circle(zero, size / 2.0, 4.0);
+                    g.translate(step);
+                    g.set_fill(false);
+                    g.rect(zero, size);
+                    g.translate(step);
+                    g.circle(zero, size / 2.0, 4.0);
+                    g.translate(step);
+                    g.line(Point::new(-32.0, -32.0), size / 2.0);
+                    g.translate(step);
+                    g.arc(zero, 32.0, angle - 90.0, angle, 1.0);
 
-                g.set_fill(true);
-                g.set_fill_style(styles[2]);
-                g.set_position(zero);
-                g.translate(size);
-                g.translate(Point::new(0.0, 96.0 * 2.0));
-                g.rect(zero, size);
-                g.translate(step);
-                g.circle(zero, size / 2.0, 4.0);
-                g.translate(step);
-                g.set_fill(false);
-                g.rect(zero, size);
-                g.translate(step);
-                g.circle(zero, size / 2.0, 4.0);
-                g.translate(step);
-                g.line(Point::new(-32.0, -32.0), size / 2.0);
-                g.translate(step);
-                g.arc(zero, 32.0, angle - 90.0, angle, 1.0);
+                    g.set_fill(true);
+                    g.set_fill_style(styles[3]);
+                    g.set_position(zero);
+                    g.translate(size);
+                    g.translate(Point::new(0.0, 96.0 * 3.0));
+                    g.rect(zero, size);
+                    g.translate(step);
+                    g.circle(zero, size / 2.0, 4.0);
+                    g.translate(step);
+                    g.set_fill(false);
+                    g.rect(zero, size);
+                    g.translate(step);
+                    g.circle(zero, size / 2.0, 4.0);
+                    g.translate(step);
+                    g.line(Point::new(-32.0, -32.0), size / 2.0);
+                    g.translate(step);
+                    g.arc(zero, 32.0, angle - 90.0, angle, 1.0);
 
-                g.set_fill(true);
-                g.set_fill_style(styles[3]);
-                g.set_position(zero);
-                g.translate(size);
-                g.translate(Point::new(0.0, 96.0 * 3.0));
-                g.rect(zero, size);
-                g.translate(step);
-                g.circle(zero, size / 2.0, 4.0);
-                g.translate(step);
-                g.set_fill(false);
-                g.rect(zero, size);
-                g.translate(step);
-                g.circle(zero, size / 2.0, 4.0);
-                g.translate(step);
-                g.line(Point::new(-32.0, -32.0), size / 2.0);
-                g.translate(step);
-                g.arc(zero, 32.0, angle - 90.0, angle, 1.0);
-
-                g.set_fill(true);
-                g.set_fill_style(styles[4]);
-                g.set_position(zero);
-                g.translate(size);
-                g.translate(Point::new(0.0, 96.0 * 4.0));
-                g.rect(zero, size);
-                g.translate(step);
-                g.circle(zero, size / 2.0, 4.0);
-                g.translate(step);
-                g.set_fill(false);
-                g.rect(zero, size);
-                g.translate(step);
-                g.circle(zero, size / 2.0, 4.0);
-                g.translate(step);
-                g.line(Point::new(-32.0, -32.0), size / 2.0);
-                g.translate(step);
-                g.arc(zero, 32.0, angle - 90.0, angle, 1.0);
-                g.finish();
-
+                    g.set_fill(true);
+                    g.set_fill_style(styles[4]);
+                    g.set_position(zero);
+                    g.translate(size);
+                    g.translate(Point::new(0.0, 96.0 * 4.0));
+                    g.rect(zero, size);
+                    g.translate(step);
+                    g.circle(zero, size / 2.0, 4.0);
+                    g.translate(step);
+                    g.set_fill(false);
+                    g.rect(zero, size);
+                    g.translate(step);
+                    g.circle(zero, size / 2.0, 4.0);
+                    g.translate(step);
+                    g.line(Point::new(-32.0, -32.0), size / 2.0);
+                    g.translate(step);
+                    g.arc(zero, 32.0, angle - 90.0, angle, 1.0);
+                }
                 g.finish();
             }
             _ => {}
