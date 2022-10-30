@@ -62,7 +62,11 @@ fn vs_main(@builtin(vertex_index) index: u32, in: VertexInput, @builtin(instance
     return out;
 }
 
-
+fn blink(t: f32, period: f32) -> f32 {
+    let time = t % period;
+    let p = time / period;
+    return p;
+}
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var color = in.color;
@@ -71,7 +75,10 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         return color;
     }
     if (in.kind == 1) {
-        return color * oval2(ndcPos);
+        return color * vec4(color.rgb,smoothstep(color.a,0.0,timer % 1.0));
+    }
+    if (in.kind == 2) {
+
     }
     return color;
 }

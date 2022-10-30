@@ -3,7 +3,7 @@ use crate::{
     core::{NGCommand, NGCore},
     events, GlobalUniforms,
 };
-use log::{error, info};
+use log::{error};
 use winit::{
     event::{Event, VirtualKeyCode, WindowEvent},
     event_loop,

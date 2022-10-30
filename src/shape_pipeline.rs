@@ -73,19 +73,11 @@ impl SSRTransform {
 #[repr(C)]
 #[derive(Copy, Clone, Debug,Zeroable,Pod)]
 pub struct SSRMaterial {
-    pub kind: i32,
+    pub effect: i32,
 }
-
 impl SSRMaterial {
-    fn new() -> Self {
-        Self {
-            kind: 0,
-        }
-    }
-    pub fn oval(mut self) -> Self {
-        self.kind = 1;
-        self
-    }
+    const NONE: i32 = 0;
+    const BLINK: i32 = 1;
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -408,7 +400,7 @@ pub struct SRState {
     pub line_style: LineStyle,
     pub pos: Point,
     pub rotation: f32,
-    pub kind: i32,
+    pub effect: i32,
 }
 impl SRState {
     pub fn new() -> Self {
@@ -419,7 +411,7 @@ impl SRState {
             line_style: LineStyle::Center,
             pos: Point::new(0.0,0.0),
             rotation: 0.0,
-            kind: 0,
+            effect: 0,
         }
     }
 }
@@ -453,6 +445,7 @@ impl <'draw> ShapeGfx<'draw> {
         pub fn f(&mut self, f: bool){self.set_fill(f)}
     pub fn set_rotation(&mut self, r: f32) {self.state.rotation = r}
         pub fn r(&mut self, r: f32){self.set_rotation(r)}
+    pub fn set_effect(&mut self, k: i32){self.state.effect = k}
 
     pub fn translate(&mut self, t: Point) {self.state.pos += t}
     pub fn rotate(&mut self, r: f32) {self.state.rotation += r}
@@ -534,8 +527,7 @@ impl <'draw> ShapeGfx<'draw> {
     pub fn line(&mut self, start: Point, end: Point) {
         let mesh = self.pt_line_quad(start,end,self.state.thickness / 2.0);
         //mesh.vertices.iter_mut().for_each(|v| {v.rgba(self.color)});
-        let kind = self.state.kind;
-        self.draw_raw_vertices(mesh,None,Some(kind))
+        self.draw_raw_vertices(mesh,None)
     }
     pub fn rect(&mut self, pos: Point, size: Point) {
         if self.state.fill {
@@ -546,7 +538,7 @@ impl <'draw> ShapeGfx<'draw> {
             let p3 = Point::new(hx, hy);
             let p4 = Point::new(hx, -hy);
             let mesh = self.pt_quad(p1,p2,p3,p4);
-            self.draw_raw_vertices(mesh,Some(pos),None);
+            self.draw_raw_vertices(mesh,Some(pos));
         } else {
             let hx = size.x / 2.0;
             let hy = size.y / 2.0;
@@ -583,7 +575,7 @@ impl <'draw> ShapeGfx<'draw> {
                 indices,
             };
 
-            self.draw_raw_vertices(mesh,Some(pos),None);
+            self.draw_raw_vertices(mesh,Some(pos));
         }
     }
     pub fn poly(&mut self, points: &Vec<Point>) {
@@ -625,7 +617,7 @@ impl <'draw> ShapeGfx<'draw> {
                 vertices,
                 indices,
             };
-            self.draw_raw_vertices(mesh, Some(center), None)
+            self.draw_raw_vertices(mesh, Some(center))
         } else {
             let (c1, _, _, c4) = self.colors();
             let mut vertices = vec![];
@@ -660,7 +652,7 @@ impl <'draw> ShapeGfx<'draw> {
                 vertices,
                 indices,
             };
-            self.draw_raw_vertices(mesh, Some(center), None)
+            self.draw_raw_vertices(mesh, Some(center))
         }
     }
     pub fn arc(&mut self, center: Point, radius: f32, arc_begin: f32, arc_end: f32, resolution: f32) {
@@ -689,13 +681,12 @@ impl <'draw> ShapeGfx<'draw> {
             vertices,
             indices,
         };
-        self.draw_raw_vertices(mesh,Some(center),None)
+        self.draw_raw_vertices(mesh,Some(center))
     }
     pub fn draw_raw_vertices(
         &mut self,
         mesh: Mesh,
         pos: Option<Point>,
-        kind: Option<i32>,
     ) {
         let start_vertex = self.data.vertices.len();
         let start_index = self.data.indices.len();
@@ -715,29 +706,25 @@ impl <'draw> ShapeGfx<'draw> {
         },
             None => SSRTransform::new(self.state.pos,self.state.rotation)
         };
-        let material = match kind {
-            Some(1) => SSRMaterial::new().oval(),
-            None => SSRMaterial::new(),
-            Some(_) => SSRMaterial::new(),
-        };
+        let material = SSRMaterial{ effect: self.state.effect };
         self.data.transforms.push(transform);
         self.data.materials.push(material);
         self.data.object_info.push(info);
     }
-    pub fn oval(&mut self, pos: Point, size: Point) {
-        if self.state.fill {
-            let hx = size.x / 2.0;
-            let hy = size.y / 2.0;
-            let p1 = Point::new(-hx, -hy);
-            let p2 = Point::new(-hx, hy);
-            let p3 = Point::new(hx, hy);
-            let p4 = Point::new(hx, -hy);
-            let verts = self.pt_quad(p1,p2,p3,p4);
-            self.draw_raw_vertices(verts,Some(pos), Some(1));
-        } else {
-
-        }
-    }
+    // pub fn oval(&mut self, pos: Point, size: Point) {
+    //     if self.state.fill {
+    //         let hx = size.x / 2.0;
+    //         let hy = size.y / 2.0;
+    //         let p1 = Point::new(-hx, -hy);
+    //         let p2 = Point::new(-hx, hy);
+    //         let p3 = Point::new(hx, hy);
+    //         let p4 = Point::new(hx, -hy);
+    //         let verts = self.pt_quad(p1,p2,p3,p4);
+    //         self.draw_raw_vertices(verts,Some(pos));
+    //     } else {
+    //
+    //     }
+    // }
     fn colors(&self) -> (Color, Color, Color, Color) {
         match self.state.color {
             FillStyle::Solid(color) => {(color,color,color,color)}
