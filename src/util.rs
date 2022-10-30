@@ -1,4 +1,4 @@
-use std::ops::{Add, Mul, Sub};
+use std::ops::{Add, AddAssign, Div, Mul, Sub};
 
 #[derive(Copy,Clone,Debug)]
 pub struct Color {
@@ -7,20 +7,18 @@ pub struct Color {
     pub b: f32,
     pub a: f32,
 }
+// Pre-defined colors from CSS colors.
 impl Color {
+    // misc
     pub const BLACK: Self = Self::rgb(0.0,0.0,0.0);
     pub const WHITE: Self = Self::rgb(1.0,1.0,1.0);
-    pub const LIME: Self = Self::rgb(0.0, 1.0, 0.0);
     pub const BLUE: Self = Self::rgb(0.0,0.0,1.0);
-    pub const YELLOW: Self = Self::rgb(1.0,1.0,0.0);
     pub const CYAN: Self = Self::rgb(0.0,1.0,1.0);
     pub const MAGENTA: Self = Self::rgb(1.0,0.0,1.0);
     pub const SILVER: Self =  Self::rgb(0.75,0.75,0.75);
     pub const GRAY: Self = Self::rgb(0.5,0.5,0.5);
     pub const DIM_GRAY: Self = Self::rgb(0.4117647,0.4117647,0.4117647);
     pub const MAROON: Self = Self::rgb(0.5,0.0,0.0);
-    pub const OLIVE: Self = Self::rgb(0.5,0.5,0.0);
-    pub const GREEN: Self = Self::rgb(0.0,0.5,0.0);
     pub const PURPLE: Self = Self::rgb(0.5,0.0,0.5);
     pub const TEAL: Self = Self::rgb(0.0,0.5,0.5);
     pub const NAVY: Self = Self::rgb(0.0,0.0,0.5);
@@ -44,9 +42,36 @@ impl Color {
     pub const ORANGE: Self = Self::rgb(1.0,165.0/255.0,0.0);
     pub const DARK_ORANGE: Self = Self::rgb(1.0,140.0/255.0,0.0);
     // yellow colors
-
+    pub const LIGHT_YELLOW: Self = Self::rgb(1.0,1.0,224.0/255.0);
+    pub const LEMON_CHIFFON: Self = Self::rgb(1.0,250.0/255.0,205.0/255.0);
+    pub const LIGHT_GOLDENROD_YELLOW: Self = Self::rgb(250.0/255.0,250.0/255.0,210.0/255.0);
+    pub const PAPAYA_WHIP: Self = Self::rgb(1.0,239.0/255.0,213.0/255.0);
+    pub const MOCCASIN: Self = Self::rgb(1.0,228.0/255.0,181.0/255.0);
+    pub const PEACH_PUFF: Self = Self::rgb(1.0,218.0/255.0,185.0/255.0);
+    pub const PALE_GOLDENROD: Self = Self::rgb(238.0/255.0,232.0/255.0,170.0/255.0);
+    pub const KHAKI: Self = Self::rgb(240.0/255.0,230.0/255.0,140.0/255.0);
+    pub const DARK_KHAKI: Self = Self::rgb(189.0/255.0,183.0/255.0,107.0/255.0);
+    pub const YELLOW: Self = Self::rgb(1.0,1.0,0.0);
     // green colors
-
+    pub const LAWN_GREEN: Self = Self::rgb(124.0/255.0,252.0/255.0,0.0);
+    pub const CHARTREUSE: Self = Self::rgb(127.0/255.0,1.0,0.0);
+    pub const LIME_GREEN: Self = Self::rgb(50.0/255.0,205.0/255.0,50.0/255.0);
+    pub const LIME: Self = Self::rgb(0.0,1.0,0.0);
+    pub const FOREST_GREEN: Self = Self::rgb(34.0/255.0,139.0/255.0,34.0/255.0);
+    pub const GREEN: Self = Self::rgb(0.0,128.0/255.0,0.0);
+    pub const DARK_GREEN: Self = Self::rgb(0.0,100.0/255.0,0.0);
+    pub const GREEN_YELLOW: Self = Self::rgb(173.0/255.0,1.0,47.0/255.0);
+    pub const YELLOW_GREEN: Self = Self::rgb(154.0/255.0,205.0/255.0,50.0/255.0);
+    pub const SPRING_GREEN: Self = Self::rgb(0.0,1.0,127.0/255.0);
+    pub const MEDIUM_SPRING_GREEN: Self = Self::rgb(0.0,250.0/255.0,154.0/255.0);
+    pub const LIGHT_GREEN: Self = Self::rgb(144.0/255.0,238.0/255.0,144.0/255.0);
+    pub const PALE_GREEN: Self = Self::rgb(152.0/255.0,251.0/255.0,152.0/255.0);
+    pub const DARK_SEA_GREEN: Self = Self::rgb(143.0/255.0,188.0/255.0,143.0/255.0);
+    pub const MEDIUM_SEA_GREEN: Self = Self::rgb(143.0/255.0,188.0/255.0,143.0/255.0);
+    pub const SEA_GREEN: Self = Self::rgb(46.0/255.0,139.0/255.0,87.0/255.0);
+    pub const OLIVE: Self = Self::rgb(128.0/255.0,128.0/255.0,0.0);
+    pub const DARK_OLIVE_GREEN: Self = Self::rgb(85.0/255.0,107.0/255.0,47.0/255.0);
+    pub const OLIVE_DRAB: Self = Self::rgb(107.0/255.0,142.0/255.0,35.0/255.0);
     // cyan colors
 
     // blue colors
@@ -84,6 +109,12 @@ impl Color {
         self.b = 1.0 - self.b;
         self
     }
+    pub fn adjust(mut self, v: f32) -> Self {
+        self.r = (self.r + v).clamp(0.0,1.0);
+        self.g = (self.g + v).clamp(0.0,1.0);
+        self.b = (self.b + v).clamp(0.0,1.0);
+        self
+    }
 }
 impl From<Color> for wgpu::Color {
     fn from(c: Color) -> Self {
@@ -95,7 +126,7 @@ impl From<Color> for wgpu::Color {
         }
     }
 }
-#[derive(Copy,Clone,Debug)]
+#[derive(Copy,Clone,Debug,PartialEq)]
 pub struct Point {
     pub x: f32,
     pub y: f32,
@@ -145,5 +176,18 @@ impl Mul<f32> for Point {
 
     fn mul(self, rhs: f32) -> Self::Output {
         Point::new(self.x * rhs,self.y * rhs)
+    }
+}
+impl AddAssign<Point> for Point {
+    fn add_assign(&mut self, rhs: Point) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+    }
+}
+impl Div<f32> for Point {
+    type Output = Point;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        Self::Output::new(self.x / rhs,self.y / rhs)
     }
 }

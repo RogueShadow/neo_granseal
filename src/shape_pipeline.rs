@@ -369,12 +369,14 @@ pub struct SSRRenderData {
 }
 
 impl SSRRenderData {
-    pub(crate) fn clear(&mut self) {
-        self.transforms.clear();
-        self.vertices.clear();
-        self.indices.clear();
-        self.materials.clear();
-        self.object_info.clear();
+    pub(crate) fn new() -> Self {
+        Self {
+            vertices: vec![],
+            indices: vec![],
+            transforms: vec![],
+            materials: vec![],
+            object_info: vec![],
+        }
     }
 }
 
@@ -398,16 +400,35 @@ pub enum LineStyle {
     Right,
 }
 
-pub struct SSRGraphics<'draw> {
-    core: &'draw mut NGCore,
+#[derive(Copy, Clone, Debug)]
+pub struct SRState {
     pub fill: bool,
     pub color: FillStyle,
     pub thickness: f32,
     pub line_style: LineStyle,
-    pub data: SSRRenderData,
     pub pos: Point,
     pub rotation: f32,
     pub kind: i32,
+}
+impl SRState {
+    pub fn new() -> Self {
+        Self {
+            fill: true,
+            color: FillStyle::Solid(Color::TEAL),
+            thickness: 1.0,
+            line_style: LineStyle::Center,
+            pos: Point::new(0.0,0.0),
+            rotation: 0.0,
+            kind: 0,
+        }
+    }
+}
+
+pub struct ShapeGfx<'draw> {
+    core: &'draw mut NGCore,
+    pub data: SSRRenderData,
+    pub state: SRState,
+    pub states: Vec<SRState>,
 }
 
 pub struct Mesh {
@@ -415,41 +436,50 @@ pub struct Mesh {
     indices: Vec<u32>,
 }
 
-impl <'draw>SSRGraphics<'draw> {
-    pub fn clear(&mut self) {
-        self.fill = true;
-        self.color = FillStyle::Solid(Color::WHITE);
-        self.thickness = 1.0;
-        self.line_style = LineStyle::Center;
-        self.data.clear();
-        self.pos = Point::new(0.0, 0.0);
-        self.rotation = 0.0;
-        self.kind = 0;
+impl <'draw> ShapeGfx<'draw> {
+    pub fn set_position(&mut self, pos: Point) {self.state.pos = pos}
+        pub fn p(&mut self, pos: Point){self.set_position(pos)}
+    pub fn set_fill_style(&mut self, c: FillStyle) {self.state.color = c}
+        pub fn fs(&mut self, fs: FillStyle){self.set_fill_style(fs)}
+            pub fn solid(&mut self, c: Color){self.state.color = FillStyle::Solid(c)}
+            pub fn fade_d(&mut self, c1: Color, c2: Color){self.state.color = FillStyle::FadeDown(c1,c2)}
+            pub fn fade_l(&mut self, c1: Color, c2: Color){self.state.color = FillStyle::FadeLeft(c1,c2)}
+            pub fn corners(&mut self, c1: Color, c2: Color, c3: Color, c4: Color){self.state.color = FillStyle::Corners(c1,c2,c3,c4)}
+    pub fn set_line_thickness(&mut self, t: f32) {self.state.thickness = t}
+        pub fn t(&mut self, lt: f32){self.set_line_thickness(lt)}
+    pub fn set_line_style(&mut self, l: LineStyle) {self.state.line_style = l}
+        pub fn ls(&mut self, ls: LineStyle){self.set_line_style(ls)}
+    pub fn set_fill(&mut self, f: bool) {self.state.fill = f}
+        pub fn f(&mut self, f: bool){self.set_fill(f)}
+    pub fn set_rotation(&mut self, r: f32) {self.state.rotation = r}
+        pub fn r(&mut self, r: f32){self.set_rotation(r)}
+
+    pub fn translate(&mut self, t: Point) {self.state.pos += t}
+    pub fn rotate(&mut self, r: f32) {self.state.rotation += r}
+
+    pub fn current_pos(&self) -> Point {
+        self.state.pos
     }
+    pub fn current_rot(&self) -> f32 {
+        self.state.rotation
+    }
+
+    pub fn push_state(&mut self) {self.states.push(self.state)}
+    pub fn pop_state(&mut self) {self.state = self.states.pop().expect("Pop state")}
+
     pub fn data(&self) -> &SSRRenderData {
         self.data.as_ref()
     }
     pub fn new(core: &'draw mut NGCore) -> Self {
         Self {
             core,
-            fill: true,
-            color: FillStyle::Solid(Color::WHITE),
-            thickness:  1.0,
-            line_style: LineStyle::Center,
-            data: SSRRenderData {
-                vertices: vec![],
-                indices: vec![],
-                transforms: vec![],
-                materials: vec![],
-                object_info: vec![],
-            },
-            pos: Point::new(0.0, 0.0),
-            rotation: 0.0,
-            kind: 0,
+            data: SSRRenderData::new(),
+            state: SRState::new(),
+            states: vec![],
         }
     }
     fn pt_quad(&self, p1: Point, p2: Point, p3: Point, p4: Point) -> Mesh {
-        let (c1,c2,c3,c4) = self.corners();
+        let (c1,c2,c3,c4) = self.colors();
         Mesh {
             vertices: vec![
             Vertex::new().pt(p1).uv(0.0,0.0).rgba(c1),
@@ -471,7 +501,7 @@ impl <'draw>SSRGraphics<'draw> {
         let bump2 = Point::new(width * sa.sin(), width * sa.cos());
         let bump = Point::new(width * sa2.sin(), width * sa2.cos());
 
-        let (p1,p2,p3,p4) = match self.line_style {
+        let (p1,p2,p3,p4) = match self.state.line_style {
             LineStyle::Center => {
             (
                 Point::new(start.x + bump2.x, start.y + bump2.y),
@@ -502,13 +532,13 @@ impl <'draw>SSRGraphics<'draw> {
         }
     }
     pub fn line(&mut self, start: Point, end: Point) {
-        let mesh = self.pt_line_quad(start,end,self.thickness / 2.0);
+        let mesh = self.pt_line_quad(start,end,self.state.thickness / 2.0);
         //mesh.vertices.iter_mut().for_each(|v| {v.rgba(self.color)});
-        let kind = self.kind;
-        self.draw_raw_vertices(mesh,None,None,Some(kind))
+        let kind = self.state.kind;
+        self.draw_raw_vertices(mesh,None,Some(kind))
     }
     pub fn rect(&mut self, pos: Point, size: Point) {
-        if self.fill {
+        if self.state.fill {
             let hx = size.x / 2.0;
             let hy = size.y / 2.0;
             let p1 = Point::new(-hx, -hy);
@@ -516,7 +546,7 @@ impl <'draw>SSRGraphics<'draw> {
             let p3 = Point::new(hx, hy);
             let p4 = Point::new(hx, -hy);
             let mesh = self.pt_quad(p1,p2,p3,p4);
-            self.draw_raw_vertices(mesh,Some(pos),None,None);
+            self.draw_raw_vertices(mesh,Some(pos),None);
         } else {
             let hx = size.x / 2.0;
             let hy = size.y / 2.0;
@@ -524,13 +554,13 @@ impl <'draw>SSRGraphics<'draw> {
             let p2 = Point::new(-hx, hy);
             let p3 = Point::new(hx, hy);
             let p4 = Point::new(hx, -hy);
-            let t = self.thickness;
+            let t = self.state.thickness;
             let ip1 = Point::new(-hx + t, -hy + t);
             let ip2 = Point::new(-hx + t, hy - t);
             let ip3 = Point::new(hx - t, hy - t);
             let ip4 = Point::new(hx - t, -hy + t);
 
-            let (c1,c2,c3,c4) = self.corners();
+            let (c1,c2,c3,c4) = self.colors();
             let vertices = vec![
                 Vertex::new().pt(p1).uv(0.0,0.0).rgba(c1), // 0
                 Vertex::new().pt(p2).uv(0.0,1.0).rgba(c2), // 1
@@ -553,11 +583,11 @@ impl <'draw>SSRGraphics<'draw> {
                 indices,
             };
 
-            self.draw_raw_vertices(mesh,Some(pos),None,None);
+            self.draw_raw_vertices(mesh,Some(pos),None);
         }
     }
     pub fn poly(&mut self, points: &Vec<Point>) {
-        if !self.fill  {
+        if !self.state.fill  {
             if points.len() > 2 {
                 let mut i = 0;
                 while i < points.len() - 1 {
@@ -572,8 +602,8 @@ impl <'draw>SSRGraphics<'draw> {
         }
     }
     pub fn circle(&mut self, center: Point, radius: Point, resolution: f32) {
-        if self.fill {
-            let (c1, _, _, c4) = self.corners();
+        if self.state.fill {
+            let (c1, _, _, c4) = self.colors();
             let mut vertices = vec![Vertex::new().xy(0.0, 0.0).rgba(c1)];
             let mut indices: Vec<u32> = vec![];
             let circumference = 2.0 * std::f32::consts::PI * radius.len();
@@ -595,9 +625,9 @@ impl <'draw>SSRGraphics<'draw> {
                 vertices,
                 indices,
             };
-            self.draw_raw_vertices(mesh, Some(center), None, None)
+            self.draw_raw_vertices(mesh, Some(center), None)
         } else {
-            let (c1, _, _, c4) = self.corners();
+            let (c1, _, _, c4) = self.colors();
             let mut vertices = vec![];
             let mut indices: Vec<u32> = vec![];
             let circumference = 2.0 * std::f32::consts::PI * radius.len();
@@ -609,7 +639,7 @@ impl <'draw>SSRGraphics<'draw> {
                     Vertex::new().xy(radius.x * a.cos(), radius.y * a.sin()).rgba(c4)
                 );
                 vertices.push(
-                    Vertex::new().xy( (radius.x - self.thickness) * a.cos(), (radius.y - self.thickness) * a.sin()).rgba(c1)
+                    Vertex::new().xy( (radius.x - self.state.thickness) * a.cos(), (radius.y - self.state.thickness) * a.sin()).rgba(c1)
                 );
                 if i > 1 {
                     let v1 = i*2;
@@ -630,11 +660,11 @@ impl <'draw>SSRGraphics<'draw> {
                 vertices,
                 indices,
             };
-            self.draw_raw_vertices(mesh, Some(center), None, None)
+            self.draw_raw_vertices(mesh, Some(center), None)
         }
     }
     pub fn arc(&mut self, center: Point, radius: f32, arc_begin: f32, arc_end: f32, resolution: f32) {
-        let (c1,_,_,c4) = self.corners();
+        let (c1,_,_,c4) = self.colors();
         let mut vertices = vec![Vertex::new().xy(0.0,0.0).rgba(c1)];
         let mut indices: Vec<u32> = vec![];
         let start_angle = arc_begin.to_radians();
@@ -644,7 +674,7 @@ impl <'draw>SSRGraphics<'draw> {
         let angle_step = (end_angle - start_angle).abs() / vertice_count;
         let mut a = start_angle;
 
-        (0..=(vertice_count as u32 + 1)).for_each(|i| {
+        (0..=(vertice_count as u32 + 2)).for_each(|i| {
             vertices.push(
                 Vertex::new().xy(radius * a.cos(),radius * a.sin()).rgba(c4)
             );
@@ -659,13 +689,12 @@ impl <'draw>SSRGraphics<'draw> {
             vertices,
             indices,
         };
-        self.draw_raw_vertices(mesh,Some(center),None,None)
+        self.draw_raw_vertices(mesh,Some(center),None)
     }
     pub fn draw_raw_vertices(
         &mut self,
         mesh: Mesh,
         pos: Option<Point>,
-        rot: Option<f32>,
         kind: Option<i32>,
     ) {
         let start_vertex = self.data.vertices.len();
@@ -678,17 +707,13 @@ impl <'draw>SSRGraphics<'draw> {
             start_index: start_index as u32,
             end_index: end_index as u32,
         };
-        let rotation = match rot {
-            Some(r) => r,
-            None => 0.0,
-        };
         let transform = match pos {
             Some(p) => SSRTransform {
-            x: self.pos.x + p.x,
-            y: self.pos.y + p.y,
-            r: self.rotation + rotation,
+            x: self.state.pos.x + p.x,
+            y: self.state.pos.y + p.y,
+            r: self.state.rotation,
         },
-            None => SSRTransform::new(self.pos,self.rotation + rotation)
+            None => SSRTransform::new(self.state.pos,self.state.rotation)
         };
         let material = match kind {
             Some(1) => SSRMaterial::new().oval(),
@@ -700,7 +725,7 @@ impl <'draw>SSRGraphics<'draw> {
         self.data.object_info.push(info);
     }
     pub fn oval(&mut self, pos: Point, size: Point) {
-        if self.fill {
+        if self.state.fill {
             let hx = size.x / 2.0;
             let hy = size.y / 2.0;
             let p1 = Point::new(-hx, -hy);
@@ -708,13 +733,13 @@ impl <'draw>SSRGraphics<'draw> {
             let p3 = Point::new(hx, hy);
             let p4 = Point::new(hx, -hy);
             let verts = self.pt_quad(p1,p2,p3,p4);
-            self.draw_raw_vertices(verts,Some(pos),None, Some(1));
+            self.draw_raw_vertices(verts,Some(pos), Some(1));
         } else {
 
         }
     }
-    fn corners(&self) -> (Color,Color,Color,Color) {
-        match self.color {
+    fn colors(&self) -> (Color, Color, Color, Color) {
+        match self.state.color {
             FillStyle::Solid(color) => {(color,color,color,color)}
             FillStyle::FadeDown(color1, color2) => {(color2,color1,color1,color2)}
             FillStyle::FadeLeft(color1, color2) => {(color1,color1,color2,color2)}

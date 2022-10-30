@@ -1,4 +1,4 @@
-use neo_granseal::shape_pipeline::{FillStyle, SSRGraphics};
+use neo_granseal::shape_pipeline::{FillStyle, ShapeGfx};
 use neo_granseal::{core::{NGCore}, events::Event, start, GransealGameConfig, NeoGransealEventHandler, VSyncMode, MSAA};
 use rand::{Rng, SeedableRng};
 use neo_granseal::util::{Color, Point};
@@ -8,7 +8,7 @@ fn main() {
         Game::new(),
         GransealGameConfig::new()
             .clear_color(Color::BLACK)
-            .vsync(VSyncMode::AutoNoVsync)
+            .vsync(false)
             .size(128 * 5, 128 * 5)
     );
 }
@@ -29,7 +29,7 @@ impl Game {
         Self {
             rng: rand_xorshift::XorShiftRng::from_rng(rand::thread_rng()).expect("Getting Rng."),
             entities: vec![],
-            size: Point::new(4.0, 4.0),
+            size: Point::new(32.0, 32.0),
             timer: std::time::Instant::now(),
             toggle: true,
         }
@@ -43,12 +43,12 @@ impl NeoGransealEventHandler for Game {
             Event::MouseButton { .. } => {}
             Event::MouseMoved { .. } => {}
             Event::Draw => {
-                let mut gfx = SSRGraphics::new(core);
-                gfx.fill = false;
+                let mut gfx = ShapeGfx::new(core);
+                gfx.set_fill(false);
 
                 for e in &self.entities {
-                    gfx.color = FillStyle::Solid(e.color);
-                    gfx.rotation = e.rot;
+                    gfx.set_fill_style(FillStyle::Solid(e.color));
+                    gfx.set_rotation(std::f32::consts::PI / 4.0);
                     gfx.rect(e.pos, self.size);
                 }
                 gfx.finish();

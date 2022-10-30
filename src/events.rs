@@ -1,7 +1,7 @@
 use std::time::Duration;
 use crate::util::Point;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug,PartialEq)]
 pub enum Event {
     KeyEvent {
         state: KeyState,

@@ -2,9 +2,9 @@ use std::collections::VecDeque;
 use std::ops::Rem;
 use std::time::Instant;
 use rand::{Rng, SeedableRng};
-use neo_granseal::{start, GransealGameConfig, VSyncMode, NeoGransealEventHandler, core::NGCore, events::Event, shape_pipeline::SSRGraphics};
+use neo_granseal::{start, GransealGameConfig, VSyncMode, NeoGransealEventHandler, core::NGCore, events::Event, shape_pipeline::ShapeGfx};
 use neo_granseal::core::NGCommand;
-use neo_granseal::events::{Key, KeyState, MouseButton};
+use neo_granseal::events::{Key, KeyState};
 use neo_granseal::shape_pipeline::{FillStyle};
 use neo_granseal::util::{Color, Point};
 
@@ -20,7 +20,7 @@ fn main() {
     },
           GransealGameConfig::new()
               .size(128*6,128*6)
-              .vsync(VSyncMode::AutoNoVsync)
+              .vsync(false)
               .clear_color(Color::rgb_u8(5,5,12))
     )
 }
@@ -48,7 +48,7 @@ struct Game {
     timer: Instant,
     center: Point,
 }
-fn grid(g: &mut SSRGraphics, screen_size: Point, grid_size: Point) {
+fn grid(g: &mut ShapeGfx, screen_size: Point, grid_size: Point) {
     for x in 0..((screen_size.x/ grid_size.x).floor() as i32){
         let px = x as f32 * grid_size.x;
         for y in 0..((screen_size.y/ grid_size.y).floor() as i32) {
@@ -70,85 +70,77 @@ impl NeoGransealEventHandler for Game {
                 let width = core.config.width as f32;
                 let height = core.config.height as f32;
                 let time = core.timer.elapsed().as_secs_f32();
-                let mut gfx = SSRGraphics::new(core);
-                gfx.thickness = 1.0;
-                gfx.color = Solid(Color::DIM_GRAY);
+                let mut g = ShapeGfx::new(core);
+                g.set_line_thickness(1.0);
+                g.set_fill_style(Solid(Color::DIM_GRAY));
                 let c1 = Color::SADDLE_BROWN;
                 let c2 = Color::new(0.5451, 0.5, 0.2,0.5 * time.rem(6.28).sin());
-                grid(&mut gfx, Point::new(width,height),Point::new(32.0,32.0));
-                gfx.thickness = 1.0;
+                grid(&mut g, Point::new(width, height), Point::new(32.0, 32.0));
+                g.set_line_thickness(1.0);
                 let cx = self.center.x - 256.0;
                 let cy = self.center.y;
-                gfx.color = FadeLeft(c2,c1);
-                gfx.arc(Point::new(cx,cy),64.0,90.0,180.0,4.0);
-                gfx.color = FadeLeft(c1,c2);
-                gfx.rect(Point::new(cx-32.0,cy-32.0),Point::new(64.0,64.0));
-                gfx.color = FadeLeft(c2,c1);
-                gfx.arc(Point::new(cx,cy - 64.0),64.0,180.0,270.0,4.0);
-                gfx.color = FadeDown(c1,c2);
-                gfx.rect(Point::new(cx+32.0,cy+32.0),Point::new(64.0,64.0));
-                gfx.color = FadeLeft(c2,c1);
-                gfx.arc(Point::new(cx + 64.0,cy - 64.0),64.0,270.0,360.0,4.0);
-                gfx.color = FadeLeft(c2,c1);
-                gfx.rect(Point::new(cx+96.0,cy-32.0),Point::new(64.0,64.0));
-                gfx.color = FadeLeft(c2,c1);
-                gfx.arc(Point::new(cx + 64.0,cy),64.0,0.0,90.0,4.0);
-                gfx.color = FadeDown(c2,c1);
-                gfx.rect(Point::new(cx+32.0,cy-96.0),Point::new(64.0,64.0));
+                g.set_fill_style(FadeLeft(c2, c1));
+                g.arc(Point::new(cx, cy), 64.0, 90.0, 180.0, 4.0);
+                g.set_fill_style(FadeLeft(c1, c2));
+                g.rect(Point::new(cx-32.0, cy-32.0), Point::new(64.0, 64.0));
+                g.set_fill_style(FadeLeft(c2, c1));
+                g.arc(Point::new(cx, cy - 64.0), 64.0, 180.0, 270.0, 4.0);
+                g.set_fill_style(FadeDown(c1, c2));
+                g.rect(Point::new(cx+32.0, cy+32.0), Point::new(64.0, 64.0));
+                g.set_fill_style(FadeLeft(c2, c1));
+                g.arc(Point::new(cx + 64.0, cy - 64.0), 64.0, 270.0, 360.0, 4.0);
+                g.set_fill_style(FadeLeft(c2, c1));
+                g.rect(Point::new(cx+96.0, cy-32.0), Point::new(64.0, 64.0));
+                g.set_fill_style(FadeLeft(c2, c1));
+                g.arc(Point::new(cx + 64.0, cy), 64.0, 0.0, 90.0, 4.0);
+                g.set_fill_style(FadeDown(c2, c1));
+                g.rect(Point::new(cx+32.0, cy-96.0), Point::new(64.0, 64.0));
 
                 let cx = self.center.x - 32.0;
                 let cy = self.center.y;
-                gfx.color = FadeLeft(c1,c2);
+                g.set_fill_style(FadeLeft(c1, c2));
                 //gfx.arc(Point::new(cx,cy),64.0,90.0,180.0,4.0);
-                gfx.rect(Point::new(cx-32.0,cy-32.0),Point::new(64.0,64.0));
-                gfx.color = FadeLeft(c1,c2);
-                gfx.rect(Point::new(cx-32.0,cy-96.0),Point::new(64.0,64.0));
-                gfx.color = FadeLeft(c2,c1);
-                gfx.arc(Point::new(cx,cy + 0.0),64.0,90.0,180.0,4.0);
-                gfx.color = FadeDown(c1,c2);
-                //gfx.rect(Point::new(cx+32.0,cy+32.0),Point::new(64.0,64.0));
-                gfx.color = FadeLeft(c2,c1);
-                //gfx.arc(Point::new(cx + 64.0,cy - 64.0),64.0,270.0,360.0,4.0);
-                gfx.color = FadeLeft(c2,c1);
-                //gfx.rect(Point::new(cx+96.0,cy-32.0),Point::new(64.0,64.0));
-                gfx.color = FadeLeft(c2,c1);
-                //gfx.arc(Point::new(cx + 64.0,cy),64.0,0.0,90.0,4.0);
-                gfx.color = FadeDown(c1,c2);
-                gfx.rect(Point::new(cx+32.0,cy+32.0),Point::new(64.0,64.0));
+                g.rect(Point::new(cx-32.0, cy-32.0), Point::new(64.0, 64.0));
+                g.set_fill_style(FadeLeft(c1, c2));
+                g.rect(Point::new(cx-32.0, cy-96.0), Point::new(64.0, 64.0));
+                g.set_fill_style(FadeLeft(c2, c1));
+                g.arc(Point::new(cx, cy + 0.0), 64.0, 90.0, 180.0, 4.0);
+                g.set_fill_style(FadeDown(c1, c2));
+                g.rect(Point::new(cx+32.0, cy+32.0), Point::new(64.0, 64.0));
 
                 let cx = self.center.x + 128.0;
                 let cy = self.center.y;
-                gfx.color = FadeLeft(c2,c1);
-                gfx.arc(Point::new(cx,cy),64.0,90.0,180.0,4.0);
-                gfx.color = FadeLeft(c1,c2);
-                gfx.rect(Point::new(cx-32.0,cy-32.0),Point::new(64.0,64.0));
-                gfx.color = FadeLeft(c2,c1);
-                gfx.arc(Point::new(cx,cy - 64.0),64.0,180.0,270.0,4.0);
-                gfx.color = FadeDown(c1,c2);
-                gfx.rect(Point::new(cx+32.0,cy+32.0),Point::new(64.0,64.0));
-                gfx.color = FadeLeft(c2,c1);
-                gfx.arc(Point::new(cx + 64.0,cy - 64.0),64.0,270.0,360.0,4.0);
-                gfx.color = FadeLeft(c2,c1);
+                g.set_fill_style(FadeLeft(c2, c1));
+                g.arc(Point::new(cx, cy), 64.0, 90.0, 180.0, 4.0);
+                g.set_fill_style(FadeLeft(c1, c2));
+                g.rect(Point::new(cx-32.0, cy-32.0), Point::new(64.0, 64.0));
+                g.set_fill_style(FadeLeft(c2, c1));
+                g.arc(Point::new(cx, cy - 64.0), 64.0, 180.0, 270.0, 4.0);
+                g.set_fill_style(FadeDown(c1, c2));
+                g.rect(Point::new(cx+32.0, cy+32.0), Point::new(64.0, 64.0));
+                g.set_fill_style(FadeLeft(c2, c1));
+                g.arc(Point::new(cx + 64.0, cy - 64.0), 64.0, 270.0, 360.0, 4.0);
+                g.set_fill_style(FadeLeft(c2, c1));
                 //gfx.rect(Point::new(cx+96.0,cy-32.0),Point::new(64.0,64.0));
-                gfx.color = FadeLeft(c2,c1);
-                gfx.arc(Point::new(cx + 64.0,cy),64.0,0.0,90.0,4.0);
-                gfx.color = FadeDown(c2,c1);
-                gfx.rect(Point::new(cx+32.0,cy-96.0),Point::new(64.0,64.0));
+                g.set_fill_style(FadeLeft(c2, c1));
+                g.arc(Point::new(cx + 64.0, cy), 64.0, 0.0, 90.0, 4.0);
+                g.set_fill_style(FadeDown(c2, c1));
+                g.rect(Point::new(cx+32.0, cy-96.0), Point::new(64.0, 64.0));
                 // for (i,p) in self.queue.iter().enumerate() {
-                //     gfx.color = FadeLeft(Color::rgb(p.x/200.0,p.y/height,0.5),Color::RED);
+                //     gfx.fill_style(FadeLeft(Color::rgb(p.x/200.0,p.y/height,0.5),Color::RED));
                 //     gfx.line(Point::new(i as f32 * gfx.thickness,0.0),Point::new(i as f32 * gfx.thickness,p.y))
                 // };
-                gfx.fill = false;
-                gfx.thickness = 256.0 * time.rem(3.15).sin();
-                gfx.color = FadeLeft(Color::CORAL,Color::CRIMSON);
-                gfx.circle(Point::new(256.0,256.0),Point::new(172.0,32.0),16.0);
+                g.set_fill(false);
+                g.set_line_thickness(256.0 * time.rem(3.15).sin());
+                g.set_fill_style(FadeLeft(Color::CORAL, Color::CRIMSON));
+                g.circle(Point::new(256.0, 256.0), Point::new(172.0, 32.0), 16.0);
 
                 self.entities.iter().for_each(|e|{
-                    gfx.color = FadeLeft(Color::DARK_SALMON,Color::GOLD);
-                    gfx.thickness = 8.0;
-                    gfx.line(e.center,e.pos);
+                    g.set_fill_style(FadeLeft(Color::DARK_SALMON, Color::GOLD));
+                    g.set_line_thickness(8.0);
+                    g.line(e.center, e.pos);
                 });
-                gfx.finish();
+                g.finish();
             }
             Event::Update(d) => {
                 if core.state.mouse.left { self.center = core.state.mouse.pos }

@@ -28,7 +28,7 @@ impl GransealGameConfig {
             width: 800,
             height: 600,
             vsync: VSyncMode::AutoVsync,
-            clear_color: Color::WHITE,
+            clear_color: Color::DARK_ORANGE,
             simple_pipeline: true,
             msaa: MSAA::Enable4x,
         }
@@ -37,8 +37,8 @@ impl GransealGameConfig {
         self.title = title;
         self
     }
-    pub fn vsync(mut self, mode: VSyncMode) -> Self {
-        self.vsync = mode;
+    pub fn vsync(mut self, mode: bool) -> Self {
+        self.vsync = match mode {true => VSyncMode::AutoVsync,false => VSyncMode::AutoNoVsync};
         self
     }
     pub fn clear_color(mut self, color: Color) -> Self {
