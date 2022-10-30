@@ -13,14 +13,12 @@ impl Color {
     pub const BLACK: Self = Self::rgb(0.0,0.0,0.0);
     pub const WHITE: Self = Self::rgb(1.0,1.0,1.0);
     pub const BLUE: Self = Self::rgb(0.0,0.0,1.0);
-    pub const CYAN: Self = Self::rgb(0.0,1.0,1.0);
     pub const MAGENTA: Self = Self::rgb(1.0,0.0,1.0);
     pub const SILVER: Self =  Self::rgb(0.75,0.75,0.75);
     pub const GRAY: Self = Self::rgb(0.5,0.5,0.5);
     pub const DIM_GRAY: Self = Self::rgb(0.4117647,0.4117647,0.4117647);
     pub const MAROON: Self = Self::rgb(0.5,0.0,0.0);
     pub const PURPLE: Self = Self::rgb(0.5,0.0,0.5);
-    pub const TEAL: Self = Self::rgb(0.0,0.5,0.5);
     pub const NAVY: Self = Self::rgb(0.0,0.0,0.5);
     pub const TRANSPARENT: Self = Self::new(1.0, 1.0, 1.0, 0.0);
     pub const SADDLE_BROWN: Self = Self::rgb(0.5451, 0.2706, 0.0745);
@@ -73,9 +71,21 @@ impl Color {
     pub const DARK_OLIVE_GREEN: Self = Self::rgb(85.0/255.0,107.0/255.0,47.0/255.0);
     pub const OLIVE_DRAB: Self = Self::rgb(107.0/255.0,142.0/255.0,35.0/255.0);
     // cyan colors
-
+    pub const LIGHT_CYAN: Self = Self::rgb(224.0/255.0,1.0,1.0);
+    pub const CYAN: Self = Self::rgb(0.0,1.0,1.0);
+    pub const AQUA: Self = Self::rgb(0.0,1.0,1.0);
+    pub const AQUAMARINE: Self = Self::rgb(127.0/255.0,1.0,212.0/255.0);
+    pub const MEDIUM_AQUAMARINE: Self = Self::rgb(102.0/255.0,205.0/255.0,170.0/255.0);
+    pub const PALE_TURQUOISE: Self = Self::rgb(175.0/255.0,238.0/255.0,238.0/255.0);
+    pub const TURQUOISE: Self = Self::rgb(64.0/255.0,224.0/255.0,208.0/255.0);
+    pub const MEDIUM_TURQUOISE: Self = Self::rgb(72.0/255.0,209.0/255.0,204.0/255.0);
+    pub const DARK_TURQUOISE: Self = Self::rgb(0.0,206.0/255.0,209.0/255.0);
+    pub const LIGHT_SEA_GREEN: Self = Self::rgb(32.0/255.0,178.0/255.0,170.0/255.0);
+    pub const CADET_BLUE: Self = Self::rgb(95.0/255.0,158.0/255.0,160.0/255.0);
+    pub const DARK_CYAN: Self = Self::rgb(0.0,139.0/255.0,139.0/255.0);
+    pub const TEAL: Self = Self::rgb(0.0,128.0/255.0,128.0/255.0);
     // blue colors
-
+    pub const POWDER_BLUE: Self = Self::rgb(176.0/255.0,224.0/255.0,230.0/255.0);
     // purple colors
 
     // pink colors
