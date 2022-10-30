@@ -1,7 +1,7 @@
-use crate::*;
 use bytemuck::{Pod, Zeroable};
-use crate::core::NGError;
-use crate::util::{Color, Point};
+use wgpu::util::DeviceExt;
+use crate::{Color, GlobalUniforms, MSAA, NGCore, NGError, NGRenderPipeline, Point};
+use crate::core::NGCommand;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
@@ -747,7 +747,7 @@ impl <'draw> ShapeGfx<'draw> {
         }
     }
     pub fn finish(&mut self) {
-        self.core.cmd(core::NGCommand::Render(0, Box::new(self.data.to_owned())))
+        self.core.cmd(NGCommand::Render(0, Box::new(self.data.to_owned())))
     }
 }
 
