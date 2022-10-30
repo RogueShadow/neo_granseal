@@ -248,7 +248,13 @@ impl SimpleShapeRenderPipeline {
                     polygon_mode: wgpu::PolygonMode::Fill,
                     conservative: false,
                 },
-                depth_stencil: None,
+                depth_stencil: Some(wgpu::DepthStencilState {
+                    format: wgpu::TextureFormat::R8Unorm,
+                    depth_write_enabled: false,
+                    depth_compare: wgpu::CompareFunction::Never,
+                    stencil: Default::default(),
+                    bias: Default::default()
+                }),
                 multisample: multisample_state,
                 fragment: Some(wgpu::FragmentState {
                     module: &shader,
@@ -453,6 +459,7 @@ impl <'draw> ShapeGfx<'draw> {
         pub fn f(&mut self, f: bool){self.set_fill(f)}
     pub fn set_rotation(&mut self, r: f32) {self.state.rotation = r}
         pub fn r(&mut self, r: f32){self.set_rotation(r)}
+    pub fn set_kind(&mut self, k: i32){self.state.kind = k}
 
     pub fn translate(&mut self, t: Point) {self.state.pos += t}
     pub fn rotate(&mut self, r: f32) {self.state.rotation += r}
