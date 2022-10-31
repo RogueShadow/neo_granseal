@@ -5,9 +5,10 @@ fn main() {
 }
 
 struct Box {}
+
 impl NeoGransealEventHandler for Box {
-    fn event(&mut self, core: &mut NGCore, e: Event) {
-        match e {
+    fn event(&mut self, core: &mut NGCore, event: Event) {
+        match event {
             Event::Draw => {
                 let mut g = ShapeGfx::new(core);
                 g.rect(Point::new(128.0,128.0),Point::new(128.0,128.0));

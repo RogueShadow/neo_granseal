@@ -93,7 +93,7 @@ pub fn map_present_modes(mode: VSyncMode) -> wgpu::PresentMode {
 }
 
 pub trait NeoGransealEventHandler {
-    fn event(&mut self, core: &mut NGCore, e: Event);
+    fn event(&mut self, core: &mut NGCore, event: Event);
 }
 
 pub trait NGRenderPipeline {

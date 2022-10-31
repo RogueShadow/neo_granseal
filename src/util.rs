@@ -10,18 +10,7 @@ pub struct Color {
 // Pre-defined colors from CSS colors.
 impl Color {
     // misc
-    pub const BLACK: Self = Self::rgb(0.0,0.0,0.0);
-    pub const WHITE: Self = Self::rgb(1.0,1.0,1.0);
-    pub const BLUE: Self = Self::rgb(0.0,0.0,1.0);
-    pub const MAGENTA: Self = Self::rgb(1.0,0.0,1.0);
-    pub const SILVER: Self =  Self::rgb(0.75,0.75,0.75);
-    pub const GRAY: Self = Self::rgb(0.5,0.5,0.5);
-    pub const DIM_GRAY: Self = Self::rgb(0.4117647,0.4117647,0.4117647);
-    pub const MAROON: Self = Self::rgb(0.5,0.0,0.0);
-    pub const PURPLE: Self = Self::rgb(0.5,0.0,0.5);
-    pub const NAVY: Self = Self::rgb(0.0,0.0,0.5);
     pub const TRANSPARENT: Self = Self::new(1.0, 1.0, 1.0, 0.0);
-    pub const SADDLE_BROWN: Self = Self::rgb(0.5451, 0.2706, 0.0745);
     // red colors
     pub const LIGHT_SALMON: Self = Self::rgb(1.0, 160.0/255.0,122.0/255.0);
     pub const SALMON: Self = Self::rgb(250.0/255.0,0.5,114.0/255.0);
@@ -86,17 +75,91 @@ impl Color {
     pub const TEAL: Self = Self::rgb(0.0,128.0/255.0,128.0/255.0);
     // blue colors
     pub const POWDER_BLUE: Self = Self::rgb(176.0/255.0,224.0/255.0,230.0/255.0);
+    pub const LIGHT_BLUE: Self = Self::rgb(173.0/255.0,216.0/255.0,230.0/255.0);
+    pub const LIGHT_SKY_BLUE: Self = Self::rgb(135.0/255.0,206.0/255.0,250.0/255.0);
+    pub const SKY_BLUE: Self = Self::rgb(135.0/255.0,206.0/255.0,235.0/255.0);
+    pub const DEEP_SKY_BLUE: Self = Self::rgb(0.0,191.0/255.0,1.0);
+    pub const LIGHT_STEEL_BLUE: Self = Self::rgb(176.0/255.0,196.0/255.0,222.0/255.0);
+    pub const DODGER_BLUE: Self = Self::rgb(30.0/255.0,144.0/255.0,1.0);
+    pub const CORNFLOWER_BLUE: Self = Self::rgb(100.0/255.0,149.0/255.0,237.0/255.0);
+    pub const STEEL_BLUE: Self = Self::rgb(70.0/255.0,130.0/255.0,180.0/255.0);
+    pub const ROYAL_BLUE: Self = Self::rgb(65.0/255.0,105.0/255.0,225.0/255.0);
+    pub const BLUE: Self = Self::rgb(0.0,0.0,1.0);
+    pub const MEDIUM_BLUE: Self = Self::rgb(0.0,0.0,205.0/255.0);
+    pub const DARK_BLUE: Self = Self::rgb(0.0,0.0,139.0/255.0);
+    pub const NAVY: Self = Self::rgb(0.0,0.0,128.0/255.0);
+    pub const MIDNIGHT_BLUE: Self = Self::rgb(25.0/255.0,25.0/255.0,112.0/255.0);
+    pub const MEDIUM_SLATE_BLUE: Self = Self::rgb(123.0/255.0,104.0/255.0,238.0/255.0);
+    pub const SLATE_BLUE: Self = Self::rgb(106.0/255.0,90.0/255.0,205.0/255.0);
+    pub const DARK_SLATE_BLUE: Self = Self::rgb(72.0/255.0,61.0/255.0,139.0/255.0);
     // purple colors
-
+    pub const LAVENDER: Self = Self::rgb(230.0/255.0,230.0/255.0,250.0/255.0);
+    pub const THISTLE: Self = Self::rgb(216.0/255.0,191.0/255.0,216.0/255.0);
+    pub const PLUM: Self = Self::rgb(221.0/255.0,160.0/255.0,221.0/255.0);
+    pub const VIOLET: Self = Self::rgb(238.0/255.0,130.0/255.0,238.0/255.0);
+    pub const ORCHID: Self = Self::rgb(218.0/255.0,112.0/255.0,214.0/255.0);
+    pub const FUCHSIA: Self = Self::rgb(1.0, 0.0, 1.0);
+    pub const MAGENTA: Self = Self::rgb(1.0,0.0,1.0);
+    pub const MEDIUM_ORCHID: Self = Self::rgb(186.0/255.0,85.0/255.0,211.0/255.0);
+    pub const MEDIUM_PURPLE: Self = Self::rgb(147.0/255.0,112.0/255.0,219.0/255.0);
+    pub const BLUE_VIOLET: Self = Self::rgb(138.0/255.0,43.0/255.0,226.0/255.0);
+    pub const DARK_VIOLET: Self = Self::rgb(148.0/255.0,0.0,211.0/255.0);
+    pub const DARK_ORCHID: Self = Self::rgb(153.0/255.0,50.0/255.0,204.0/255.0);
+    pub const DARK_MAGENTA: Self = Self::rgb(139.0/255.0,0.0,139.0/255.0);
+    pub const PURPLE: Self = Self::rgb(128.0/255.0,0.0,128.0/255.0);
+    pub const INDIGO: Self = Self::rgb(75.0/255.0,0.0,130.0/255.0);
     // pink colors
-
+    pub const PINK: Self = Self::rgb(1.0,192.0/255.0,203.0/255.0);
+    pub const LIGHT_PINK: Self = Self::rgb(1.0,182.0/255.0,193.0/255.0);
+    pub const HOT_PINK: Self = Self::rgb(1.0,105.0/255.0,180.0/255.0);
+    pub const DEEP_PINK: Self = Self::rgb(1.0,20.0/255.0,147.0/255.0);
+    pub const PALE_VIOLET_RED: Self = Self::rgb(219.0/255.0,112.0/255.0,147.0/255.0);
+    pub const MEDIUM_VIOLET_RED: Self = Self::rgb(199.0/255.0,21.0/255.0,133.0/255.0);
     // white colors
-
+    pub const WHITE: Self = Self::rgb(1.0,1.0,1.0);
+    pub const SNOW: Self = Self::rgb(1.0,250.0/255.0,250.0/255.0);
+    pub const HONEYDEW: Self = Self::rgb(240.0/255.0,1.0,240.0/255.0);
+    pub const MINT_CREAM: Self = Self::rgb(245.0/255.0,1.0,250.0/255.0);
+    pub const AZURE: Self = Self::rgb(240.0/255.0,1.0,1.0);
+    pub const ALICE_BLUE: Self = Self::rgb(240.0/255.0,248.0/255.0,1.0);
+    pub const GHOST_WHITE: Self = Self::rgb(248.0/255.0,248.0/255.0, 1.0);
+    pub const WHITE_SMOKE: Self = Self::rgb(245.0/255.0,245.0/255.0,245.0/255.0);
+    pub const SEASHELL: Self = Self::rgb(1.0,245.0/255.0,238.0/255.0);
+    pub const BEIGE: Self = Self::rgb(245.0/255.0,245.0/255.0,220.0/255.0);
+    pub const OLD_LACE: Self = Self::rgb(253.0/255.0,245.0/255.0,230.0/255.0);
+    pub const FLORAL_WHITE: Self = Self::rgb(1.0,250.0/255.0,240.0/255.0);
+    pub const IVORY: Self = Self::rgb(1.0,1.0,240.0/255.0);
+    pub const ANTIQUE_WHITE: Self = Self::rgb(250.0/255.0,235.0/255.0,215.0/255.0);
+    pub const LINEN: Self = Self::rgb(250.0/255.0,240.0/255.0,230.0/255.0);
+    pub const LAVENDER_BLUSH: Self = Self::rgb(1.0,240.0/255.0,245.0/255.0);
+    pub const MISTY_ROSE: Self = Self::rgb(1.0,228.0/255.0,225.0/255.0);
     // gray colors
-
+    pub const GAINSBORO: Self = Self::rgb(220.0/255.0,220.0/255.0,220.0/255.0);
+    pub const LIGHT_GRAY: Self = Self::rgb(211.0/255.0,211.0/255.0,211.0/255.0);
+    pub const SILVER: Self = Self::rgb(192.0/255.0,192.0/255.0,192.0/255.0);
+    pub const DARK_GRAY: Self = Self::rgb(169.0/255.0,169.0/255.0,169.0/255.0);
+    pub const GRAY: Self = Self::rgb(128.0/255.0,128.0/255.0,128.0/255.0);
+    pub const DIM_GRAY: Self = Self::rgb(105.0/255.0,105.0/255.0,105.0/255.0);
+    pub const LIGHT_SLATE_GRAY: Self = Self::rgb(119.0/255.0,136.0/255.0,153.0/255.0);
+    pub const SLATE_GRAY: Self = Self::rgb(112.0/255.0,128.0/255.0,144.0/255.0);
+    pub const BLACK: Self = Self::rgb(0.0,0.0,0.0);
     // brown colors
-
-
+    pub const CORN_SILK: Self = Self::rgb(1.0,248.0/255.0,220.0/255.0);
+    pub const BLANCHED_ALMOND: Self = Self::rgb(1.0,235.0/255.0,205.0/255.0);
+    pub const BISQUE: Self = Self::rgb(1.0,228.0/255.0,196.0/255.0);
+    pub const NAVAJO_WHITE: Self = Self::rgb(1.0,222.0/255.0,173.0/255.0);
+    pub const WHEAT: Self = Self::rgb(245.0/255.0,222.0/255.0,179.0/255.0);
+    pub const BURLY_WOOD: Self = Self::rgb(222.0/255.0,184.0/255.0,135.0/255.0);
+    pub const TAN: Self = Self::rgb(210.0/255.0,180.0/255.0,140.0/255.0);
+    pub const ROSY_BROWN: Self = Self::rgb(188.0/255.0,143.0/255.0,143.0/255.0);
+    pub const SANDY_BROWN: Self = Self::rgb(188.0/255.0,164.0/255.0,96.0/255.0);
+    pub const GOLDENROD: Self = Self::rgb(218.0/255.0,165.0/255.0,32.0/255.0);
+    pub const PERU: Self = Self::rgb(205.0/255.0,133.0/255.0,63.0/255.0);
+    pub const CHOCOLATE: Self = Self::rgb(210.0/255.0,105.0/255.0,30.0/255.0);
+    pub const SADDLE_BROWN: Self = Self::rgb(139.0/255.0,69.0/255.0,19.0/255.0);
+    pub const SIENNA: Self = Self::rgb(160.0/255.0,82.0/255.0,45.0/255.0);
+    pub const BROWN: Self = Self::rgb(165.0/255.0,42.0/255.0,42.0/255.0);
+    pub const MAROON: Self = Self::rgb(128.0/255.0,0.0,0.0);
 }
 
 impl Color {
