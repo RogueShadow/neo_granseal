@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Div, Mul, Rem, Sub};
+use std::ops::{Add, AddAssign, Div, Mul, Sub};
 
 #[derive(Copy,Clone,Debug)]
 pub struct Color {
@@ -188,22 +188,22 @@ impl Color {
         self.b = (self.b + v).clamp(0.0,1.0);
         self
     }
-    pub fn hsl(mut self, hue: f32, S: f32, L: f32) -> Self {
-        let C = (1.0 - ((2.0 * L) - 1.0).abs()) * S;
+    pub fn hsl(mut self, hue: f32, s: f32, l: f32) -> Self {
+        let c = (1.0 - ((2.0 * l) - 1.0).abs()) * s;
         let i1 = hue / 60.0;
         let i2 = i1 % 2.0;
         let i3 = (i2 - 1.0).abs();
-        let x = C * (1.0 - i3);
+        let x = c * (1.0 - i3);
         let (r1,g1,b1) = match hue {
-            v if (0.0..60.0).contains(&v) => (C, x, 0.0),
-            v if (60.0..120.0).contains(&v) => (x, C, 0.0),
-            v if (120.0..180.0).contains(&v) => (0.0, C, x),
-            v if (180.0..240.0).contains(&v)  => (0.0, x, C),
-            v if (240.0..300.0).contains(&v) => (x, 0.0, C),
-            v if (300.0..360.0).contains(&v)  => (C, 0.0, x),
+            v if (0.0..60.0).contains(&v) => (c, x, 0.0),
+            v if (60.0..120.0).contains(&v) => (x, c, 0.0),
+            v if (120.0..180.0).contains(&v) => (0.0, c, x),
+            v if (180.0..240.0).contains(&v)  => (0.0, x, c),
+            v if (240.0..300.0).contains(&v) => (x, 0.0, c),
+            v if (300.0..360.0).contains(&v)  => (c, 0.0, x),
             _ => {(0.0,0.0,0.0)}
         };
-        let m = L - C / 2.0;
+        let m = l - c / 2.0;
         let (r,g,b) = (r1+m,g1+m,b1+m);
         self.r = r;
         self.g = g;
