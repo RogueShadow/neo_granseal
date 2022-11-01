@@ -15,8 +15,9 @@ impl NeoGransealEventHandler for Shapes {
         match e {
             Event::Draw => {
                 core.cmd(NGCommand::SetTitle(format!("Shapes Showcase Fps: {}", core.state.fps)));
+                let tau = std::f32::consts::TAU;
                 let time = core.timer.elapsed().as_secs_f32();
-                let angle = (time * 100.0).rem(360.0);
+                let angle = (time).rem(tau);
                 let thickness = 1.0 + ((time * 2.0).sin() * 16.0).abs();
                 let rotation = time;
                 let styles = [
@@ -40,6 +41,8 @@ impl NeoGransealEventHandler for Shapes {
                     g.translate(step);
                     g.circle(zero, size / 2.0, 4.0);
                     g.translate(step);
+                    g.arc(zero, Point::new(32.0,32.0), angle - tau/4.0, angle, 1.0);
+                    g.translate(step);
                     g.set_fill(false);
                     g.rect(zero, size);
                     g.translate(step);
@@ -47,7 +50,7 @@ impl NeoGransealEventHandler for Shapes {
                     g.translate(step);
                     g.line(Point::new(-32.0, -32.0), size / 2.0);
                     g.translate(step);
-                    g.arc(zero, 32.0, angle - 90.0, angle, 1.0);
+                    g.arc(zero, Point::new(32.0,32.0), angle - tau/4.0, angle, 1.0);
 
                     g.set_fill(true);
                     g.set_fill_style(styles[1]);
@@ -58,6 +61,8 @@ impl NeoGransealEventHandler for Shapes {
                     g.translate(step);
                     g.circle(zero, size / 2.0, 4.0);
                     g.translate(step);
+                    g.arc(zero, Point::new(32.0,32.0), angle - tau/4.0, angle, 1.0);
+                    g.translate(step);
                     g.set_fill(false);
                     g.rect(zero, size);
                     g.translate(step);
@@ -65,7 +70,7 @@ impl NeoGransealEventHandler for Shapes {
                     g.translate(step);
                     g.line(Point::new(-32.0, -32.0), size / 2.0);
                     g.translate(step);
-                    g.arc(zero, 32.0, angle - 90.0, angle, 1.0);
+                    g.arc(zero, Point::new(32.0,32.0), angle - tau/4.0, angle, 1.0);
 
                     g.set_fill(true);
                     g.set_fill_style(styles[2]);
@@ -76,6 +81,8 @@ impl NeoGransealEventHandler for Shapes {
                     g.translate(step);
                     g.circle(zero, size / 2.0, 4.0);
                     g.translate(step);
+                    g.arc(zero, Point::new(32.0,32.0), angle - tau/4.0, angle, 1.0);
+                    g.translate(step);
                     g.set_fill(false);
                     g.rect(zero, size);
                     g.translate(step);
@@ -83,7 +90,7 @@ impl NeoGransealEventHandler for Shapes {
                     g.translate(step);
                     g.line(Point::new(-32.0, -32.0), size / 2.0);
                     g.translate(step);
-                    g.arc(zero, 32.0, angle - 90.0, angle, 1.0);
+                    g.arc(zero, Point::new(32.0,32.0), angle - tau/4.0, angle, 1.0);
 
                     g.set_fill(true);
                     g.set_fill_style(styles[3]);
@@ -94,6 +101,8 @@ impl NeoGransealEventHandler for Shapes {
                     g.translate(step);
                     g.circle(zero, size / 2.0, 4.0);
                     g.translate(step);
+                    g.arc(zero, Point::new(32.0,32.0), angle - tau/4.0, angle, 1.0);
+                    g.translate(step);
                     g.set_fill(false);
                     g.rect(zero, size);
                     g.translate(step);
@@ -101,7 +110,7 @@ impl NeoGransealEventHandler for Shapes {
                     g.translate(step);
                     g.line(Point::new(-32.0, -32.0), size / 2.0);
                     g.translate(step);
-                    g.arc(zero, 32.0, angle - 90.0, angle, 1.0);
+                    g.arc(zero, Point::new(32.0,32.0), angle - tau/4.0, angle, 1.0);
 
                     g.set_fill(true);
                     g.set_fill_style(styles[4]);
@@ -112,6 +121,8 @@ impl NeoGransealEventHandler for Shapes {
                     g.translate(step);
                     g.circle(zero, size / 2.0, 4.0);
                     g.translate(step);
+                    g.arc(zero, Point::new(32.0,32.0), angle - tau/4.0, angle, 1.0);
+                    g.translate(step);
                     g.set_fill(false);
                     g.rect(zero, size);
                     g.translate(step);
@@ -119,7 +130,7 @@ impl NeoGransealEventHandler for Shapes {
                     g.translate(step);
                     g.line(Point::new(-32.0, -32.0), size / 2.0);
                     g.translate(step);
-                    g.arc(zero, 32.0, angle - 90.0, angle, 1.0);
+                    g.arc(zero, Point::new(32.0,32.0), angle - tau/4.0, angle, 1.0);
                 }
                 g.finish();
             }

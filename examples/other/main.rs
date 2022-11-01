@@ -68,32 +68,41 @@ impl NeoGransealEventHandler for Game {
             }
             Event::Draw => {
                 use FillStyle::*;
+                let tau = std::f32::consts::TAU;
+                let q = tau / 4.0;
                 let width = core.config.width as f32;
                 let height = core.config.height as f32;
                 let time = core.timer.elapsed().as_secs_f32();
+                let size = Point::new(64.0,64.0);
                 let mut g = ShapeGfx::new(core);
+                g.set_fill(true);
+                self.entities.iter().for_each(|e|{
+                    g.set_fill_style(FadeLeft(Color::DARK_SALMON, Color::GOLD));
+                    g.set_line_thickness(8.0);
+                    g.line(e.center, e.pos);
+                });
                 g.set_line_thickness(1.0);
                 g.set_fill_style(Solid(Color::DIM_GRAY));
                 let c1 = Color::SADDLE_BROWN;
                 let c2 = Color::new(0.5451, 0.5, 0.2,0.5 * time.rem(6.28).sin());
                 grid(&mut g, Point::new(width, height), Point::new(32.0, 32.0));
-                g.set_line_thickness(1.0);
+                g.set_line_thickness(4.0);
                 let cx = self.center.x - 256.0;
                 let cy = self.center.y;
                 g.set_fill_style(FadeLeft(c2, c1));
-                g.arc(Point::new(cx, cy), 64.0, 90.0, 180.0, 4.0);
+                g.arc(Point::new(cx, cy), size, q, q*2.0, 4.0);
                 g.set_fill_style(FadeLeft(c1, c2));
                 g.rect(Point::new(cx-32.0, cy-32.0), Point::new(64.0, 64.0));
                 g.set_fill_style(FadeLeft(c2, c1));
-                g.arc(Point::new(cx, cy - 64.0), 64.0, 180.0, 270.0, 4.0);
+                g.arc(Point::new(cx, cy - 64.0), size, q*2.0, q*3.0, 4.0);
                 g.set_fill_style(FadeDown(c1, c2));
                 g.rect(Point::new(cx+32.0, cy+32.0), Point::new(64.0, 64.0));
                 g.set_fill_style(FadeLeft(c2, c1));
-                g.arc(Point::new(cx + 64.0, cy - 64.0), 64.0, 270.0, 360.0, 4.0);
+                g.arc(Point::new(cx + 64.0, cy - 64.0), size, q*3.0, q*4.0, 4.0);
                 g.set_fill_style(FadeLeft(c2, c1));
                 g.rect(Point::new(cx+96.0, cy-32.0), Point::new(64.0, 64.0));
                 g.set_fill_style(FadeLeft(c2, c1));
-                g.arc(Point::new(cx + 64.0, cy), 64.0, 0.0, 90.0, 4.0);
+                g.arc(Point::new(cx + 64.0, cy), size, 0.0, q, 4.0);
                 g.set_fill_style(FadeDown(c2, c1));
                 g.rect(Point::new(cx+32.0, cy-96.0), Point::new(64.0, 64.0));
 
@@ -105,42 +114,35 @@ impl NeoGransealEventHandler for Game {
                 g.set_fill_style(FadeLeft(c1, c2));
                 g.rect(Point::new(cx-32.0, cy-96.0), Point::new(64.0, 64.0));
                 g.set_fill_style(FadeLeft(c2, c1));
-                g.arc(Point::new(cx, cy + 0.0), 64.0, 90.0, 180.0, 4.0);
+                g.arc(Point::new(cx, cy + 0.0), size, q, q*2.0, 4.0);
                 g.set_fill_style(FadeDown(c1, c2));
                 g.rect(Point::new(cx+32.0, cy+32.0), Point::new(64.0, 64.0));
 
                 let cx = self.center.x + 128.0;
                 let cy = self.center.y;
                 g.set_fill_style(FadeLeft(c2, c1));
-                g.arc(Point::new(cx, cy), 64.0, 90.0, 180.0, 4.0);
+                g.arc(Point::new(cx, cy), size, q, q*2.0, 4.0);
                 g.set_fill_style(FadeLeft(c1, c2));
                 g.rect(Point::new(cx-32.0, cy-32.0), Point::new(64.0, 64.0));
                 g.set_fill_style(FadeLeft(c2, c1));
-                g.arc(Point::new(cx, cy - 64.0), 64.0, 180.0, 270.0, 4.0);
+                g.arc(Point::new(cx, cy - 64.0), size, q*2.0, q*3.0, 4.0);
                 g.set_fill_style(FadeDown(c1, c2));
                 g.rect(Point::new(cx+32.0, cy+32.0), Point::new(64.0, 64.0));
                 g.set_fill_style(FadeLeft(c2, c1));
-                g.arc(Point::new(cx + 64.0, cy - 64.0), 64.0, 270.0, 360.0, 4.0);
+                g.arc(Point::new(cx + 64.0, cy - 64.0), size, q*3.0, q*4.0, 4.0);
                 g.set_fill_style(FadeLeft(c2, c1));
                 //gfx.rect(Point::new(cx+96.0,cy-32.0),Point::new(64.0,64.0));
                 g.set_fill_style(FadeLeft(c2, c1));
-                g.arc(Point::new(cx + 64.0, cy), 64.0, 0.0, 90.0, 4.0);
+                g.arc(Point::new(cx + 64.0, cy), size, 0.0, q, 4.0);
                 g.set_fill_style(FadeDown(c2, c1));
                 g.rect(Point::new(cx+32.0, cy-96.0), Point::new(64.0, 64.0));
-                // for (i,p) in self.queue.iter().enumerate() {
-                //     gfx.fill_style(FadeLeft(Color::rgb(p.x/200.0,p.y/height,0.5),Color::RED));
-                //     gfx.line(Point::new(i as f32 * gfx.thickness,0.0),Point::new(i as f32 * gfx.thickness,p.y))
-                // };
-                g.set_fill(false);
-                g.set_line_thickness(256.0 * time.rem(3.15).sin());
-                g.set_fill_style(FadeLeft(Color::CORAL, Color::CRIMSON));
-                g.circle(Point::new(256.0, 256.0), Point::new(172.0, 32.0), 16.0);
 
-                self.entities.iter().for_each(|e|{
-                    g.set_fill_style(FadeLeft(Color::DARK_SALMON, Color::GOLD));
-                    g.set_line_thickness(8.0);
-                    g.line(e.center, e.pos);
-                });
+                g.set_line_thickness(16.0);
+                g.set_fill_style(FadeLeft(Color::DARK_KHAKI, Color::SLATE_BLUE));
+
+
+                g.circle(Point::new(300.0,300.0),Point::new(200.0,100.0),8.0);
+
                 g.finish();
             }
             Event::Update(d) => {
