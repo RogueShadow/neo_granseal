@@ -5,7 +5,7 @@ use rand::{Rng, SeedableRng};
 use neo_granseal::{start, GransealGameConfig, NeoGransealEventHandler, core::NGCore, events::Event, shape_pipeline::ShapeGfx};
 use neo_granseal::core::NGCommand;
 use neo_granseal::events::{Key, KeyState};
-use neo_granseal::shape_pipeline::{FillStyle};
+use neo_granseal::shape_pipeline::{FillStyle, MeshGen};
 use neo_granseal::util::{Color, Point};
 
 fn main() {
@@ -137,12 +137,18 @@ impl NeoGransealEventHandler for Game {
                 g.set_fill_style(FadeDown(c2, c1));
                 g.rect(Point::new(cx+32.0, cy-96.0), Point::new(64.0, 64.0));
 
-                g.set_line_thickness(16.0);
+                g.set_line_thickness(1.0 + 100.0 * (time).rem(tau).sin().abs());
                 g.set_fill_style(FadeLeft(Color::DARK_KHAKI, Color::SLATE_BLUE));
+                g.f(false);
 
+                g.circle(Point::new(300.0,300.0),Point::new(200.0,100.0),15.0);
 
-                g.circle(Point::new(300.0,300.0),Point::new(200.0,100.0),8.0);
+                let m = vec![MeshGen::rect_size(Point::new(0.0,0.0),Point::new(32.0,32.0)).style(FadeLeft(Color::SALMON,Color::AQUA)),
+                MeshGen::rect_size(Point::new(0.0,64.0),Point::new(32.0,64.0)).style(FadeDown(Color::DARK_SLATE_BLUE,Color::SEA_GREEN)),
+                MeshGen::rect_size(Point::new(64.0,64.0),Point::new(64.0,32.0)).style(Corners(Color::RED,Color::LIME,Color::BLUE,Color::MINT_CREAM))];
+                let s = MeshGen::combine(m).style(FadeLeft(Color::CORNFLOWER_BLUE,Color::PAPAYA_WHIP));
 
+                g.draw_mesh(s,Point::new(64.0,400.0));
                 g.finish();
             }
             Event::Update(d) => {

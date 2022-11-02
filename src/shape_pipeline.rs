@@ -17,10 +17,10 @@ pub struct Vertex {
     pub a: f32,
 }
 impl Vertex {
-    pub fn new() -> Self {
+    pub fn new(x: f32, y: f32) -> Self {
         Self {
-            x: 0.0,
-            y: 0.0,
+            x,
+            y,
             z: 0.0,
             u: 0.0,
             v: 0.0,
@@ -30,20 +30,23 @@ impl Vertex {
             a: 1.0,
         }
     }
-    pub fn xy(mut self,x: f32, y: f32) -> Self {
-        self.x = x;
-        self.y = y;
-        self
-    }
     pub fn uv(mut self,u: f32, v: f32) -> Self {
         self.u = u;
         self.v = v;
         self
     }
-    pub fn pt(mut self, p: Point) -> Self {
-        self.x = p.x;
-        self.y = p.y;
-        self
+    pub fn point(p: Point) -> Self {
+        Self {
+            x: p.x,
+            y: p.y,
+            z: 0.0,
+            u: 0.0,
+            v: 0.0,
+            r: 1.0,
+            g: 1.0,
+            b: 1.0,
+            a: 1.0,
+        }
     }
     pub fn rgba(mut self, c: Color) -> Self {
         self.r = c.r;
@@ -51,6 +54,12 @@ impl Vertex {
         self.b = c.b;
         self.a = c.a;
         self
+    }
+    pub fn set_color(&mut self, c: Color) {
+        self.r = c.r;
+        self.g = c.g;
+        self.b = c.b;
+        self.a = c.a;
     }
 }
 
@@ -432,8 +441,80 @@ pub struct ShapeGfx<'draw> {
 }
 
 pub struct Mesh {
-    vertices: Vec<Vertex>,
-    indices: Vec<u32>,
+    pub vertices: Vec<Vertex>,
+    pub indices: Vec<u32>,
+}
+
+impl Mesh {
+    pub fn new() -> Self {
+        Self {
+            vertices: vec![],
+            indices: vec![],
+        }
+    }
+    pub fn add(mut self, other: &Mesh) -> Mesh {
+        let start = self.vertices.len() as u32;
+        self.vertices.extend(&other.vertices);
+        let indices: Vec<u32> = other.indices.iter().map(|i| i + start).collect();
+        self.indices.extend(indices);
+        self
+    }
+    pub fn style(mut self, style: FillStyle) -> Self {
+        let minx = self.vertices.iter().fold(f32::MAX,|acc,v| if acc < v.x {acc} else {v.x});
+        let maxx = self.vertices.iter().fold(f32::MIN, |acc, v| if acc > v.x {acc} else {v.x});
+        let miny = self.vertices.iter().fold(f32::MAX,|acc,v| if acc < v.y {acc} else {v.y});
+        let maxy = self.vertices.iter().fold(f32::MIN, |acc, v| if acc > v.y {acc} else {v.y});
+        let dx = maxx - minx;
+        let dy = maxy - miny;
+        let midx = maxx - dx / 2.0;
+        let midy = maxy - dy / 2.0;
+        let texu = |x: f32| {
+            (x - minx) / dx
+        };
+        let texv = |y: f32| {
+            (y - miny) / dy
+        };
+        match style {
+            FillStyle::Solid(c1) => {
+                self.vertices.iter_mut().for_each(|v| {
+                    v.set_color(c1);
+                    v.u = texu(v.x);
+                    v.v = texv(v.y);
+                });
+            }
+            FillStyle::FadeDown(c1,c2) => {
+                self.vertices.iter_mut().for_each(|v| {
+                    v.u = texu(v.x);
+                    v.v = texv(v.y);
+                    if v.y < midy {
+                        v.set_color(c1)
+                    } else {v.set_color(c2)}
+                })
+            }
+            FillStyle::FadeLeft(c1,c2) => {
+                self.vertices.iter_mut().for_each(|v| {
+                    v.u = texu(v.x);
+                    v.v = texv(v.y);
+                    if v.x < midx {
+                        v.set_color(c1)
+                    } else {v.set_color(c2)}
+                })
+            }
+            FillStyle::Corners(c1, c2, c3, c4) => {
+                self.vertices.iter_mut().for_each(|v| {
+                    v.u = texu(v.x);
+                    v.v = texv(v.y);
+                    match (v.x < midx,v.y < midy) {
+                        (true, true) => {v.set_color(c1)}
+                        (false,true) => {v.set_color(c2)}
+                        (false,false) => {v.set_color(c3)}
+                        (true,false) => {v.set_color(c4)}
+                    }
+                })
+            }
+        };
+        self
+    }
 }
 
 impl <'draw> ShapeGfx<'draw> {
@@ -482,10 +563,10 @@ impl <'draw> ShapeGfx<'draw> {
         let (c1,c2,c3,c4) = self.colors();
         Mesh {
             vertices: vec![
-            Vertex::new().pt(p1).uv(0.0,0.0).rgba(c1),
-            Vertex::new().pt(p2).uv(0.0,1.0).rgba(c2),
-            Vertex::new().pt(p3).uv(1.0,1.0).rgba(c3),
-            Vertex::new().pt(p4).uv(1.0,0.0).rgba(c4)],
+            Vertex::point(p1).uv(0.0,0.0).rgba(c1),
+            Vertex::point(p2).uv(0.0,1.0).rgba(c2),
+            Vertex::point(p3).uv(1.0,1.0).rgba(c3),
+            Vertex::point(p4).uv(1.0,0.0).rgba(c4)],
             indices: vec![0,1,2,2,3,0]
         }
     }
@@ -533,9 +614,7 @@ impl <'draw> ShapeGfx<'draw> {
     }
     pub fn line(&mut self, start: Point, end: Point) {
         let mesh = self.pt_line_quad(start,end,self.state.thickness / 2.0);
-        //mesh.vertices.iter_mut().for_each(|v| {v.rgba(self.color)});
-        let kind = self.state.kind;
-        self.draw_raw_vertices(mesh,None,Some(kind))
+        self.draw_mesh(mesh, Point::new(0.0,0.0))
     }
     pub fn rect(&mut self, pos: Point, size: Point) {
         if self.state.fill {
@@ -546,7 +625,7 @@ impl <'draw> ShapeGfx<'draw> {
             let p3 = Point::new(hx, hy);
             let p4 = Point::new(hx, -hy);
             let mesh = self.pt_quad(p1,p2,p3,p4);
-            self.draw_raw_vertices(mesh,Some(pos),None);
+            self.draw_mesh(mesh, pos);
         } else {
             let hx = size.x / 2.0;
             let hy = size.y / 2.0;
@@ -562,14 +641,14 @@ impl <'draw> ShapeGfx<'draw> {
 
             let (c1,c2,c3,c4) = self.colors();
             let vertices = vec![
-                Vertex::new().pt(p1).uv(0.0,0.0).rgba(c1), // 0
-                Vertex::new().pt(p2).uv(0.0,1.0).rgba(c2), // 1
-                Vertex::new().pt(p3).uv(1.0,1.0).rgba(c3), // 2
-                Vertex::new().pt(p4).uv(1.0,0.0).rgba(c4), // 3
-                Vertex::new().pt(ip1).uv(0.0,0.0).rgba(c1),// 4
-                Vertex::new().pt(ip2).uv(0.0,1.0).rgba(c2),// 5
-                Vertex::new().pt(ip3).uv(1.0,1.0).rgba(c3),// 6
-                Vertex::new().pt(ip4).uv(1.0,0.0).rgba(c4),// 7
+                Vertex::point(p1).uv(0.0,0.0).rgba(c1), // 0
+                Vertex::point(p2).uv(0.0,1.0).rgba(c2), // 1
+                Vertex::point(p3).uv(1.0,1.0).rgba(c3), // 2
+                Vertex::point(p4).uv(1.0,0.0).rgba(c4), // 3
+                Vertex::point(ip1).uv(0.0,0.0).rgba(c1),// 4
+                Vertex::point(ip2).uv(0.0,1.0).rgba(c2),// 5
+                Vertex::point(ip3).uv(1.0,1.0).rgba(c3),// 6
+                Vertex::point(ip4).uv(1.0,0.0).rgba(c4),// 7
             ];
             let indices = vec![
                 0,1,4,   1,5,4,
@@ -583,7 +662,7 @@ impl <'draw> ShapeGfx<'draw> {
                 indices,
             };
 
-            self.draw_raw_vertices(mesh,Some(pos),None);
+            self.draw_mesh(mesh, pos);
         }
     }
     pub fn poly(&mut self, points: &Vec<Point>) {
@@ -607,7 +686,7 @@ impl <'draw> ShapeGfx<'draw> {
     pub fn arc(&mut self, center: Point, radius: Point, arc_begin: f32, arc_end: f32, resolution: f32) {
         if self.state.fill {
             let (c1, _, _, c4) = self.colors();
-            let mut vertices = vec![Vertex::new().xy(0.0, 0.0).rgba(c1)];
+            let mut vertices = vec![Vertex::new(0.0, 0.0).rgba(c1)];
             let mut indices: Vec<u32> = vec![];
             let start_angle = arc_begin;
             let end_angle = arc_end;
@@ -618,11 +697,11 @@ impl <'draw> ShapeGfx<'draw> {
             (0..=(vertex_count as u32 + 1)).for_each(|i| {
                 if i <= vertex_count.floor() as u32 {
                     vertices.push(
-                    Vertex::new().xy(radius.x * a.cos(), radius.y * a.sin()).rgba(c4)
+                    Vertex::new(radius.x * a.cos(), radius.y * a.sin()).rgba(c4)
                    );
                 }else{
                     vertices.push(
-                        Vertex::new().xy(radius.x * end_angle.cos(),radius.y * end_angle.sin()).rgba(c4)
+                        Vertex::new(radius.x * end_angle.cos(),radius.y * end_angle.sin()).rgba(c4)
                     );
                     indices.push(0);
                     indices.push(i+1);
@@ -639,7 +718,7 @@ impl <'draw> ShapeGfx<'draw> {
                 vertices,
                 indices,
             };
-            self.draw_raw_vertices(mesh, Some(center), None)
+            self.draw_mesh(mesh, center)
         } else {
             let (c1, _, _, c4) = self.colors();
             let mut vertices = vec![];
@@ -653,17 +732,17 @@ impl <'draw> ShapeGfx<'draw> {
             (0..=(vertex_count as u32 + 1)).for_each(|i| {
                 if i <= vertex_count.floor() as u32 {
                     vertices.push(
-                        Vertex::new().xy(radius.x * a.cos(), radius.y * a.sin()).rgba(c4)
+                        Vertex::new(radius.x * a.cos(), radius.y * a.sin()).rgba(c4)
                     );
                     vertices.push(
-                        Vertex::new().xy((radius.x - self.state.thickness) * a.cos(), (radius.y - self.state.thickness) * a.sin()).rgba(c1)
+                        Vertex::new((radius.x - self.state.thickness) * a.cos(), (radius.y - self.state.thickness) * a.sin()).rgba(c1)
                     );
                 }else{
                     vertices.push(
-                        Vertex::new().xy(radius.x * end_angle.cos(),radius.y * end_angle.sin()).rgba(c4)
+                        Vertex::new(radius.x * end_angle.cos(),radius.y * end_angle.sin()).rgba(c4)
                     );
                     vertices.push(
-                        Vertex::new().xy((radius.x - self.state.thickness) * end_angle.cos(), (radius.y - self.state.thickness) * end_angle.sin()).rgba(c1)
+                        Vertex::new((radius.x - self.state.thickness) * end_angle.cos(), (radius.y - self.state.thickness) * end_angle.sin()).rgba(c1)
                     );
 
 
@@ -688,14 +767,13 @@ impl <'draw> ShapeGfx<'draw> {
                 vertices,
                 indices,
             };
-            self.draw_raw_vertices(mesh, Some(center), None)
+            self.draw_mesh(mesh, center)
         }
     }
-    pub fn draw_raw_vertices(
+    pub fn draw_mesh(
         &mut self,
         mesh: Mesh,
-        pos: Option<Point>,
-        kind: Option<i32>,
+        pos: Point,
     ) {
         let start_vertex = self.data.vertices.len();
         let start_index = self.data.indices.len();
@@ -707,19 +785,12 @@ impl <'draw> ShapeGfx<'draw> {
             start_index: start_index as u32,
             end_index: end_index as u32,
         };
-        let transform = match pos {
-            Some(p) => SSRTransform {
-            x: self.state.pos.x + p.x,
-            y: self.state.pos.y + p.y,
+        let transform = SSRTransform {
+            x: self.state.pos.x + pos.x,
+            y: self.state.pos.y + pos.y,
             r: self.state.rotation,
-        },
-            None => SSRTransform::new(self.state.pos,self.state.rotation)
         };
-        let material = match kind {
-            Some(1) => SSRMaterial::new().oval(),
-            None => SSRMaterial::new(),
-            Some(_) => SSRMaterial::new(),
-        };
+        let material = SSRMaterial {kind: self.state.kind };
         self.data.transforms.push(transform);
         self.data.materials.push(material);
         self.data.object_info.push(info);
@@ -737,3 +808,28 @@ impl <'draw> ShapeGfx<'draw> {
     }
 }
 
+
+pub struct MeshGen {}
+impl MeshGen {
+    pub fn rect(top_left: Point, bottom_right: Point) -> Mesh {
+        let mut mesh = Mesh::new();
+        mesh.vertices = vec![
+            Vertex::point(top_left),
+            Vertex::new(bottom_right.x,top_left.y),
+            Vertex::point(bottom_right),
+            Vertex::new(top_left.x,bottom_right.y)
+        ];
+        mesh.indices = vec![2,1,0, 3,2,0];
+        mesh
+    }
+    pub fn rect_size(pos: Point, size: Point) -> Mesh{
+        let halfx = size.x / 2.0;
+        let halfy = size.y / 2.0;
+        let top_left = Point::new(pos.x - halfx,pos.y - halfy);
+        let bottom_right = Point::new(pos.x + halfx,pos.y + halfy);
+        MeshGen::rect(top_left,bottom_right)
+    }
+    pub fn combine(mut meshes: Vec<Mesh>) -> Mesh {
+        meshes.iter_mut().fold(Mesh::new(),|mut acc, m|acc.add(m))
+    }
+}
