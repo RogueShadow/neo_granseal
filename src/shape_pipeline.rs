@@ -401,6 +401,7 @@ pub enum FillStyle {
     FadeDown(Color,Color),
     FadeLeft(Color,Color),
     Corners(Color,Color,Color,Color),
+    Radial(Color,Color)
 }
 #[derive(Copy,Clone,Debug)]
 pub enum LineStyle {
@@ -440,6 +441,7 @@ pub struct ShapeGfx<'draw> {
     pub states: Vec<SRState>,
 }
 
+#[derive(Debug, Clone)]
 pub struct Mesh {
     pub vertices: Vec<Vertex>,
     pub indices: Vec<u32>,
@@ -459,11 +461,31 @@ impl Mesh {
         self.indices.extend(indices);
         self
     }
-    pub fn style(mut self, style: FillStyle) -> Self {
-        let minx = self.vertices.iter().fold(f32::MAX,|acc,v| if acc < v.x {acc} else {v.x});
-        let maxx = self.vertices.iter().fold(f32::MIN, |acc, v| if acc > v.x {acc} else {v.x});
-        let miny = self.vertices.iter().fold(f32::MAX,|acc,v| if acc < v.y {acc} else {v.y});
-        let maxy = self.vertices.iter().fold(f32::MIN, |acc, v| if acc > v.y {acc} else {v.y});
+    pub fn min_x(&self) -> f32 {
+        self.vertices.iter().fold(f32::MAX,|acc,v| if acc < v.x {acc} else {v.x})
+    }
+    pub fn min_y(&self) -> f32 {
+        self.vertices.iter().fold(f32::MAX,|acc,v| if acc < v.y {acc} else {v.y})
+    }
+    pub fn max_x(&self) -> f32 {
+        self.vertices.iter().fold(f32::MIN, |acc, v| if acc > v.x {acc} else {v.x})
+    }
+    pub fn max_y(&self) -> f32 {
+        self.vertices.iter().fold(f32::MIN, |acc, v| if acc > v.y {acc} else {v.y})
+    }
+    pub fn mid_x(&self) -> f32 {
+        let dx = self.max_x() - self.min_x();
+        self.max_x() - dx / 2.0
+    }
+    pub fn mid_y(&self) -> f32 {
+        let dy = self.max_y() - self.min_y();
+        self.max_y() - dy / 2.0
+    }
+    pub fn style(&mut self, style: FillStyle) -> &Self {
+        let minx = self.min_x();
+        let maxx = self.max_x();
+        let miny = self.min_y();
+        let maxy = self.max_y();
         let dx = maxx - minx;
         let dy = maxy - miny;
         let midx = maxx - dx / 2.0;
@@ -510,6 +532,18 @@ impl Mesh {
                         (false,false) => {v.set_color(c3)}
                         (true,false) => {v.set_color(c4)}
                     }
+                })
+            }
+            FillStyle::Radial(c1,c2) => {
+                let mx = self.mid_x();
+                let my = self.mid_y();
+                self.vertices.iter_mut().for_each(|v| {
+                    let dx = (v.x - mx).abs();
+                    let dy = (v.y - my).abs();
+                    let d = dx*dx + dy*dy;
+                    if d > 1.0 {
+                        v.set_color(c1);
+                    }else{v.set_color(c2)}
                 })
             }
         };
@@ -571,6 +605,7 @@ impl <'draw> ShapeGfx<'draw> {
         }
     }
     fn pt_line_quad(&self, start: Point, end: Point, width: f32) -> Mesh {
+        let width = width / 2.0;
         let swap = if start.y < end.y {-1.0} else {1.0};
         let pi = std::f32::consts::PI;
         let dx = (start.x - end.x) * 2.0; // width of line
@@ -613,168 +648,44 @@ impl <'draw> ShapeGfx<'draw> {
         }
     }
     pub fn line(&mut self, start: Point, end: Point) {
-        let mesh = self.pt_line_quad(start,end,self.state.thickness / 2.0);
+        let mesh = self.pt_line_quad(start,end,self.state.thickness);
         self.draw_mesh(mesh, Point::new(0.0,0.0))
     }
     pub fn rect(&mut self, pos: Point, size: Point) {
         if self.state.fill {
-            let hx = size.x / 2.0;
-            let hy = size.y / 2.0;
-            let p1 = Point::new(-hx, -hy);
-            let p2 = Point::new(-hx, hy);
-            let p3 = Point::new(hx, hy);
-            let p4 = Point::new(hx, -hy);
-            let mesh = self.pt_quad(p1,p2,p3,p4);
-            self.draw_mesh(mesh, pos);
+            let mut mesh = MeshGen::rect_filled(-(size / 2.0),  (size / 2.0),self.state.color);
+            self.draw_mesh(mesh,pos);
         } else {
-            let hx = size.x / 2.0;
-            let hy = size.y / 2.0;
-            let p1 = Point::new(-hx, -hy);
-            let p2 = Point::new(-hx, hy);
-            let p3 = Point::new(hx, hy);
-            let p4 = Point::new(hx, -hy);
-            let t = self.state.thickness;
-            let ip1 = Point::new(-hx + t, -hy + t);
-            let ip2 = Point::new(-hx + t, hy - t);
-            let ip3 = Point::new(hx - t, hy - t);
-            let ip4 = Point::new(hx - t, -hy + t);
-
-            let (c1,c2,c3,c4) = self.colors();
-            let vertices = vec![
-                Vertex::point(p1).uv(0.0,0.0).rgba(c1), // 0
-                Vertex::point(p2).uv(0.0,1.0).rgba(c2), // 1
-                Vertex::point(p3).uv(1.0,1.0).rgba(c3), // 2
-                Vertex::point(p4).uv(1.0,0.0).rgba(c4), // 3
-                Vertex::point(ip1).uv(0.0,0.0).rgba(c1),// 4
-                Vertex::point(ip2).uv(0.0,1.0).rgba(c2),// 5
-                Vertex::point(ip3).uv(1.0,1.0).rgba(c3),// 6
-                Vertex::point(ip4).uv(1.0,0.0).rgba(c4),// 7
-            ];
-            let indices = vec![
-                0,1,4,   1,5,4,
-                1,2,5,   5,2,6,
-                2,3,6,   6,3,7,
-                4,7,3,   4,3,0,
-            ];
-
-            let mesh = Mesh {
-                vertices,
-                indices,
-            };
-
-            self.draw_mesh(mesh, pos);
+            let mut mesh = MeshGen::rect_outlined(-(size / 2.0),  (size / 2.0),self.state.thickness,self.state.color);
+            self.draw_mesh(mesh,pos);
         }
     }
     pub fn poly(&mut self, points: &Vec<Point>) {
-        if !self.state.fill  {
-            if points.len() > 2 {
-                let mut i = 0;
-                while i < points.len() - 1 {
-                    self.line(points[i],points[i+1]);
-                    i += 1;
-                }
-            } else if points.len() == 2 {
-                self.line(points[0],points[1]);
+        let mut lines: Vec<Mesh> = vec![];
+        if points.len() > 2 {
+            let mut i = 0;
+            while i < points.len() - 1 {
+                lines.push(self.pt_line_quad(points[i],points[i+1],self.state.thickness));
+                i += 1;
             }
-        } else {
-
+        } else if points.len() == 2 {
+            lines.push(self.pt_line_quad(points[0],points[1],self.state.thickness));
         }
+        self.draw_mesh(MeshGen::combine(lines),Point::new(0.0,0.0));
     }
     pub fn circle(&mut self, center: Point, radius: Point, resolution: f32) {
         self.arc(center,radius,0.0,std::f32::consts::TAU,resolution);
     }
     pub fn arc(&mut self, center: Point, radius: Point, arc_begin: f32, arc_end: f32, resolution: f32) {
         if self.state.fill {
-            let (c1, _, _, c4) = self.colors();
-            let mut vertices = vec![Vertex::new(0.0, 0.0).rgba(c1)];
-            let mut indices: Vec<u32> = vec![];
-            let start_angle = arc_begin;
-            let end_angle = arc_end;
-            let arc_length = (end_angle - start_angle).abs() * radius.len();
-            let vertex_count = arc_length / resolution;
-            let angle_step = (end_angle - start_angle).abs() / vertex_count;
-            let mut a = start_angle;
-            (0..=(vertex_count as u32 + 1)).for_each(|i| {
-                if i <= vertex_count.floor() as u32 {
-                    vertices.push(
-                    Vertex::new(radius.x * a.cos(), radius.y * a.sin()).rgba(c4)
-                   );
-                }else{
-                    vertices.push(
-                        Vertex::new(radius.x * end_angle.cos(),radius.y * end_angle.sin()).rgba(c4)
-                    );
-                    indices.push(0);
-                    indices.push(i+1);
-                    indices.push(i);
-                }
-                if i > 0 {
-                    indices.push(0);
-                    indices.push(i);
-                    indices.push(i - 1);
-                }
-                a += angle_step;
-            });
-            let mesh = Mesh {
-                vertices,
-                indices,
-            };
+            let mut mesh = MeshGen::oval_filled(Point::new(0.0,0.0),radius,arc_begin,arc_end,resolution,self.state.color);
             self.draw_mesh(mesh, center)
         } else {
-            let (c1, _, _, c4) = self.colors();
-            let mut vertices = vec![];
-            let mut indices: Vec<u32> = vec![];
-            let start_angle = arc_begin;
-            let end_angle = arc_end;
-            let arc_length = (end_angle - start_angle).abs() * radius.len();
-            let vertex_count = arc_length / resolution;
-            let angle_step = (end_angle - start_angle).abs() / vertex_count;
-            let mut a = start_angle;
-            (0..=(vertex_count as u32 + 1)).for_each(|i| {
-                if i <= vertex_count.floor() as u32 {
-                    vertices.push(
-                        Vertex::new(radius.x * a.cos(), radius.y * a.sin()).rgba(c4)
-                    );
-                    vertices.push(
-                        Vertex::new((radius.x - self.state.thickness) * a.cos(), (radius.y - self.state.thickness) * a.sin()).rgba(c1)
-                    );
-                }else{
-                    vertices.push(
-                        Vertex::new(radius.x * end_angle.cos(),radius.y * end_angle.sin()).rgba(c4)
-                    );
-                    vertices.push(
-                        Vertex::new((radius.x - self.state.thickness) * end_angle.cos(), (radius.y - self.state.thickness) * end_angle.sin()).rgba(c1)
-                    );
-
-
-                }
-                if i > 0 {
-                    let v0 =  i*2 - 2;
-                    let v1 = i*2 - 1;
-                    let v2 = i*2;
-                    let v3 = i*2 + 1;
-                    indices.push(v0);
-                    indices.push(v1);
-                    indices.push(v2);
-
-                    indices.push(v2);
-                    indices.push(v1);
-                    indices.push(v3);
-
-                }
-                a += angle_step;
-            });
-            let mesh = Mesh {
-                vertices,
-                indices,
-            };
+            let mut mesh = MeshGen::oval_outlined(Point::new(0.0,0.0),radius,arc_begin,arc_end,resolution,self.state.thickness,self.state.color);
             self.draw_mesh(mesh, center)
         }
     }
-    pub fn draw_mesh(
-        &mut self,
-        mesh: Mesh,
-        pos: Point,
-    ) {
+    pub fn draw_mesh(&mut self, mesh: Mesh, pos: Point) {
         let start_vertex = self.data.vertices.len();
         let start_index = self.data.indices.len();
         for v in mesh.vertices { self.data.vertices.push(v); }
@@ -801,6 +712,7 @@ impl <'draw> ShapeGfx<'draw> {
             FillStyle::FadeDown(color1, color2) => {(color2,color1,color1,color2)}
             FillStyle::FadeLeft(color1, color2) => {(color1,color1,color2,color2)}
             FillStyle::Corners(c1, c2, c3, c4) => {(c1,c2,c3,c4)}
+            FillStyle::Radial(c1,c2) => {(c1,c2,c1,c2)}
         }
     }
     pub fn finish(&mut self) {
@@ -811,24 +723,127 @@ impl <'draw> ShapeGfx<'draw> {
 
 pub struct MeshGen {}
 impl MeshGen {
-    pub fn rect(top_left: Point, bottom_right: Point) -> Mesh {
+    fn style_colors(style: FillStyle) -> (Color,Color,Color,Color) {
+        match style {
+            FillStyle::Solid(color) => {(color,color,color,color)}
+            FillStyle::FadeDown(color1, color2) => {(color2,color1,color1,color2)}
+            FillStyle::FadeLeft(color1, color2) => {(color1,color1,color2,color2)}
+            FillStyle::Corners(c1, c2, c3, c4) => {(c1,c2,c3,c4)}
+            FillStyle::Radial(c1,c2) => {(c1,c1,c2,c2)}
+        }
+    }
+    pub fn rect_filled(top_left: Point, bottom_right: Point, style: FillStyle) -> Mesh {
+        let (c1,c2,c3,c4) = MeshGen::style_colors(style);
         let mut mesh = Mesh::new();
         mesh.vertices = vec![
-            Vertex::point(top_left),
-            Vertex::new(bottom_right.x,top_left.y),
-            Vertex::point(bottom_right),
-            Vertex::new(top_left.x,bottom_right.y)
+            Vertex::point(top_left).rgba(c2),
+            Vertex::new(bottom_right.x,top_left.y).rgba(c3),
+            Vertex::point(bottom_right).rgba(c4),
+            Vertex::new(top_left.x,bottom_right.y).rgba(c1)
         ];
         mesh.indices = vec![2,1,0, 3,2,0];
         mesh
     }
-    pub fn rect_size(pos: Point, size: Point) -> Mesh{
-        let halfx = size.x / 2.0;
-        let halfy = size.y / 2.0;
-        let top_left = Point::new(pos.x - halfx,pos.y - halfy);
-        let bottom_right = Point::new(pos.x + halfx,pos.y + halfy);
-        MeshGen::rect(top_left,bottom_right)
+    pub fn rect_outlined(top_left: Point, bottom_right: Point, thickness: f32, style: FillStyle) -> Mesh {
+        let (c1,c2,c3,c4) = MeshGen::style_colors(style);
+        let mut mesh = Mesh::new();
+        mesh.vertices = vec![
+            Vertex::point(top_left).rgba(c2),
+            Vertex::new(bottom_right.x,top_left.y).rgba(c3),
+            Vertex::point(bottom_right).rgba(c4),
+            Vertex::new(top_left.x,bottom_right.y).rgba(c1),
+
+            Vertex::point(top_left + thickness).rgba(c2),
+            Vertex::new(bottom_right.x - thickness,top_left.y + thickness).rgba(c3),
+            Vertex::point(bottom_right - thickness).rgba(c4),
+            Vertex::new(top_left.x + thickness,bottom_right.y - thickness).rgba(c1),
+        ];
+        mesh.indices = vec![
+            4,1,0,   4,5,1,
+            5,2,1,   6,2,5,
+            6,3,2,   7,3,6,
+            3,7,4,   0,3,4,
+        ];
+        mesh
     }
+    pub fn oval_filled(center: Point, radius: Point, arc_begin: f32, arc_end: f32, resolution: f32, style: FillStyle) -> Mesh {
+        let (c1,c2,c3,c4) = MeshGen::style_colors(style);
+        let mut mesh = Mesh::new();
+        mesh.vertices = vec![Vertex::point(center).rgba(c1)];
+        let start_angle = arc_begin;
+        let end_angle = arc_end;
+        let arc_length = (end_angle - start_angle).abs() * radius.len();
+        let vertex_count = arc_length / resolution;
+        let angle_step = (end_angle - start_angle).abs() / vertex_count;
+        let mut a = start_angle;
+        (0..=(vertex_count as u32 + 1)).for_each(|i| {
+            if i <= vertex_count.floor() as u32 {
+                mesh.vertices.push(
+                    Vertex::new(center.x + radius.x * a.cos(), center.y + radius.y * a.sin()).rgba(c3)
+                );
+            }else{
+                mesh.vertices.push(
+                    Vertex::new(center.x + radius.x * end_angle.cos(),center.y + radius.y * end_angle.sin()).rgba(c3)
+                );
+                mesh.indices.push(0);
+                mesh.indices.push(i+1);
+                mesh.indices.push(i);
+            }
+            if i > 0 {
+                mesh.indices.push(0);
+                mesh.indices.push(i);
+                mesh.indices.push(i - 1);
+            }
+            a += angle_step;
+        });
+        mesh
+    }
+    pub fn oval_outlined(center: Point, radius: Point, arc_begin: f32, arc_end: f32, resolution: f32, thickness: f32 , style: FillStyle) -> Mesh {
+        let (c1,c2,c3,c4) = MeshGen::style_colors(style);
+        let mut mesh = Mesh::new();
+        let start_angle = arc_begin;
+        let end_angle = arc_end;
+        let arc_length = (end_angle - start_angle).abs() * radius.len();
+        let vertex_count = arc_length / resolution;
+        let angle_step = (end_angle - start_angle).abs() / vertex_count;
+        let mut a = start_angle;
+        (0..=(vertex_count as u32 + 1)).for_each(|i| {
+            if i <= vertex_count.floor() as u32 {
+                mesh.vertices.push(
+                    Vertex::new(center.x + radius.x * a.cos(), center.y + radius.y * a.sin()).rgba(c1)
+                );
+                mesh.vertices.push(
+                    Vertex::new(center.x + (radius.x - thickness) * a.cos(), center.y + (radius.y - thickness) * a.sin()).rgba(c3)
+                );
+            }else{
+                mesh.vertices.push(
+                    Vertex::new(center.x + radius.x * end_angle.cos(),center.y + radius.y * end_angle.sin()).rgba(c1)
+                );
+                mesh.vertices.push(
+                    Vertex::new(center.x + (radius.x - thickness) * end_angle.cos(), center.y + (radius.y - thickness) * end_angle.sin()).rgba(c3)
+                );
+
+
+            }
+            if i > 0 {
+                let v0 =  i*2 - 2;
+                let v1 = i*2 - 1;
+                let v2 = i*2;
+                let v3 = i*2 + 1;
+                mesh.indices.push(v0);
+                mesh.indices.push(v1);
+                mesh.indices.push(v2);
+
+                mesh.indices.push(v2);
+                mesh.indices.push(v1);
+                mesh.indices.push(v3);
+
+            }
+            a += angle_step;
+        });
+        mesh
+    }
+
     pub fn combine(mut meshes: Vec<Mesh>) -> Mesh {
         meshes.iter_mut().fold(Mesh::new(),|mut acc, m|acc.add(m))
     }

@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Div, Mul, Sub};
+use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
 
 #[derive(Copy,Clone,Debug)]
 pub struct Color {
@@ -266,11 +266,25 @@ impl Add<f32> for Point {
         Point::new(self.x + rhs,self.y + rhs)
     }
 }
+impl Sub<f32> for Point {
+    type Output =  Point;
+
+    fn sub(self, rhs: f32) -> Self::Output {
+        Point::new(self.x - rhs,self.y - rhs)
+    }
+}
 impl Mul<f32> for Point {
     type Output = Point;
 
     fn mul(self, rhs: f32) -> Self::Output {
         Point::new(self.x * rhs,self.y * rhs)
+    }
+}
+impl Neg for Point {
+    type Output = Point;
+
+    fn neg(self) -> Self::Output {
+        Point::new(-self.x,-self.y)
     }
 }
 impl AddAssign<Point> for Point {
