@@ -228,6 +228,7 @@ pub struct Point {
     pub y: f32,
 }
 impl Point {
+    pub const ZERO: Point = Point { x: 0.0, y: 0.0};
     pub fn new(x: impl AsPrimitive<f32>, y: impl AsPrimitive<f32>) -> Self {
         Self {x: x.as_(),y: y.as_()}
     }

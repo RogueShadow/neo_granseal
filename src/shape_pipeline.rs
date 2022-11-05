@@ -499,95 +499,28 @@ impl <'draw> ShapeGfx<'draw> {
             states: vec![],
         }
     }
-    fn pt_quad(&self, p1: Point, p2: Point, p3: Point, p4: Point) -> Mesh {
-        let (c1,c2,c3,c4) = self.colors();
-        Mesh {
-            vertices: vec![
-            Vertex::point(p1).uv(0.0,0.0).rgba(c1),
-            Vertex::point(p2).uv(0.0,1.0).rgba(c2),
-            Vertex::point(p3).uv(1.0,1.0).rgba(c3),
-            Vertex::point(p4).uv(1.0,0.0).rgba(c4)],
-            indices: vec![0,1,2,2,3,0]
-        }
-    }
-    fn pt_line_quad(&self, start: Point, end: Point, width: f32) -> Mesh {
-        let width = width / 2.0;
-        let swap = if start.y < end.y {-1.0} else {1.0};
-        let pi = std::f32::consts::PI;
-        let dx = (start.x - end.x) * 2.0; // width of line
-        let dy = (start.y - end.y) * 2.0; // height of line
-        let a = (dx/dy).atan(); // line slope in radians
-        let sa = a - (pi/2.0);
-        let sa2 = a + (pi/2.0);
-
-        let bump2 = Point::new(width * sa.sin(), width * sa.cos());
-        let bump = Point::new(width * sa2.sin(), width * sa2.cos());
-
-        let (p1,p2,p3,p4) = match self.state.line_style {
-            LineStyle::Center => {
-            (
-                Point::new(start.x + bump2.x, start.y + bump2.y),
-                Point::new(start.x + bump.x, start.y + bump.y),
-                Point::new(end.x + bump.x, end.y + bump.y),
-                Point::new(end.x + bump2.x, end.y + bump2.y),
-            )}
-            LineStyle::Left => {
-            (
-                Point::new(start.x + bump2.x * 2.0 * swap, start.y + bump2.y * 2.0 * swap),
-                Point::new(start.x, start.y),
-                Point::new(end.x, end.y),
-                Point::new(end.x + bump2.x * 2.0 * swap, end.y + bump2.y * 2.0 * swap),
-            )}
-            LineStyle::Right => {
-            (
-                Point::new(start.x, start.y),
-                Point::new(start.x + bump.x * 2.0 * swap, start.y + bump.y * 2.0 * swap),
-                Point::new(end.x + bump.x * 2.0 * swap, end.y + bump.y * 2.0 * swap),
-                Point::new(end.x, end.y),
-            )}
-        };
-
-        if swap < 0.0 {
-            return self.pt_quad(p2,p1,p4,p3);
-        } else {
-            self.pt_quad(p1,p2,p3,p4)
-        }
-    }
     pub fn line(&mut self, start: Point, end: Point) {
-        let mesh = self.pt_line_quad(start,end,self.state.thickness);
+        let mesh = line(start,end,self.state.thickness,self.state.line_style,self.state.color);
         self.draw_mesh(mesh, Point::new(0.0,0.0))
     }
     pub fn rect(&mut self, pos: Point, size: Point) {
         if self.state.fill {
-            let mut mesh = rect_filled(-(size / 2.0),  (size / 2.0), self.state.color);
+            let mut mesh = rect_filled(Point::new(0,0),size, self.state.color);
             self.draw_mesh(mesh,pos);
         } else {
-            let mut mesh = rect_outlined(-(size / 2.0),  (size / 2.0),self.state.thickness,self.state.color);
+            let mut mesh = rect_outlined(Point::new(0,0),size,self.state.thickness,self.state.color);
             self.draw_mesh(mesh,pos);
         }
-    }
-    pub fn poly(&mut self, points: &Vec<Point>) {
-        let mut lines: Vec<Mesh> = vec![];
-        if points.len() > 2 {
-            let mut i = 0;
-            while i < points.len() - 1 {
-                lines.push(self.pt_line_quad(points[i],points[i+1],self.state.thickness));
-                i += 1;
-            }
-        } else if points.len() == 2 {
-            lines.push(self.pt_line_quad(points[0],points[1],self.state.thickness));
-        }
-        self.draw_mesh(mesh::combine(lines),Point::new(0.0,0.0));
     }
     pub fn circle(&mut self, center: Point, radius: Point, resolution: f32) {
         self.arc(center,radius,0.0,std::f32::consts::TAU,resolution);
     }
     pub fn arc(&mut self, center: Point, radius: Point, arc_begin: f32, arc_end: f32, resolution: f32) {
         if self.state.fill {
-            let mut mesh = mesh::oval_filled(Point::new(0.0,0.0),radius,arc_begin,arc_end,resolution,self.state.color);
+            let mut mesh = oval_filled(radius,radius,arc_begin,arc_end,resolution,self.state.color);
             self.draw_mesh(mesh, center)
         } else {
-            let mut mesh = mesh::oval_outlined(Point::new(0.0,0.0),radius,arc_begin,arc_end,resolution,self.state.thickness,self.state.color);
+            let mut mesh = oval_outlined(radius,radius,arc_begin,arc_end,resolution,self.state.thickness,self.state.color);
             self.draw_mesh(mesh, center)
         }
     }

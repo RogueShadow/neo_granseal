@@ -54,7 +54,7 @@ impl EngineState {
     pub fn new() -> Self {
         Self {
             mouse: MouseState {
-                pos: crate::util::Point::new(0.0,0.0),
+                pos: crate::util::Point::new(0,0),
                 left: false,
                 right: false,
                 middle: false,

@@ -1,4 +1,4 @@
-use std::f32::consts::TAU;
+use std::f32::consts::{PI, TAU};
 use num_traits::AsPrimitive;
 use crate::{Color, Point};
 use crate::shape_pipeline::{Vertex};
@@ -106,6 +106,37 @@ impl MeshBuilder {
         } else {
             oval_outlined(self.state.cursor - radius / 2.0, radius, 0.0, TAU, self.state.resolution, self.state.thickness, self.state.fill_style)
         };
+        if self.state.rotation != 0.0 {
+            let offset = -self.state.cursor - self.state.rot_origin;
+            m.translate(offset);
+            m.rotate(self.state.rotation);
+            m.translate(-offset);
+        }
+        self.meshes.push(m);
+    }
+    pub fn line(&mut self, begin: Point, end: Point) {
+        let mut m = line(begin,end,self.state.thickness,self.state.line_style,self.state.fill_style);
+        if self.state.rotation != 0.0 {
+            let offset = -self.state.cursor - self.state.rot_origin;
+            m.translate(offset);
+            m.rotate(self.state.rotation);
+            m.translate(-offset);
+        }
+        self.meshes.push(m);
+    }
+    pub fn triangle_raw(&mut self, p1: Point, p2: Point, p3: Point) {
+        let (c1,c2,c3,c4) = style_colors(self.state.fill_style);
+        let mut m = raw_triangle_filled(p1,p2,p3,c1,c2,c3);
+        if self.state.rotation != 0.0 {
+            let offset = -self.state.cursor - self.state.rot_origin;
+            m.translate(offset);
+            m.rotate(self.state.rotation);
+            m.translate(-offset);
+        }
+        self.meshes.push(m);
+    }
+    pub fn quad_raw(&mut self, p1: Point, p2: Point, p3: Point, p4: Point) {
+        let mut m = raw_quad_filled(p1,p2,p3,p4,self.state.fill_style);
         if self.state.rotation != 0.0 {
             let offset = -self.state.cursor - self.state.rot_origin;
             m.translate(offset);
@@ -362,6 +393,71 @@ pub fn oval_outlined(center: Point, radius: Point, arc_begin: f32, arc_end: f32,
         a += angle_step;
     });
     mesh
+}
+
+pub fn line(begin: Point, end: Point, thickness: f32, style: LineStyle, fill: FillStyle) -> Mesh {
+    let (c1,c2,c3,c4) = style_colors(fill);
+    let mut m = Mesh::new();
+    let width = thickness / 2.0;
+    let swap = if begin.y < end.y {-1.0} else {1.0};
+    let dx = (begin.x - end.x) * 2.0;
+    let dy = (begin.y - end.y) * 2.0;
+    let a = (dx/dy).atan();
+    let half_pi = PI / 2.0;
+    let sa = a - half_pi;
+    let sa2 = a + half_pi;
+
+    let bump2 = Point::new(width * sa.sin(),width * sa.cos());
+    let bump = Point::new(width * sa2.sin(),width * sa2.cos());
+
+    match style {
+        LineStyle::Center => {
+            m.vertices.push(Vertex::new(begin.x + bump2.x, begin.y + bump2.y).rgba(c1));
+            m.vertices.push(Vertex::new(begin.x + bump.x, begin.y + bump.y).rgba(c2));
+            m.vertices.push(Vertex::new(end.x + bump.x, end.y + bump.y).rgba(c3));
+            m.vertices.push(Vertex::new(end.x + bump2.x, end.y + bump2.y).rgba(c4));
+        }
+        LineStyle::Left => {
+            m.vertices.push(Vertex::new(begin.x + bump2.x * 2.0 * swap, begin.y + bump2.y * 2.0 * swap).rgba(c1));
+            m.vertices.push(Vertex::new(begin.x, begin.y).rgba(c2));
+            m.vertices.push(Vertex::new(end.x, end.y).rgba(c3));
+            m.vertices.push(Vertex::new(end.x + bump2.x * 2.0 * swap, end.y + bump2.y * 2.0 * swap).rgba(c4));
+        }
+        LineStyle::Right => {
+            m.vertices.push(Vertex::new(begin.x, begin.y).rgba(c1));
+            m.vertices.push(Vertex::new(begin.x + bump.x * 2.0 * swap, begin.y + bump.y * 2.0 * swap).rgba(c2));
+            m.vertices.push(Vertex::new(end.x + bump.x * 2.0 * swap, end.y + bump.y * 2.0 * swap).rgba(c3));
+            m.vertices.push(Vertex::new(end.x, end.y).rgba(c4));
+        }
+    };
+    if swap < 0.0 {
+        m.indices = vec![
+            2, 1, 0, 3, 2, 0,
+        ];
+    } else {
+        m.indices = vec![
+            0, 1, 2, 0, 2, 3,
+        ];
+    }
+    m
+}
+pub fn raw_triangle_filled(p1: Point, p2: Point, p3: Point, c1: Color, c2: Color, c3: Color) -> Mesh {
+    let mut m = Mesh::new();
+    m.vertices.push(Vertex::new(p1.x, p1.y).rgba(c1));
+    m.vertices.push(Vertex::new(p2.x,p2.y).rgba(c2));
+    m.vertices.push(Vertex::new(p3.x,p3.y).rgba(c3));
+    m.indices = vec![2,1,0];
+    m
+}
+pub fn raw_quad_filled(p1: Point, p2: Point, p3: Point,p4: Point, style: FillStyle) -> Mesh {
+    let (c1,c2,c3,c4) = style_colors(style);
+    let mut m = Mesh::new();
+    m.vertices.push(Vertex::new(p1.x,p1.y).rgba(c1));
+    m.vertices.push(Vertex::new(p2.x,p2.y).rgba(c2));
+    m.vertices.push(Vertex::new(p3.x,p3.y).rgba(c3));
+    m.vertices.push(Vertex::new(p4.x,p4.y).rgba(c4));
+    m.indices = vec![2,1,0, 3,2,0];
+    m
 }
 
 pub fn combine(mut meshes: Vec<Mesh>) -> Mesh {

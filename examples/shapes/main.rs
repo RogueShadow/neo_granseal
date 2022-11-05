@@ -33,6 +33,7 @@ impl NeoGransealEventHandler for Shapes {
                 let step = Point::new(96.0, 0.0);
                 let mut g = ShapeGfx::new(core);
                 {
+                    g.set_rotation_origin(Point::new(32,32));
                     g.set_rotation(rotation);
 
                     g.set_line_thickness(thickness);
@@ -49,7 +50,10 @@ impl NeoGransealEventHandler for Shapes {
                     g.translate(step);
                     g.circle(zero, size / 2.0, 4.0);
                     g.translate(step);
+                    g.push_state();
+                    g.set_rotation(0.0);
                     g.line(Point::new(-32.0, -32.0), size / 2.0);
+                    g.pop_state();
                     g.translate(step);
                     g.arc(zero, Point::new(32.0,32.0), angle - tau/4.0, angle, 1.0);
 

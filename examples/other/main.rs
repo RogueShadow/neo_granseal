@@ -5,21 +5,7 @@ use std::{
     time::Instant
 };
 use rand::{Rng, SeedableRng};
-use neo_granseal::{
-    core::NGCommand,
-    start,
-    GransealGameConfig,
-    NeoGransealEventHandler,
-    core::NGCore,
-    events::Event,
-    shape_pipeline::ShapeGfx,
-    events::{Key, KeyState},
-    mesh::{FillStyle},
-    util::{Color, Point},
-    mesh::*,
-    mesh::FillStyle::{FadeDown, Solid},
-    shape_pipeline::BufferedObjectID
-};
+use neo_granseal::{core::NGCommand, start, GransealGameConfig, NeoGransealEventHandler, core::NGCore, events::Event, shape_pipeline::ShapeGfx, events::{Key, KeyState}, mesh::{FillStyle}, util::{Color, Point}, mesh::*, mesh::FillStyle::{FadeDown, Solid}, shape_pipeline::BufferedObjectID, MSAA};
 
 pub const WIDTH: i32 = 800;
 pub const HEIGHT: i32 = 600;
@@ -58,8 +44,11 @@ fn grid(size: Point) -> Mesh {
     let mut mb = MeshBuilder::new();
     mb.set_filled(false);
     mb.set_style(Solid(Color::WHITE));
-    for x in (0..WIDTH).step_by(size.x as usize){
-        for y in (0..HEIGHT).step_by(size.y as usize) {
+    mb.set_cursor(1.0,1.0);
+    mb.set_thickness(2.0);
+    let size = size;
+    for x in (0..WIDTH + size.x as i32).step_by(size.x as usize){
+        for y in (0..HEIGHT + size.y as i32).step_by(size.y as usize) {
             mb.rect(Point::new(x,y));
         }
     }
@@ -71,27 +60,39 @@ impl NeoGransealEventHandler for Game {
             Event::Draw => {
                 use FillStyle::*;
                 let time = core.timer.elapsed().as_secs_f32();
+
+                let mut mb = MeshBuilder::new();
+                mb.set_thickness(32.0);
+                mb.set_rotation(time,Point::ZERO);
+                mb.set_cursor(WIDTH/2,HEIGHT/2);
+                mb.line(Point::new(0,0),Point::new(WIDTH,HEIGHT));
+                mb.set_rotation(0.0,Point::ZERO);
+                mb.line(Point::new(WIDTH,HEIGHT),Point::ZERO);
+                mb.set_cursor(0,0);
+                mb.rect(Point::new(44,44));
+                mb.set_style(Corners(Color::RED,Color::LIME,Color::BLUE,Color::WHITE));
+                mb.quad_raw(Point::new(64, 0), Point::new(WIDTH - 64, 0), Point::new(WIDTH, HEIGHT), Point::new(0, HEIGHT));
+                mb.triangle_raw(Point::new(80, 80), Point::new(400, 400), Point::new(80, 300));
+                let m = mb.build();
+
                 let mut g = ShapeGfx::new(core);
                 g.set_rotation(0.0);
-                g.set_fill_style(FillStyle::Solid(Color::GOLD));
-                g.rect(Point::new(200,200),Point::new(150,200));
+                g.set_fill_style(Solid(Color::SLATE_BLUE));
+                g.rect(Point::new(128,128),Point::new(256,128));
                 g.set_rotation_origin(Point::new(WIDTH / 2, HEIGHT / 2));
-
-                (0..10).for_each(|i|{
-                    g.set_rotation(i as f32 + time / 4.0);
-                    g.draw_buffered_mesh(0,Point::new(0,0));
-                    g.set_rotation(i as f32 + -time / 4.0);
-                    g.draw_buffered_mesh(0,Point::new(0,0));
-                });
-
+                g.set_rotation(time);
+                g.draw_buffered_mesh(0,Point::new((time * 4.0).cos() * 32.0,(time * 4.0).sin() * 32.0));
+                g.draw_buffered_mesh(0,Point::new((time * 4.0).sin() * 32.0,(time * 4.0).cos() * 32.0));
                 g.set_rotation(0.0);
-                g.set_fill_style(FillStyle::Solid(Color::MAGENTA));
-                g.rect(Point::new(400,400),Point::new(150,20));
+                g.set_fill_style(Solid(Color::MAGENTA));
+                g.rect(Point::new(512,256),Point::new(128,256));
+
+                g.draw_mesh(m,Point::ZERO);
 
                 g.finish();
             }
             Event::Update(d) => {
-                core.cmd(NGCommand::SetTitle(format!("Other Stuff (experiments): {}",core.state.fps)));
+                core.cmd(NGCommand::SetTitle(format!("Other Stuff: {}",core.state.fps)));
             }
             Event::Load => {
                 let _ = core.buffer_object(grid(Point::new(32,32)));
