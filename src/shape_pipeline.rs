@@ -361,8 +361,6 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
         for (i,obj) in data.object_info.iter().enumerate() {
             let index = i as u32..i as u32 + 1;
             if obj.buffered_object.is_none() {
-                render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-                render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                 render_pass.draw_indexed(obj.start_index..obj.end_index, obj.start_vertice as i32, index);
             } else {
                 let vbi = obj.buffered_object.unwrap();
@@ -370,6 +368,8 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
                 render_pass.set_vertex_buffer(0,vb.vertex_buffer.slice(..));
                 render_pass.set_index_buffer(vb.index_buffer.slice(..),wgpu::IndexFormat::Uint32);
                 render_pass.draw_indexed(obj.start_index..obj.end_index,obj.start_vertice as i32,index);
+                render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+                render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
             }
         }
 

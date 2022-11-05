@@ -84,11 +84,11 @@ impl MeshBuilder {
         self.state = self.states.pop().unwrap_or_else(||{self.state});
     }
 
-    pub fn rect(&mut self, pos: Point) {
+    pub fn rect(&mut self, size: Point) {
         let mut m = if self.state.filled {
-            rect_filled(self.state.cursor,self.state.cursor + pos,self.state.fill_style)
+            rect_filled(self.state.cursor, self.state.cursor + size, self.state.fill_style)
         } else {
-            rect_outlined(self.state.cursor,self.state.cursor + pos,self.state.thickness,self.state.fill_style)
+            rect_outlined(self.state.cursor, self.state.cursor + size, self.state.thickness, self.state.fill_style)
         };
 
         if self.state.rotation != 0.0 {
