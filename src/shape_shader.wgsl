@@ -34,6 +34,8 @@ struct Transform {
     x: f32,
     y: f32,
     a: f32,
+    rx: f32,
+    ry: f32,
 }
 struct Material {
     kind: i32,
@@ -48,8 +50,9 @@ var<storage,read> materials: array<Material>;
 fn vs_main(@builtin(vertex_index) index: u32, in: VertexInput, @builtin(instance_index) inst: u32) -> VertexOutput {
     let a = transforms[inst].a;
     let rotation = mat2x2<f32>(cos(a),-sin(a),sin(a),cos(a));
-    var raw_pos = in.pos.xy * rotation;
-    var pos = (raw_pos / screen) * 2.0;
+    let offset = vec2<f32>(transforms[inst].rx,transforms[inst].ry);
+    var raw_pos = (in.pos.xy - offset) * rotation;
+    var pos = ((raw_pos + offset) / screen) * 2.0;
     var trans = ((vec2<f32>(transforms[inst].x,transforms[inst].y) / screen) - 0.5) * 2.0 ;
     var output = pos + trans;
     output = vec2<f32>(output.x,output.y *  -1.0);

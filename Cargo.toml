@@ -16,6 +16,8 @@ log = "0.4.17"
 env_logger = "0.9.1"
 rand = "0.8.5"
 rand_xorshift = "0.3.0"
+num-traits = "0.2.15"
+cgmath = "0.18.0"
 
 [lib]
 

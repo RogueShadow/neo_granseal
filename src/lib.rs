@@ -3,6 +3,8 @@ pub mod events;
 pub mod main_loop;
 pub mod shape_pipeline;
 pub mod util;
+pub mod mesh;
+
 pub mod prelude {
     pub use {
         crate::GransealGameConfig,

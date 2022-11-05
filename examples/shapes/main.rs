@@ -2,7 +2,8 @@ use std::ops::Rem;
 use neo_granseal::core::{NGCommand, NGCore};
 use neo_granseal::events::Event;
 use neo_granseal::{GransealGameConfig, NeoGransealEventHandler, start};
-use neo_granseal::shape_pipeline::{FillStyle, ShapeGfx};
+use neo_granseal::mesh::FillStyle;
+use neo_granseal::shape_pipeline::{ShapeGfx};
 use neo_granseal::util::{Color, Point};
 
 fn main() {

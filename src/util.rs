@@ -1,4 +1,5 @@
 use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
+use num_traits::AsPrimitive;
 
 #[derive(Copy,Clone,Debug)]
 pub struct Color {
@@ -227,8 +228,8 @@ pub struct Point {
     pub y: f32,
 }
 impl Point {
-    pub fn new(x: f32, y: f32) -> Self {
-        Self {x,y}
+    pub fn new(x: impl AsPrimitive<f32>, y: impl AsPrimitive<f32>) -> Self {
+        Self {x: x.as_(),y: y.as_()}
     }
     pub fn len(&self) -> f32 {
         (self.x*self.x + self.y*self.y).sqrt()

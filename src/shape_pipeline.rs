@@ -1,7 +1,9 @@
 use bytemuck::{Pod, Zeroable};
 use wgpu::util::{DeviceExt};
-use crate::{Color, GlobalUniforms, MSAA, NGCore, NGError, NGRenderPipeline, Point};
+use crate::{Color, GlobalUniforms, mesh, MSAA, NGCore, NGError, NGRenderPipeline, Point};
 use crate::core::NGCommand;
+use crate::mesh::*;
+
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
@@ -69,13 +71,17 @@ pub struct SSRTransform {
     x: f32,
     y: f32,
     r: f32,
+    rx: f32,
+    ry: f32,
 }
 impl SSRTransform {
-    pub fn new(pos: Point, r: f32) -> Self {
+    pub fn new(pos: Point, r: f32, origin: Point) -> Self {
         Self {
             x: pos.x,
             y: pos.y,
             r,
+            rx: origin.x,
+            ry: origin.y,
         }
     }
 }
@@ -99,9 +105,16 @@ impl SSRMaterial {
 
 #[derive(Copy, Clone, Debug)]
 pub struct SSRObjectInfo {
-    start_vertice: u32,
-    start_index: u32,
-    end_index: u32,
+    pub(crate) buffered_object: Option<usize>,
+    pub(crate) start_vertice: u32,
+    pub(crate) start_index: u32,
+    pub(crate) end_index: u32,
+}
+pub type BufferedObjectID = usize;
+pub struct SRBufferedObject {
+    pub(crate) vertex_buffer: wgpu::Buffer,
+    pub(crate) index_buffer: wgpu::Buffer,
+    pub(crate) object_info: SSRObjectInfo,
 }
 
 pub struct SimpleShapeRenderPipeline {
@@ -347,7 +360,17 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
 
         for (i,obj) in data.object_info.iter().enumerate() {
             let index = i as u32..i as u32 + 1;
-            render_pass.draw_indexed(obj.start_index..obj.end_index,obj.start_vertice as i32,index);
+            if obj.buffered_object.is_none() {
+                render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+                render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                render_pass.draw_indexed(obj.start_index..obj.end_index, obj.start_vertice as i32, index);
+            } else {
+                let vbi = obj.buffered_object.unwrap();
+                let vb: &SRBufferedObject = core.buffered_objects.get(vbi).unwrap();
+                render_pass.set_vertex_buffer(0,vb.vertex_buffer.slice(..));
+                render_pass.set_index_buffer(vb.index_buffer.slice(..),wgpu::IndexFormat::Uint32);
+                render_pass.draw_indexed(obj.start_index..obj.end_index,obj.start_vertice as i32,index);
+            }
         }
 
         drop(render_pass);
@@ -395,20 +418,7 @@ impl AsRef<SSRRenderData> for SSRRenderData {
     }
 }
 
-#[derive(Copy,Clone,Debug)]
-pub enum FillStyle {
-    Solid(Color),
-    FadeDown(Color,Color),
-    FadeLeft(Color,Color),
-    Corners(Color,Color,Color,Color),
-    Radial(Color,Color)
-}
-#[derive(Copy,Clone,Debug)]
-pub enum LineStyle {
-    Center,
-    Left,
-    Right,
-}
+
 
 #[derive(Copy, Clone, Debug)]
 pub struct SRState {
@@ -418,6 +428,7 @@ pub struct SRState {
     pub line_style: LineStyle,
     pub pos: Point,
     pub rotation: f32,
+    pub rot_origin: Point,
     pub kind: i32,
 }
 impl SRState {
@@ -429,6 +440,7 @@ impl SRState {
             line_style: LineStyle::Center,
             pos: Point::new(0.0,0.0),
             rotation: 0.0,
+            rot_origin: Point::new(0,0),
             kind: 0,
         }
     }
@@ -441,115 +453,6 @@ pub struct ShapeGfx<'draw> {
     pub states: Vec<SRState>,
 }
 
-#[derive(Debug, Clone)]
-pub struct Mesh {
-    pub vertices: Vec<Vertex>,
-    pub indices: Vec<u32>,
-}
-
-impl Mesh {
-    pub fn new() -> Self {
-        Self {
-            vertices: vec![],
-            indices: vec![],
-        }
-    }
-    pub fn add(mut self, other: &Mesh) -> Mesh {
-        let start = self.vertices.len() as u32;
-        self.vertices.extend(&other.vertices);
-        let indices: Vec<u32> = other.indices.iter().map(|i| i + start).collect();
-        self.indices.extend(indices);
-        self
-    }
-    pub fn min_x(&self) -> f32 {
-        self.vertices.iter().fold(f32::MAX,|acc,v| if acc < v.x {acc} else {v.x})
-    }
-    pub fn min_y(&self) -> f32 {
-        self.vertices.iter().fold(f32::MAX,|acc,v| if acc < v.y {acc} else {v.y})
-    }
-    pub fn max_x(&self) -> f32 {
-        self.vertices.iter().fold(f32::MIN, |acc, v| if acc > v.x {acc} else {v.x})
-    }
-    pub fn max_y(&self) -> f32 {
-        self.vertices.iter().fold(f32::MIN, |acc, v| if acc > v.y {acc} else {v.y})
-    }
-    pub fn mid_x(&self) -> f32 {
-        let dx = self.max_x() - self.min_x();
-        self.max_x() - dx / 2.0
-    }
-    pub fn mid_y(&self) -> f32 {
-        let dy = self.max_y() - self.min_y();
-        self.max_y() - dy / 2.0
-    }
-    pub fn style(&mut self, style: FillStyle) -> &Self {
-        let minx = self.min_x();
-        let maxx = self.max_x();
-        let miny = self.min_y();
-        let maxy = self.max_y();
-        let dx = maxx - minx;
-        let dy = maxy - miny;
-        let midx = maxx - dx / 2.0;
-        let midy = maxy - dy / 2.0;
-        let texu = |x: f32| {
-            (x - minx) / dx
-        };
-        let texv = |y: f32| {
-            (y - miny) / dy
-        };
-        match style {
-            FillStyle::Solid(c1) => {
-                self.vertices.iter_mut().for_each(|v| {
-                    v.set_color(c1);
-                    v.u = texu(v.x);
-                    v.v = texv(v.y);
-                });
-            }
-            FillStyle::FadeDown(c1,c2) => {
-                self.vertices.iter_mut().for_each(|v| {
-                    v.u = texu(v.x);
-                    v.v = texv(v.y);
-                    if v.y < midy {
-                        v.set_color(c1)
-                    } else {v.set_color(c2)}
-                })
-            }
-            FillStyle::FadeLeft(c1,c2) => {
-                self.vertices.iter_mut().for_each(|v| {
-                    v.u = texu(v.x);
-                    v.v = texv(v.y);
-                    if v.x < midx {
-                        v.set_color(c1)
-                    } else {v.set_color(c2)}
-                })
-            }
-            FillStyle::Corners(c1, c2, c3, c4) => {
-                self.vertices.iter_mut().for_each(|v| {
-                    v.u = texu(v.x);
-                    v.v = texv(v.y);
-                    match (v.x < midx,v.y < midy) {
-                        (true, true) => {v.set_color(c1)}
-                        (false,true) => {v.set_color(c2)}
-                        (false,false) => {v.set_color(c3)}
-                        (true,false) => {v.set_color(c4)}
-                    }
-                })
-            }
-            FillStyle::Radial(c1,c2) => {
-                let mx = self.mid_x();
-                let my = self.mid_y();
-                self.vertices.iter_mut().for_each(|v| {
-                    let dx = (v.x - mx).abs();
-                    let dy = (v.y - my).abs();
-                    let d = dx*dx + dy*dy;
-                    if d > 1.0 {
-                        v.set_color(c1);
-                    }else{v.set_color(c2)}
-                })
-            }
-        };
-        self
-    }
-}
 
 impl <'draw> ShapeGfx<'draw> {
     pub fn set_position(&mut self, pos: Point) {self.state.pos = pos}
@@ -568,6 +471,9 @@ impl <'draw> ShapeGfx<'draw> {
         pub fn f(&mut self, f: bool){self.set_fill(f)}
     pub fn set_rotation(&mut self, r: f32) {self.state.rotation = r}
         pub fn r(&mut self, r: f32){self.set_rotation(r)}
+    pub fn set_rotation_origin(&mut self, origin: Point) {
+        self.state.rot_origin = origin;
+    }
 
     pub fn translate(&mut self, t: Point) {self.state.pos += t}
     pub fn rotate(&mut self, r: f32) {self.state.rotation += r}
@@ -653,10 +559,10 @@ impl <'draw> ShapeGfx<'draw> {
     }
     pub fn rect(&mut self, pos: Point, size: Point) {
         if self.state.fill {
-            let mut mesh = MeshGen::rect_filled(-(size / 2.0),  (size / 2.0),self.state.color);
+            let mut mesh = rect_filled(-(size / 2.0),  (size / 2.0), self.state.color);
             self.draw_mesh(mesh,pos);
         } else {
-            let mut mesh = MeshGen::rect_outlined(-(size / 2.0),  (size / 2.0),self.state.thickness,self.state.color);
+            let mut mesh = rect_outlined(-(size / 2.0),  (size / 2.0),self.state.thickness,self.state.color);
             self.draw_mesh(mesh,pos);
         }
     }
@@ -671,27 +577,28 @@ impl <'draw> ShapeGfx<'draw> {
         } else if points.len() == 2 {
             lines.push(self.pt_line_quad(points[0],points[1],self.state.thickness));
         }
-        self.draw_mesh(MeshGen::combine(lines),Point::new(0.0,0.0));
+        self.draw_mesh(mesh::combine(lines),Point::new(0.0,0.0));
     }
     pub fn circle(&mut self, center: Point, radius: Point, resolution: f32) {
         self.arc(center,radius,0.0,std::f32::consts::TAU,resolution);
     }
     pub fn arc(&mut self, center: Point, radius: Point, arc_begin: f32, arc_end: f32, resolution: f32) {
         if self.state.fill {
-            let mut mesh = MeshGen::oval_filled(Point::new(0.0,0.0),radius,arc_begin,arc_end,resolution,self.state.color);
+            let mut mesh = mesh::oval_filled(Point::new(0.0,0.0),radius,arc_begin,arc_end,resolution,self.state.color);
             self.draw_mesh(mesh, center)
         } else {
-            let mut mesh = MeshGen::oval_outlined(Point::new(0.0,0.0),radius,arc_begin,arc_end,resolution,self.state.thickness,self.state.color);
+            let mut mesh = mesh::oval_outlined(Point::new(0.0,0.0),radius,arc_begin,arc_end,resolution,self.state.thickness,self.state.color);
             self.draw_mesh(mesh, center)
         }
     }
     pub fn draw_mesh(&mut self, mesh: Mesh, pos: Point) {
         let start_vertex = self.data.vertices.len();
         let start_index = self.data.indices.len();
-        for v in mesh.vertices { self.data.vertices.push(v); }
-        for i in mesh.indices { self.data.indices.push(i); }
+        self.data.vertices.extend(mesh.vertices);
+        self.data.indices.extend(mesh.indices);
         let end_index = self.data.indices.len();
         let info = SSRObjectInfo {
+            buffered_object: None,
             start_vertice: start_vertex as u32,
             start_index: start_index as u32,
             end_index: end_index as u32,
@@ -700,8 +607,25 @@ impl <'draw> ShapeGfx<'draw> {
             x: self.state.pos.x + pos.x,
             y: self.state.pos.y + pos.y,
             r: self.state.rotation,
+            rx: self.state.rot_origin.x,
+            ry: self.state.rot_origin.y,
         };
         let material = SSRMaterial {kind: self.state.kind };
+        self.data.transforms.push(transform);
+        self.data.materials.push(material);
+        self.data.object_info.push(info);
+    }
+    pub fn draw_buffered_mesh(&mut self,obj: BufferedObjectID, pos: Point) {
+        let info = self.core.buffered_objects.get(obj).unwrap().object_info;
+        let transform = SSRTransform {
+            x: self.state.pos.x + pos.x,
+            y: self.state.pos.y + pos.y,
+            r: self.state.rotation,
+            rx: self.state.rot_origin.x,
+            ry: self.state.rot_origin.y,
+        };
+        let material = SSRMaterial {kind: self.state.kind };
+
         self.data.transforms.push(transform);
         self.data.materials.push(material);
         self.data.object_info.push(info);
@@ -717,134 +641,5 @@ impl <'draw> ShapeGfx<'draw> {
     }
     pub fn finish(&mut self) {
         self.core.cmd(NGCommand::Render(0, Box::new(self.data.to_owned())))
-    }
-}
-
-
-pub struct MeshGen {}
-impl MeshGen {
-    fn style_colors(style: FillStyle) -> (Color,Color,Color,Color) {
-        match style {
-            FillStyle::Solid(color) => {(color,color,color,color)}
-            FillStyle::FadeDown(color1, color2) => {(color2,color1,color1,color2)}
-            FillStyle::FadeLeft(color1, color2) => {(color1,color1,color2,color2)}
-            FillStyle::Corners(c1, c2, c3, c4) => {(c1,c2,c3,c4)}
-            FillStyle::Radial(c1,c2) => {(c1,c1,c2,c2)}
-        }
-    }
-    pub fn rect_filled(top_left: Point, bottom_right: Point, style: FillStyle) -> Mesh {
-        let (c1,c2,c3,c4) = MeshGen::style_colors(style);
-        let mut mesh = Mesh::new();
-        mesh.vertices = vec![
-            Vertex::point(top_left).rgba(c2),
-            Vertex::new(bottom_right.x,top_left.y).rgba(c3),
-            Vertex::point(bottom_right).rgba(c4),
-            Vertex::new(top_left.x,bottom_right.y).rgba(c1)
-        ];
-        mesh.indices = vec![2,1,0, 3,2,0];
-        mesh
-    }
-    pub fn rect_outlined(top_left: Point, bottom_right: Point, thickness: f32, style: FillStyle) -> Mesh {
-        let (c1,c2,c3,c4) = MeshGen::style_colors(style);
-        let mut mesh = Mesh::new();
-        mesh.vertices = vec![
-            Vertex::point(top_left).rgba(c2),
-            Vertex::new(bottom_right.x,top_left.y).rgba(c3),
-            Vertex::point(bottom_right).rgba(c4),
-            Vertex::new(top_left.x,bottom_right.y).rgba(c1),
-
-            Vertex::point(top_left + thickness).rgba(c2),
-            Vertex::new(bottom_right.x - thickness,top_left.y + thickness).rgba(c3),
-            Vertex::point(bottom_right - thickness).rgba(c4),
-            Vertex::new(top_left.x + thickness,bottom_right.y - thickness).rgba(c1),
-        ];
-        mesh.indices = vec![
-            4,1,0,   4,5,1,
-            5,2,1,   6,2,5,
-            6,3,2,   7,3,6,
-            3,7,4,   0,3,4,
-        ];
-        mesh
-    }
-    pub fn oval_filled(center: Point, radius: Point, arc_begin: f32, arc_end: f32, resolution: f32, style: FillStyle) -> Mesh {
-        let (c1,c2,c3,c4) = MeshGen::style_colors(style);
-        let mut mesh = Mesh::new();
-        mesh.vertices = vec![Vertex::point(center).rgba(c1)];
-        let start_angle = arc_begin;
-        let end_angle = arc_end;
-        let arc_length = (end_angle - start_angle).abs() * radius.len();
-        let vertex_count = arc_length / resolution;
-        let angle_step = (end_angle - start_angle).abs() / vertex_count;
-        let mut a = start_angle;
-        (0..=(vertex_count as u32 + 1)).for_each(|i| {
-            if i <= vertex_count.floor() as u32 {
-                mesh.vertices.push(
-                    Vertex::new(center.x + radius.x * a.cos(), center.y + radius.y * a.sin()).rgba(c3)
-                );
-            }else{
-                mesh.vertices.push(
-                    Vertex::new(center.x + radius.x * end_angle.cos(),center.y + radius.y * end_angle.sin()).rgba(c3)
-                );
-                mesh.indices.push(0);
-                mesh.indices.push(i+1);
-                mesh.indices.push(i);
-            }
-            if i > 0 {
-                mesh.indices.push(0);
-                mesh.indices.push(i);
-                mesh.indices.push(i - 1);
-            }
-            a += angle_step;
-        });
-        mesh
-    }
-    pub fn oval_outlined(center: Point, radius: Point, arc_begin: f32, arc_end: f32, resolution: f32, thickness: f32 , style: FillStyle) -> Mesh {
-        let (c1,c2,c3,c4) = MeshGen::style_colors(style);
-        let mut mesh = Mesh::new();
-        let start_angle = arc_begin;
-        let end_angle = arc_end;
-        let arc_length = (end_angle - start_angle).abs() * radius.len();
-        let vertex_count = arc_length / resolution;
-        let angle_step = (end_angle - start_angle).abs() / vertex_count;
-        let mut a = start_angle;
-        (0..=(vertex_count as u32 + 1)).for_each(|i| {
-            if i <= vertex_count.floor() as u32 {
-                mesh.vertices.push(
-                    Vertex::new(center.x + radius.x * a.cos(), center.y + radius.y * a.sin()).rgba(c1)
-                );
-                mesh.vertices.push(
-                    Vertex::new(center.x + (radius.x - thickness) * a.cos(), center.y + (radius.y - thickness) * a.sin()).rgba(c3)
-                );
-            }else{
-                mesh.vertices.push(
-                    Vertex::new(center.x + radius.x * end_angle.cos(),center.y + radius.y * end_angle.sin()).rgba(c1)
-                );
-                mesh.vertices.push(
-                    Vertex::new(center.x + (radius.x - thickness) * end_angle.cos(), center.y + (radius.y - thickness) * end_angle.sin()).rgba(c3)
-                );
-
-
-            }
-            if i > 0 {
-                let v0 =  i*2 - 2;
-                let v1 = i*2 - 1;
-                let v2 = i*2;
-                let v3 = i*2 + 1;
-                mesh.indices.push(v0);
-                mesh.indices.push(v1);
-                mesh.indices.push(v2);
-
-                mesh.indices.push(v2);
-                mesh.indices.push(v1);
-                mesh.indices.push(v3);
-
-            }
-            a += angle_step;
-        });
-        mesh
-    }
-
-    pub fn combine(mut meshes: Vec<Mesh>) -> Mesh {
-        meshes.iter_mut().fold(Mesh::new(),|mut acc, m|acc.add(m))
     }
 }

@@ -1,6 +1,7 @@
-use neo_granseal::shape_pipeline::{FillStyle, ShapeGfx};
+use neo_granseal::shape_pipeline::{ShapeGfx};
 use neo_granseal::{core::{NGCore}, events::Event, start, GransealGameConfig, NeoGransealEventHandler};
 use rand::{Rng, SeedableRng};
+use neo_granseal::mesh::FillStyle;
 use neo_granseal::util::{Color, Point};
 
 fn main() {

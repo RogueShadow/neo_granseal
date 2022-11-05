@@ -1,8 +1,11 @@
 use crate::{map_present_modes, GransealGameConfig, NGRenderPipeline};
 use pollster::FutureExt;
-use wgpu::{Features};
+use wgpu::{BufferUsages, Features};
+use wgpu::util::DeviceExt;
 use winit::dpi::PhysicalSize;
 use winit::event_loop::EventLoop;
+use crate::mesh::Mesh;
+use crate::shape_pipeline::{BufferedObjectID, SRBufferedObject, SSRObjectInfo};
 
 #[derive(Debug)]
 pub enum NGError {
@@ -73,9 +76,36 @@ pub struct NGCore {
     pub queue: wgpu::Queue,
     pub cmd_queue: Vec<NGCommand>,
     pub state: EngineState,
+    pub buffered_objects: Vec<SRBufferedObject>,
 }
 
 impl NGCore {
+    pub fn buffer_object(&mut self, mesh: Mesh) -> BufferedObjectID {
+        let vertex_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(mesh.vertices.as_slice()),
+            usage: BufferUsages::VERTEX,
+        });
+        let index_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(mesh.indices.as_slice()),
+            usage: BufferUsages::INDEX
+        });
+        let index = self.buffered_objects.len();
+        let bo = SRBufferedObject {
+            vertex_buffer,
+            index_buffer,
+            object_info: SSRObjectInfo {
+                buffered_object: Some(index),
+                start_vertice: 0,
+                start_index: 0,
+                end_index: mesh.indices.len() as u32,
+            }
+        };
+        self.buffered_objects.push(bo);
+        index
+    }
+
     pub fn cmd(&mut self, cmd: NGCommand) {
         self.cmd_queue.push(cmd);
     }
@@ -129,6 +159,7 @@ impl NGCore {
             queue,
             cmd_queue: vec![],
             state,
+            buffered_objects: vec![],
         })
     }
 }
