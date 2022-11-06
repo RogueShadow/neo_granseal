@@ -277,7 +277,7 @@ impl SimpleShapeRenderPipeline {
                     entry_point: "fs_main",
                     targets: &[Some(wgpu::ColorTargetState {
                         format: core.surface_configuration.format,
-                        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                        blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
                         write_mask: wgpu::ColorWrites::ALL,
                     })],
                 }),

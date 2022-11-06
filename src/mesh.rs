@@ -3,7 +3,7 @@ use num_traits::AsPrimitive;
 use crate::{Color, Point};
 use crate::shape_pipeline::{Vertex};
 
-#[derive(Copy,Clone,Debug)]
+#[derive(Copy,Clone,Debug,PartialEq)]
 pub enum FillStyle {
     Solid(Color),
     FadeDown(Color,Color),
@@ -77,6 +77,7 @@ impl MeshBuilder {
     pub fn set_thickness(&mut self, thickness: f32) {
         self.state.thickness = thickness;
     }
+    pub fn set_line_style(&mut self, style: LineStyle) {self.state.line_style = style; }
     pub fn push(&mut self) {
         self.states.push(self.state);
     }
@@ -115,7 +116,7 @@ impl MeshBuilder {
         self.meshes.push(m);
     }
     pub fn line(&mut self, begin: Point, end: Point) {
-        let mut m = line(begin,end,self.state.thickness,self.state.line_style,self.state.fill_style);
+        let mut m = line(self.state.cursor + begin,self.state.cursor + end,self.state.thickness,self.state.line_style,self.state.fill_style);
         if self.state.rotation != 0.0 {
             let offset = -self.state.cursor - self.state.rot_origin;
             m.translate(offset);
@@ -298,17 +299,32 @@ pub fn rect_filled(top_left: Point, bottom_right: Point, style: FillStyle) -> Me
 pub fn rect_outlined(top_left: Point, bottom_right: Point, thickness: f32, style: FillStyle) -> Mesh {
     let (c1,c2,c3,c4) = style_colors(style);
     let mut mesh = Mesh::new();
-    mesh.vertices = vec![
-        Vertex::point(top_left).rgba(c2),
-        Vertex::new(bottom_right.x,top_left.y).rgba(c3),
-        Vertex::point(bottom_right).rgba(c4),
-        Vertex::new(top_left.x,bottom_right.y).rgba(c1),
-
-        Vertex::point(top_left + thickness).rgba(c2),
-        Vertex::new(bottom_right.x - thickness,top_left.y + thickness).rgba(c3),
-        Vertex::point(bottom_right - thickness).rgba(c4),
-        Vertex::new(top_left.x + thickness,bottom_right.y - thickness).rgba(c1),
-    ];
+    match style {
+        FillStyle::Radial(c1, c3) => {
+            mesh.vertices = vec![
+                Vertex::point(top_left).rgba(c1),
+                Vertex::new(bottom_right.x, top_left.y).rgba(c1),
+                Vertex::point(bottom_right).rgba(c1),
+                Vertex::new(top_left.x, bottom_right.y).rgba(c1),
+                Vertex::point(top_left + thickness).rgba(c3),
+                Vertex::new(bottom_right.x - thickness, top_left.y + thickness).rgba(c3),
+                Vertex::point(bottom_right - thickness).rgba(c3),
+                Vertex::new(top_left.x + thickness, bottom_right.y - thickness).rgba(c3),
+            ];
+        }
+        _ => {
+            mesh.vertices = vec![
+                Vertex::point(top_left).rgba(c2),
+                Vertex::new(bottom_right.x, top_left.y).rgba(c3),
+                Vertex::point(bottom_right).rgba(c4),
+                Vertex::new(top_left.x, bottom_right.y).rgba(c1),
+                Vertex::point(top_left + thickness).rgba(c2),
+                Vertex::new(bottom_right.x - thickness, top_left.y + thickness).rgba(c3),
+                Vertex::point(bottom_right - thickness).rgba(c4),
+                Vertex::new(top_left.x + thickness, bottom_right.y - thickness).rgba(c1),
+            ];
+        }
+    }
     mesh.indices = vec![
         4,1,0,   4,5,1,
         5,2,1,   6,2,5,

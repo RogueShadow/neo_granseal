@@ -1,7 +1,7 @@
 use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub};
 use num_traits::AsPrimitive;
 
-#[derive(Copy,Clone,Debug)]
+#[derive(Copy,Clone,Debug,PartialEq)]
 pub struct Color {
     pub r: f32,
     pub g: f32,
@@ -11,7 +11,7 @@ pub struct Color {
 // Pre-defined colors from CSS colors.
 impl Color {
     // misc
-    pub const TRANSPARENT: Self = Self::new(1.0, 1.0, 1.0, 0.0);
+    pub const TRANSPARENT: Self = Self::new(0.0, 0.0, 0.0, 0.0);
     // red colors
     pub const LIGHT_SALMON: Self = Self::rgb(1.0, 160.0/255.0,122.0/255.0);
     pub const SALMON: Self = Self::rgb(250.0/255.0,0.5,114.0/255.0);
@@ -353,6 +353,6 @@ impl Camera {
         }
     }
     pub fn get_offset(&self) -> Point {
-        -self.offset
+        self.offset
     }
 }

@@ -3,7 +3,7 @@ use num_traits::AsPrimitive;
 use rand::SeedableRng;
 use neo_granseal::{core::NGCommand, start, GransealGameConfig, core::NGCore, events::Event, shape_pipeline::ShapeGfx, events::{Key, KeyState}, mesh::{FillStyle}, util::{Color, Point}, mesh::*, mesh::FillStyle::{FadeDown, Solid}, shape_pipeline::BufferedObjectID, MSAA, NeoGransealEventHandler};
 use neo_granseal::events::MouseButton;
-use neo_granseal::mesh::FillStyle::Corners;
+use neo_granseal::mesh::FillStyle::{Corners, Radial};
 use neo_granseal::util::Camera;
 
 pub const TILE_SCALE: u32 = 64;
@@ -45,7 +45,7 @@ impl Level {
                 b"x......................x.................................x".to_vec(),
                 b"x..x..x..x.x..........x..................................x".to_vec(),
                 b"x....x.....x.........x...................................x".to_vec(),
-                b"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx".to_vec()
+                b"gggggggggggggggggggggggggggggggggggggggggggggggggggggggggg".to_vec()
             ],
             tile_scale: TILE_SCALE as u32
         }
@@ -60,6 +60,7 @@ impl Level {
         let x = (x.as_() / TILE_SCALE as f32) as u32;
         let y = (y.as_() / TILE_SCALE as f32) as u32;
         match self.get_tile(x,y) {
+            b'g' => {true}
             b'x' => {true}
             _ => {false}
         }
@@ -83,12 +84,23 @@ impl Level {
                 mb.set_cursor(tx,ty);
                 mb.push();
                 match tile_type {
+                    b'g' => {
+                        mb.set_style(FadeDown(Color::BLACK,Color::SADDLE_BROWN));
+                        mb.rect(tile_size);
+                        mb.set_thickness(16.0);
+                        mb.set_line_style(LineStyle::Right);
+                        mb.set_style(FadeDown(Color::BLACK,Color::GREEN));
+                        mb.set_filled(true);
+                        mb.line(Point::ZERO,Point::new(self.tile_scale,0));
+                    }
                     b'x' => {
-                        mb.set_style(FadeDown(Color::DIM_GRAY,Color::FIRE_BRICK));
+                        mb.set_style(FadeDown(Color::DIM_GRAY,Color::BLACK));
                         mb.rect(tile_size);
-                        mb.set_style(Solid(Color::BLACK));
                         mb.set_filled(false);
+                        mb.set_thickness(8.0);
+                        mb.set_style(Radial(Color::BLACK,Color::TRANSPARENT));
                         mb.rect(tile_size);
+
                     }
                     _ => {}
                 }
@@ -108,10 +120,14 @@ impl Player {
         let mut mb = MeshBuilder::new();
         mb.set_cursor(0,0);
         mb.set_style(Corners(Color::RED,Color::LIME,Color::BLUE,Color::BLACK));
-        mb.rect(Point::new(TILE_SCALE, TILE_SCALE));
+        mb.rect(self.size);
         mb.set_style(Solid(Color::INDIAN_RED));
-        mb.set_cursor(TILE_SCALE/4,TILE_SCALE/4);
-        mb.oval(Point::new(TILE_SCALE/2,TILE_SCALE/8));
+        mb.set_cursor(self.size.x/4.0,self.size.y/4.0);
+        mb.oval(Point::new(self.size.x/2.0,self.size.y/8.0));
+        mb.set_filled(false);
+        mb.set_style(Solid(Color::GOLDENROD));
+        mb.set_cursor(0,0);
+        mb.rect(self.size);
         mb.build()
     }
     pub fn update(&mut self,level: &Level, delta: Duration) {
@@ -145,7 +161,7 @@ impl Game {
         Self {
             rng: rand_xorshift::XorShiftRng::from_rng(rand::thread_rng()).expect("get Rng"),
             level: Level::new(),
-            player: Player  {pos: Point::new(64,64), vel: Point::ZERO, size: Point::new(TILE_SCALE,TILE_SCALE)},
+            player: Player  {pos: Point::new(64,64), vel: Point::ZERO, size: Point::new(TILE_SCALE-1,TILE_SCALE-1)},
             cam: Camera::new(Point::new(WIDTH,HEIGHT))
         }
     }
@@ -156,22 +172,18 @@ impl NeoGransealEventHandler for Game {
         match e {
             Event::KeyEvent {key, state} => {
                 if state == KeyState::Pressed {
-                    if key == Key::W {
+                    if key == Key::Space {
                         self.player.vel.y -= 500.0;
                     }
                 }
             }
             Event::MousePressed {button,state} => {
                 if button == MouseButton::Left && state == KeyState::Pressed {
-                    let mp = core.state.mouse.pos + self.cam.offset;
-                    if self.level.is_blocking(mp.x,mp.y) {
-                        println!("Wall")
-                    }else{println!("Not Wall")}
                 }
             }
             Event::Draw => {
                 let mut g = ShapeGfx::new(core);
-                g.set_position(self.cam.get_offset());
+                g.set_position(-self.cam.get_offset());
                 g.draw_buffered_mesh(0,Point::ZERO);
                 g.draw_mesh(self.player.mesh(),self.player.pos);
                 g.finish();
