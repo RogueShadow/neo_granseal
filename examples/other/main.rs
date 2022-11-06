@@ -5,7 +5,7 @@ use rand::SeedableRng;
 use neo_granseal::{core::NGCommand, start, GransealGameConfig, core::NGCore, events::Event, shape_pipeline::ShapeGfx, events::{Key, KeyState}, mesh::{FillStyle}, util::{Color, Point}, mesh::*, mesh::FillStyle::{FadeDown, Solid}, shape_pipeline::BufferedObjectID, MSAA, NeoGransealEventHandler};
 use neo_granseal::events::MouseButton;
 use neo_granseal::mesh::FillStyle::{Corners, Radial};
-use neo_granseal::util::Camera;
+use neo_granseal::util::{Camera, Rectangle};
 
 pub const TILE_SCALE: u32 = 64;
 pub const WIDTH: u32 = 12 * TILE_SCALE;
@@ -148,40 +148,7 @@ impl Level {
         mb.build()
     }
 }
-#[derive(Copy, Clone,PartialEq,Debug)]
-pub struct Rectangle {
-    top_left: Point,
-    bottom_right: Point,
-}
-impl Rectangle {
-    pub fn new(x: impl AsPrimitive<f32>,y: impl AsPrimitive<f32>,w: impl AsPrimitive<f32>,h: impl AsPrimitive<f32>) -> Self {
-        Self {
-            top_left: Point::new(x,y),
-            bottom_right: Point::new(x.as_()+w.as_(),y.as_()+h.as_()),
-        }
-    }
-    pub fn intersects(&self, other: &Self) -> bool {
-        if  self.top_left.x > other.bottom_right.x ||
-            self.bottom_right.x < other.top_left.x ||
-            self.top_left.y > other.bottom_right.y ||
-            self.bottom_right.y < other.top_left.y {
-            false
-        }else{
-            true
-        }
-    }
-    pub fn overlapping_box(&self, other: &Self) -> Option<Self> {
-        if !self.intersects(other) {
-            return None;
-        }else{
-            let x1 = self.top_left.x.max(other.top_left.x);
-            let x2 = self.bottom_right.x.min(other.bottom_right.x);
-            let y1 = self.top_left.y.max(other.top_left.y);
-            let y2 = self.bottom_right.y.min(other.bottom_right.y);
-            Some(Rectangle::new(x1,y1,x2-x1,y2-y1))
-        }
-    }
-}
+
 struct Player {
     pos: Point,
     vel: Point,
