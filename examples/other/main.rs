@@ -65,6 +65,10 @@ impl Level {
             _ => {false}
         }
     }
+    pub fn intersects(&self, hbox: Rectangle) -> bool {
+
+        true
+    }
     pub fn width(&self) -> u32 {
         self.tiles[0].len() as u32
     }
@@ -110,12 +114,45 @@ impl Level {
         mb.build()
     }
 }
+#[derive(Copy, Clone,PartialEq,Debug)]
+pub struct Rectangle {
+    top_left: Point,
+    bottom_right: Point,
+}
+impl Rectangle {
+    pub fn new(x: impl AsPrimitive<f32>,y: impl AsPrimitive<f32>,w: impl AsPrimitive<f32>,h: impl AsPrimitive<f32>) -> Self {
+        Self {
+            top_left: Point::new(x,y),
+            bottom_right: Point::new(x.as_()+w.as_(),y.as_()+h.as_()),
+        }
+    }
+    pub fn intersects(&self, other: Self) -> bool {
+        if  self.top_left.x > other.bottom_right.x ||
+            self.bottom_right.x < other.top_left.x ||
+            self.top_left.y > other.bottom_right.y ||
+            self.bottom_right.y < other.top_left.y {
+            false
+        }else{
+            true
+        }
+    }
+}
 struct Player {
     pos: Point,
     vel: Point,
     size: Point,
 }
 impl Player {
+    pub fn new(pos: Point, size: Point) -> Self {
+        Self {
+            pos,
+            vel: Point::ZERO,
+            size,
+        }
+    }
+    pub fn hit_box(&self) -> Rectangle {
+        Rectangle::new(self.pos.x,self.pos.y,self.size.x,self.size.y)
+    }
     pub fn mesh(&self) -> Mesh {
         let mut mb = MeshBuilder::new();
         mb.set_cursor(0,0);
@@ -161,8 +198,8 @@ impl Game {
         Self {
             rng: rand_xorshift::XorShiftRng::from_rng(rand::thread_rng()).expect("get Rng"),
             level: Level::new(),
-            player: Player  {pos: Point::new(64,64), vel: Point::ZERO, size: Point::new(TILE_SCALE-1,TILE_SCALE-1)},
-            cam: Camera::new(Point::new(WIDTH,HEIGHT))
+            player: Player::new(Point::new(64,HEIGHT - 128),Point::new(TILE_SCALE,TILE_SCALE)),
+            cam: Camera::new(Point::new(WIDTH,HEIGHT)),
         }
     }
 }
@@ -179,6 +216,7 @@ impl NeoGransealEventHandler for Game {
             }
             Event::MousePressed {button,state} => {
                 if button == MouseButton::Left && state == KeyState::Pressed {
+
                 }
             }
             Event::Draw => {
