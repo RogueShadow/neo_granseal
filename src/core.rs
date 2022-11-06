@@ -1,9 +1,11 @@
-use crate::{map_present_modes, GransealGameConfig, NGRenderPipeline};
+use std::collections::HashMap;
+use crate::{map_present_modes, GransealGameConfig, NGRenderPipeline, events};
 use pollster::FutureExt;
 use wgpu::{BufferAddress, BufferUsages, Features};
 use wgpu::util::DeviceExt;
 use winit::dpi::PhysicalSize;
 use winit::event_loop::EventLoop;
+use crate::events::Key;
 use crate::mesh::Mesh;
 use crate::shape_pipeline::{BufferedObjectID, MeshBuffer, SSRObjectInfo, Vertex};
 
@@ -49,6 +51,7 @@ pub struct MouseState {
 pub struct EngineState {
     pub mouse: MouseState,
     pub fps: i32,
+    pub(crate) keys: HashMap<Key,bool>
 }
 impl EngineState {
     pub fn new() -> Self {
@@ -59,7 +62,8 @@ impl EngineState {
                 right: false,
                 middle: false,
             },
-            fps: 0
+            fps: 0,
+            keys: HashMap::new()
         }
     }
 }
@@ -74,10 +78,10 @@ pub struct NGCore {
     pub adapter: wgpu::Adapter,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
-    pub cmd_queue: Vec<NGCommand>,
+    pub(crate) cmd_queue: Vec<NGCommand>,
     pub state: EngineState,
-    pub mesh_buffers: Vec<MeshBuffer>,
-    pub buffered_objects: Vec<SSRObjectInfo>,
+    pub(crate) mesh_buffers: Vec<MeshBuffer>,
+    pub(crate) buffered_objects: Vec<SSRObjectInfo>,
 }
 
 impl NGCore {
@@ -148,7 +152,13 @@ impl NGCore {
             self.buffered_objects.len() - 1
         }
     }
-
+    pub fn key_held(&self, key: Key) -> bool {
+        if !self.state.keys.contains_key(&key) {
+            false
+        } else {
+            self.state.keys[&key]
+        }
+    }
     pub fn cmd(&mut self, cmd: NGCommand) {
         self.cmd_queue.push(cmd);
     }

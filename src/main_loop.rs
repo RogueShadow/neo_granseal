@@ -9,7 +9,7 @@ use winit::{
     event_loop,
 };
 use winit::event::{ElementState, KeyboardInput, MouseButton};
-use crate::events::map_events;
+use crate::events::{map_events, map_keys};
 
 pub(crate) fn main_loop(
     e_loop: event_loop::EventLoop<()>,
@@ -71,10 +71,12 @@ pub(crate) fn main_loop(
                     WindowEvent::Focused(_) => {}
                     WindowEvent::KeyboardInput {input, ..} => {
                         match input {
-                            KeyboardInput {virtual_keycode, ..} => {
+                            KeyboardInput {virtual_keycode,state, ..} => {
                                 match virtual_keycode {
                                     None => {}
                                     Some(key) => {
+                                        let ng_key = map_keys(&key);
+                                        core.state.keys.insert(ng_key,if state == ElementState::Pressed {true} else {false});
                                         match key {
                                             VirtualKeyCode::Escape => {*control_flow = event_loop::ControlFlow::Exit}
                                             _ => {}
@@ -128,7 +130,6 @@ pub(crate) fn main_loop(
                     frame_timer = std::time::Instant::now();
                     core.state.fps = frames;
                     frames = 0;
-                    println!("Fps: {}", core.state.fps);
                 }
                 frames += 1;
             }

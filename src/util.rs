@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
+use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub};
 use num_traits::AsPrimitive;
 
 #[derive(Copy,Clone,Debug)]
@@ -300,5 +300,59 @@ impl Div<f32> for Point {
 
     fn div(self, rhs: f32) -> Self::Output {
         Self::Output::new(self.x / rhs,self.y / rhs)
+    }
+}
+impl MulAssign<f32> for Point {
+    fn mul_assign(&mut self, rhs: f32) {
+        self.x *= rhs;
+        self.y *= rhs;
+    }
+}
+
+pub struct Camera {
+    offset: Point,
+    lower_bound: Point,
+    upper_bound: Point,
+    screen_size: Point,
+    bounded: bool,
+}
+impl Camera {
+    pub fn new(screen_size: Point) -> Self {
+        Self {
+            offset: Point::ZERO,
+            lower_bound: Point::ZERO,
+            upper_bound: Point::ZERO,
+            screen_size,
+            bounded: false,
+        }
+    }
+    pub fn set_bounds(&mut self, lower_bound: Point, upper_bound: Point) {
+        self.bounded = true;
+        self.lower_bound = lower_bound;
+        self.upper_bound = upper_bound;
+    }
+    pub fn target(&mut self, pos: Point) {
+        if self.bounded {
+            self.offset.x = if pos.x < (self.screen_size.x / 2.0) + self.lower_bound.x { self.lower_bound.x } else {
+                if pos.x > self.upper_bound.x - self.screen_size.x / 2.0 {
+                    self.upper_bound.x - self.screen_size.x
+                } else {
+                    pos.x - (self.screen_size.x / 2.0)
+                }
+            };
+            self.offset.y = if pos.y < (self.screen_size.y / 2.0) + self.lower_bound.y { self.lower_bound.y } else {
+                if pos.y > self.upper_bound.y - self.screen_size.y / 2.0 {
+                    self.upper_bound.y - self.screen_size.y
+                } else {
+                    pos.y - (self.screen_size.y / 2.0)
+                }
+            };
+        }else{
+            self.offset.x = pos.x - (self.screen_size.x / 2.0);
+            self.offset.y = pos.y - (self.screen_size.y / 2.0);
+        }
+    }
+    pub fn get_offset(&self) -> Point {
+        -self.offset
     }
 }

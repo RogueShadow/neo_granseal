@@ -7,7 +7,7 @@ pub enum Event {
         state: KeyState,
         key: Key,
     },
-    MouseButton {
+    MousePressed {
         state: KeyState,
         button: MouseButton,
     },
@@ -183,7 +183,7 @@ pub fn map_events(event: &winit::event::WindowEvent) -> Option<Event> {
             state,
             button,
             ..
-        } => Some(Event::MouseButton {
+        } => Some(Event::MousePressed {
             state: match state {
                 winit::event::ElementState::Pressed => KeyState::Pressed,
                 winit::event::ElementState::Released => KeyState::Released,

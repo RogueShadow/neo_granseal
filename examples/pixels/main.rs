@@ -41,7 +41,7 @@ impl NeoGransealEventHandler for Game {
     fn event(&mut self, core: &mut NGCore, e: Event) {
         match e {
             Event::KeyEvent { .. } => {}
-            Event::MouseButton { .. } => {}
+            Event::MousePressed { .. } => {}
             Event::MouseMoved { .. } => {}
             Event::Draw => {
                 let mut gfx = ShapeGfx::new(core);

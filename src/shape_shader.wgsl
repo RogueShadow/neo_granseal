@@ -70,6 +70,9 @@ fn vs_main(@builtin(vertex_index) index: u32, in: VertexInput, @builtin(instance
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var color = in.color;
     var ndcPos = in.tex * 2.0 - 0.5; // convert to -1,1 range for some functions
+    if (color.a == 0.0) {
+        discard;
+    }
     if (in.kind == 0) {
         return color;
     }
