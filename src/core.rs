@@ -1,11 +1,11 @@
 use crate::{map_present_modes, GransealGameConfig, NGRenderPipeline};
 use pollster::FutureExt;
-use wgpu::{BufferUsages, Features};
+use wgpu::{BufferAddress, BufferUsages, Features};
 use wgpu::util::DeviceExt;
 use winit::dpi::PhysicalSize;
 use winit::event_loop::EventLoop;
 use crate::mesh::Mesh;
-use crate::shape_pipeline::{BufferedObjectID, SRBufferedObject, SSRObjectInfo};
+use crate::shape_pipeline::{BufferedObjectID, MeshBuffer, SSRObjectInfo, Vertex};
 
 #[derive(Debug)]
 pub enum NGError {
@@ -76,34 +76,77 @@ pub struct NGCore {
     pub queue: wgpu::Queue,
     pub cmd_queue: Vec<NGCommand>,
     pub state: EngineState,
-    pub buffered_objects: Vec<SRBufferedObject>,
+    pub mesh_buffers: Vec<MeshBuffer>,
+    pub buffered_objects: Vec<SSRObjectInfo>,
 }
 
 impl NGCore {
-    pub fn buffer_object(&mut self, mesh: Mesh) -> BufferedObjectID {
-        let vertex_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: None,
-            contents: bytemuck::cast_slice(mesh.vertices.as_slice()),
-            usage: BufferUsages::VERTEX,
-        });
-        let index_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: None,
-            contents: bytemuck::cast_slice(mesh.indices.as_slice()),
-            usage: BufferUsages::INDEX
-        });
-        let index = self.buffered_objects.len();
-        let bo = SRBufferedObject {
-            vertex_buffer,
-            index_buffer,
-            object_info: SSRObjectInfo {
-                buffered_object: Some(index),
+    pub fn buffer_object(&mut self,slot: usize ,mesh: Mesh) -> BufferedObjectID {
+        if self.mesh_buffers.get(slot).is_some() {
+            let mut bo = &mut self.mesh_buffers[slot];
+            let mut vert_data: Vec<Vertex> = vec![];
+            let mut i_data: Vec<u32> = vec![];
+            bo.meshes.iter().for_each(|m| {
+                vert_data.extend(&m.vertices);
+                i_data.extend(&m.indices);
+            });
+            let start_vertice = vert_data.len() as u32;
+            let start_index = i_data.len() as u32;
+            let end_index = start_index + mesh.indices.len() as u32;
+            vert_data.extend(&mesh.vertices);
+            i_data.extend(&mesh.indices);
+            bo.meshes.push(mesh);
+            let vertex_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: None,
+                contents: bytemuck::cast_slice(vert_data.as_slice()),
+                usage: BufferUsages::VERTEX,
+            });
+            let index_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: None,
+                contents: bytemuck::cast_slice(i_data.as_slice()),
+                usage: BufferUsages::INDEX,
+            });
+            bo.vertex_buffer.destroy();
+            bo.vertex_buffer = vertex_buffer;
+            bo.index_buffer.destroy();
+            bo.index_buffer = index_buffer;
+            let bo_slot = Some(slot);
+            let object_info = SSRObjectInfo {
+                bo_slot,
+                start_vertice,
+                start_index,
+                end_index,
+            };
+            self.buffered_objects.push(object_info);
+            self.buffered_objects.len() - 1
+        }else {
+            let vertex_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: None,
+                contents: bytemuck::cast_slice(mesh.vertices.as_slice()),
+                usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
+            });
+            let index_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: None,
+                contents: bytemuck::cast_slice(mesh.indices.as_slice()),
+                usage: BufferUsages::INDEX | BufferUsages::COPY_DST
+            });
+            let end_index = mesh.indices.len() as u32;
+            let meshes = vec![mesh];
+            let bo_slot = self.mesh_buffers.len();
+            let object_info = SSRObjectInfo {
+                bo_slot: Some(bo_slot),
                 start_vertice: 0,
                 start_index: 0,
-                end_index: mesh.indices.len() as u32,
-            }
-        };
-        self.buffered_objects.push(bo);
-        index
+                end_index,
+            };
+            self.mesh_buffers.push(MeshBuffer {
+                vertex_buffer,
+                index_buffer,
+                meshes,
+            });
+            self.buffered_objects.push(object_info);
+            self.buffered_objects.len() - 1
+        }
     }
 
     pub fn cmd(&mut self, cmd: NGCommand) {
@@ -159,6 +202,7 @@ impl NGCore {
             queue,
             cmd_queue: vec![],
             state,
+            mesh_buffers: vec![],
             buffered_objects: vec![],
         })
     }

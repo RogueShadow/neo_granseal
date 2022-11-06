@@ -105,16 +105,16 @@ impl SSRMaterial {
 
 #[derive(Copy, Clone, Debug)]
 pub struct SSRObjectInfo {
-    pub(crate) buffered_object: Option<usize>,
+    pub(crate) bo_slot: Option<usize>,
     pub(crate) start_vertice: u32,
     pub(crate) start_index: u32,
     pub(crate) end_index: u32,
 }
 pub type BufferedObjectID = usize;
-pub struct SRBufferedObject {
+pub struct MeshBuffer {
     pub(crate) vertex_buffer: wgpu::Buffer,
     pub(crate) index_buffer: wgpu::Buffer,
-    pub(crate) object_info: SSRObjectInfo,
+    pub(crate) meshes: Vec<Mesh>,
 }
 
 pub struct SimpleShapeRenderPipeline {
@@ -360,11 +360,11 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
 
         for (i,obj) in data.object_info.iter().enumerate() {
             let index = i as u32..i as u32 + 1;
-            if obj.buffered_object.is_none() {
+            if obj.bo_slot.is_none() {
                 render_pass.draw_indexed(obj.start_index..obj.end_index, obj.start_vertice as i32, index);
             } else {
-                let vbi = obj.buffered_object.unwrap();
-                let vb: &SRBufferedObject = core.buffered_objects.get(vbi).unwrap();
+                let vbi = obj.bo_slot.unwrap();
+                let vb: &MeshBuffer = core.mesh_buffers.get(vbi).unwrap();
                 render_pass.set_vertex_buffer(0,vb.vertex_buffer.slice(..));
                 render_pass.set_index_buffer(vb.index_buffer.slice(..),wgpu::IndexFormat::Uint32);
                 render_pass.draw_indexed(obj.start_index..obj.end_index,obj.start_vertice as i32,index);
@@ -531,7 +531,7 @@ impl <'draw> ShapeGfx<'draw> {
         self.data.indices.extend(mesh.indices);
         let end_index = self.data.indices.len();
         let info = SSRObjectInfo {
-            buffered_object: None,
+            bo_slot: None,
             start_vertice: start_vertex as u32,
             start_index: start_index as u32,
             end_index: end_index as u32,
@@ -549,7 +549,7 @@ impl <'draw> ShapeGfx<'draw> {
         self.data.object_info.push(info);
     }
     pub fn draw_buffered_mesh(&mut self,obj: BufferedObjectID, pos: Point) {
-        let info = self.core.buffered_objects.get(obj).unwrap().object_info;
+        let info = self.core.buffered_objects.get(obj).unwrap();
         let transform = SSRTransform {
             x: self.state.pos.x + pos.x,
             y: self.state.pos.y + pos.y,
@@ -561,7 +561,7 @@ impl <'draw> ShapeGfx<'draw> {
 
         self.data.transforms.push(transform);
         self.data.materials.push(material);
-        self.data.object_info.push(info);
+        self.data.object_info.push(*info);
     }
     fn colors(&self) -> (Color, Color, Color, Color) {
         match self.state.color {
