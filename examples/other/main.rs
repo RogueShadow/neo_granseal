@@ -1,3 +1,4 @@
+use std::cmp::{max, min};
 use std::time::{Duration, Instant};
 use num_traits::AsPrimitive;
 use rand::SeedableRng;
@@ -21,10 +22,11 @@ fn main() {
 pub struct Level {
     tiles: Vec<Vec<u8>>,
     tile_scale: u32,
+    hit_boxes: Vec<Rectangle>,
 }
 impl Level {
     pub fn new() -> Self {
-        Self  {
+        let mut s = Self  {
             tiles: vec![
                 b"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx".to_vec(),
                 b"x.....x..................................................x".to_vec(),
@@ -47,7 +49,34 @@ impl Level {
                 b"x....x.....x.........x...................................x".to_vec(),
                 b"gggggggggggggggggggggggggggggggggggggggggggggggggggggggggg".to_vec()
             ],
-            tile_scale: TILE_SCALE as u32
+            tile_scale: TILE_SCALE as u32,
+            hit_boxes: vec![],
+        };
+        s.generate_hitboxs();
+        s
+    }
+    pub fn generate_hitboxs(&mut self) {
+        let width = self.width();
+        let height = self.height();
+        for x in 0..width {
+            for y in 0..height {
+                let tx = x * self.tile_scale;
+                let ty = y * self.tile_scale;
+                let tile_type = self.get_tile(x, y);
+                match tile_type {
+                    b'g' => {
+                        self.hit_boxes.push(
+                            Rectangle::new(tx,ty,self.tile_scale,self.tile_scale)
+                        );
+                    }
+                    b'x' => {
+                        self.hit_boxes.push(
+                            Rectangle::new(tx,ty,self.tile_scale,self.tile_scale)
+                        );
+                    }
+                    _ => {}
+                }
+            }
         }
     }
     pub fn get_tile(&self, x: u32, y: u32) -> u8 {
@@ -65,9 +94,13 @@ impl Level {
             _ => {false}
         }
     }
-    pub fn intersects(&self, hbox: Rectangle) -> bool {
-
-        true
+    pub fn intersects(&self, hbox: &Rectangle) -> bool {
+        for hb in self.hit_boxes.iter() {
+            if hb.intersects(hbox) {
+                return true;
+            }
+        }
+        false
     }
     pub fn width(&self) -> u32 {
         self.tiles[0].len() as u32
@@ -75,6 +108,7 @@ impl Level {
     pub fn height(&self) -> u32 {
         self.tiles.len() as u32
     }
+
     pub fn level_mesh(&self) -> Mesh {
         let width = self.width();
         let height = self.height();
@@ -126,7 +160,7 @@ impl Rectangle {
             bottom_right: Point::new(x.as_()+w.as_(),y.as_()+h.as_()),
         }
     }
-    pub fn intersects(&self, other: Self) -> bool {
+    pub fn intersects(&self, other: &Self) -> bool {
         if  self.top_left.x > other.bottom_right.x ||
             self.bottom_right.x < other.top_left.x ||
             self.top_left.y > other.bottom_right.y ||
@@ -134,6 +168,17 @@ impl Rectangle {
             false
         }else{
             true
+        }
+    }
+    pub fn overlapping_box(&self, other: &Self) -> Option<Self> {
+        if !self.intersects(other) {
+            return None;
+        }else{
+            let x1 = self.top_left.x.max(other.top_left.x);
+            let x2 = self.bottom_right.x.min(other.bottom_right.x);
+            let y1 = self.top_left.y.max(other.top_left.y);
+            let y2 = self.bottom_right.y.min(other.bottom_right.y);
+            Some(Rectangle::new(x1,y1,x2-x1,y2-y1))
         }
     }
 }
@@ -192,6 +237,7 @@ struct Game {
     level: Level,
     player: Player,
     cam: Camera,
+    debug: Vec<Mesh>,
 }
 impl Game {
     pub fn new() -> Self {
@@ -200,6 +246,7 @@ impl Game {
             level: Level::new(),
             player: Player::new(Point::new(64,HEIGHT - 128),Point::new(TILE_SCALE,TILE_SCALE)),
             cam: Camera::new(Point::new(WIDTH,HEIGHT)),
+            debug: vec![],
         }
     }
 }
@@ -216,7 +263,21 @@ impl NeoGransealEventHandler for Game {
             }
             Event::MousePressed {button,state} => {
                 if button == MouseButton::Left && state == KeyState::Pressed {
-
+                    let mp = core.state.mouse.pos + self.cam.get_offset();
+                    let halfs = 32.0;
+                    let test_box = Rectangle::new(mp.x - halfs,mp.y - halfs,halfs * 2.0,halfs * 2.0);
+                    let intersect = test_box.overlapping_box(&self.player.hit_box());
+                    let mut mb = MeshBuilder::new();
+                    mb.set_cursor(test_box.top_left.x,test_box.top_left.y);
+                    mb.rect(Point::new(test_box.bottom_right.x - test_box.top_left.x,test_box.bottom_right.y - test_box.top_left.y));
+                    mb.set_style(Solid(Color::LIME));
+                    if let Some(b) = intersect {
+                        mb.set_style(Solid(Color::RED));
+                        mb.set_cursor(b.top_left.x,b.top_left.y);
+                        mb.rect(Point::new(b.bottom_right.x - b.top_left.x,b.bottom_right.y - b.top_left.y));
+                    }
+                    self.debug.clear();
+                    self.debug.push(mb.build());
                 }
             }
             Event::Draw => {
@@ -224,6 +285,10 @@ impl NeoGransealEventHandler for Game {
                 g.set_position(-self.cam.get_offset());
                 g.draw_buffered_mesh(0,Point::ZERO);
                 g.draw_mesh(self.player.mesh(),self.player.pos);
+                self.debug.iter_mut().for_each(|m| {
+                    g.set_fill_style(Solid(Color::RED));
+                    g.draw_mesh(m.clone(),Point::ZERO);
+                });
                 g.finish();
             }
             Event::Update(d) => {
