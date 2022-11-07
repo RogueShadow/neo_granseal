@@ -389,4 +389,16 @@ impl Rectangle {
             Some(Rectangle::new(x1,y1,x2-x1,y2-y1))
         }
     }
+    pub fn intersect_vector(&self, other: &Self) -> Option<Point> {
+        if !self.intersects(other) {
+            return None;
+        }else{
+            let x1 = self.top_left.x.max(other.top_left.x);
+            let x2 = self.bottom_right.x.min(other.bottom_right.x);
+            let y1 = self.top_left.y.max(other.top_left.y);
+            let y2 = self.bottom_right.y.min(other.bottom_right.y);
+
+            Some(Point::new(x2-x1,y2-y1))
+        }
+    }
 }

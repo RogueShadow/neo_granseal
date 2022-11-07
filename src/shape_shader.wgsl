@@ -29,6 +29,10 @@ struct VertexOutput {
 var<uniform> screen: vec2<f32>;
 @group(0) @binding(1)
 var<uniform> timer: f32;
+@group(0) @binding(2)
+var<uniform> g_scale: f32;
+@group(0) @binding(3)
+var<uniform> g_rot: f32;
 
 struct Transform {
     x: f32,
@@ -50,15 +54,16 @@ var<storage,read> materials: array<Material>;
 fn vs_main(@builtin(vertex_index) index: u32, in: VertexInput, @builtin(instance_index) inst: u32) -> VertexOutput {
     let a = transforms[inst].a;
     let rotation = mat2x2<f32>(cos(a),-sin(a),sin(a),cos(a));
+    let g_rotation = mat2x2<f32>(cos(g_rot),-sin(g_rot),sin(g_rot),cos(g_rot));
     let offset = vec2<f32>(transforms[inst].rx,transforms[inst].ry);
     var raw_pos = (in.pos.xy - offset) * rotation;
     var pos = ((raw_pos + offset) / screen) * 2.0;
     var trans = ((vec2<f32>(transforms[inst].x,transforms[inst].y) / screen) - 0.5) * 2.0 ;
     var output = pos + trans;
-    output = vec2<f32>(output.x,output.y *  -1.0);
+    output = vec2<f32>(output.x,output.y * -1.0);
 
     var out: VertexOutput;
-    out.clip_position = vec4<f32>(output,1.0,1.0);
+    out.clip_position = vec4<f32>(output * g_rotation * g_scale,1.0,1.0);
     out.tex = in.tex;
     out.color = in.color;
     out.kind = materials[inst].kind;

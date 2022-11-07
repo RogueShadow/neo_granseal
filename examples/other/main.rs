@@ -163,7 +163,7 @@ impl Player {
         }
     }
     pub fn hit_box(&self) -> Rectangle {
-        Rectangle::new(self.pos.x,self.pos.y,self.size.x,self.size.y)
+        Rectangle::new(self.pos.x,self.pos.y,self.size.x-1.0,self.size.y-1.0)
     }
     pub fn mesh(&self) -> Mesh {
         let mut mb = MeshBuilder::new();
@@ -182,19 +182,26 @@ impl Player {
     pub fn update(&mut self,level: &Level, delta: Duration) {
         let d = delta.as_secs_f32();
 
-        let nx = self.pos.x + self.vel.x * d;
-        let ny = self.pos.y + self.vel.y * d;
-
-        if !level.is_blocking(nx,self.pos.y) && !level.is_blocking(nx + self.size.x,self.pos.y){
-            self.pos.x = nx;
-        }else{
-            self.vel.x = 0.0;
+        self.pos.x += self.vel.x * d;
+        self.pos.y += self.vel.y * d;
+        let phb = self.hit_box();
+        let mut hits: Vec<Point> = vec![];
+        level.hit_boxes.iter().for_each(|h| {
+            if let Some(v) = phb.intersect_vector(h) {
+                hits.push(v);
+            }
+        });
+        let mut mx = 0.0;
+        let mut my = 0.0;
+        while !hits.is_empty() {
+            let h = hits.pop().unwrap();
+            mx = h.x.max(mx);
+            my = h.y.max(my);
         }
-
-        if !level.is_blocking(self.pos.x,ny) && !level.is_blocking(self.pos.x,ny + self.size.y){
-            self.pos.y = ny;
+        if mx < my {
+            self.pos.x -= mx;
         }else{
-            self.vel.y = 0.0;
+            self.pos.y -= my;
         }
 
     }
@@ -211,7 +218,7 @@ impl Game {
         Self {
             rng: rand_xorshift::XorShiftRng::from_rng(rand::thread_rng()).expect("get Rng"),
             level: Level::new(),
-            player: Player::new(Point::new(64,HEIGHT - 128),Point::new(TILE_SCALE,TILE_SCALE)),
+            player: Player::new(Point::new(128,HEIGHT - 128),Point::new(TILE_SCALE,TILE_SCALE)),
             cam: Camera::new(Point::new(WIDTH,HEIGHT)),
             debug: vec![],
         }
@@ -259,7 +266,7 @@ impl NeoGransealEventHandler for Game {
                 g.finish();
             }
             Event::Update(d) => {
-                let gravity = 1000.0;
+                let gravity = 000.0;
                 let player_speed = 400.0;
                 let delta = d.as_secs_f32();
                 core.cmd(NGCommand::SetTitle(format!("Gario, Neo-Granseal: {}",core.state.fps)));

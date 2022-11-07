@@ -131,6 +131,17 @@ impl GlobalUniforms {
                     ),
                     usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                 });
+        let scale_uniform_buffer = core.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Global Scale Uniform Buffer"),
+            contents: &core.state.scale.to_ne_bytes(),
+            usage: wgpu::BufferUsages::UNIFORM
+        });
+        let rotation_uniform_buffer = core.device.create_buffer_init(&wgpu::util::BufferInitDescriptor{
+            label: Some("Global Rotation Uniform Buffer"),
+            contents: &core.state.rotation.to_ne_bytes(),
+            usage: wgpu::BufferUsages::UNIFORM
+        });
+        
         let bind_group_layout =
             core.device
                 .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -156,6 +167,26 @@ impl GlobalUniforms {
                             },
                             count: None,
                         },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 2,
+                            visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: None
+                            },
+                            count: None
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 3,
+                            visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: None
+                            },
+                            count: None
+                        }
                     ],
                 });
         let bind_group = core.device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -170,6 +201,14 @@ impl GlobalUniforms {
                     binding: 1,
                     resource: time_uniform_buffer.as_entire_binding(),
                 },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: scale_uniform_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: rotation_uniform_buffer.as_entire_binding(),
+                }
             ],
         });
         Self {

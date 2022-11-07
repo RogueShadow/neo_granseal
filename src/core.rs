@@ -51,7 +51,11 @@ pub struct MouseState {
 pub struct EngineState {
     pub mouse: MouseState,
     pub fps: i32,
-    pub(crate) keys: HashMap<Key,bool>
+    pub(crate) keys: HashMap<Key,bool>,
+    pub rotation: f32,
+    pub scale: f32,
+    pub xpos: f32,
+    pub ypos: f32,
 }
 impl EngineState {
     pub fn new() -> Self {
@@ -63,7 +67,11 @@ impl EngineState {
                 middle: false,
             },
             fps: 0,
-            keys: HashMap::new()
+            keys: HashMap::new(),
+            rotation: 0.0,
+            scale: 1.0,
+            xpos: 0.0,
+            ypos: 0.0,
         }
     }
 }
