@@ -51,7 +51,7 @@ impl NeoGransealEventHandler for Shapes {
                     g.circle(zero, size / 2.0, 4.0);
                     g.translate(step);
                     g.push_state();
-                    g.set_rotation(0.0);
+
                     g.line(Point::new(-32.0, -32.0), size / 2.0);
                     g.pop_state();
                     g.translate(step);

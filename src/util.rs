@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub};
+use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign, DivAssign};
 use num_traits::AsPrimitive;
 
 #[derive(Copy,Clone,Debug,PartialEq)]
@@ -258,28 +258,49 @@ impl Sub for Point {
     type Output = Point;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        Point::new(self.x + rhs.x, self.y + rhs.y)
+        Point::new(self.x - rhs.x, self.y - rhs.y)
     }
 }
-impl Add<f32> for Point {
+impl Mul for Point {
     type Output = Point;
 
-    fn add(self, rhs: f32) -> Self::Output {
-        Point::new(self.x + rhs,self.y + rhs)
+    fn mul(self, rhs: Point) -> Self::Output {
+        Point::new(self.x * rhs.x,self.y * rhs.y)
     }
 }
-impl Sub<f32> for Point {
+impl Div for Point {
+    type Output = Point;
+
+    fn div(self, rhs: Point) -> Self::Output {
+        Point::new(self.x / rhs.x, self.y / rhs.y)
+    }
+}
+impl <T>Add<T> for Point where T: AsPrimitive<f32> {
+    type Output = Point;
+
+    fn add(self, rhs: T) -> Self::Output {
+        Point::new(self.x + rhs.as_(),self.y + rhs.as_())
+    }
+}
+impl <T>Sub<T> for Point where T: AsPrimitive<f32> {
     type Output =  Point;
 
-    fn sub(self, rhs: f32) -> Self::Output {
-        Point::new(self.x - rhs,self.y - rhs)
+    fn sub(self, rhs: T) -> Self::Output {
+        Point::new(self.x - rhs.as_(),self.y - rhs.as_())
     }
 }
-impl Mul<f32> for Point {
+impl <T>Mul<T> for Point where T: AsPrimitive<f32> {
     type Output = Point;
 
-    fn mul(self, rhs: f32) -> Self::Output {
-        Point::new(self.x * rhs,self.y * rhs)
+    fn mul(self, rhs: T) -> Self::Output {
+        Point::new(self.x * rhs.as_(),self.y * rhs.as_())
+    }
+}
+impl <T>Div<T> for Point where T: AsPrimitive<f32> {
+    type Output = Point;
+
+    fn div(self, rhs: T) -> Self::Output {
+        Self::Output::new(self.x / rhs.as_(),self.y / rhs.as_())
     }
 }
 impl Neg for Point {
@@ -289,17 +310,28 @@ impl Neg for Point {
         Point::new(-self.x,-self.y)
     }
 }
-impl AddAssign<Point> for Point {
+impl AddAssign for Point {
     fn add_assign(&mut self, rhs: Point) {
         self.x += rhs.x;
         self.y += rhs.y;
     }
 }
-impl Div<f32> for Point {
-    type Output = Point;
-
-    fn div(self, rhs: f32) -> Self::Output {
-        Self::Output::new(self.x / rhs,self.y / rhs)
+impl SubAssign for Point {
+    fn sub_assign(&mut self, rhs: Point) {
+        self.x -= rhs.x;
+        self.y -= rhs.y;
+    }
+}
+impl MulAssign for Point {
+    fn mul_assign(&mut self, rhs: Self) {
+        self.x *= rhs.x;
+        self.y *= rhs.y;
+    }
+}
+impl DivAssign for Point {
+    fn div_assign(&mut self, rhs: Self) {
+        self.x /= rhs.x;
+        self.y /= rhs.y;
     }
 }
 impl MulAssign<f32> for Point {
@@ -308,6 +340,7 @@ impl MulAssign<f32> for Point {
         self.y *= rhs;
     }
 }
+
 
 pub struct Camera {
     offset: Point,
@@ -378,7 +411,7 @@ impl Rectangle {
             true
         }
     }
-    pub fn overlapping_box(&self, other: &Self) -> Option<Self> {
+    pub fn overlapping_box(&self, other: &Self) -> Option<(Point,Point)> {
         if !self.intersects(other) {
             return None;
         }else{
@@ -386,7 +419,7 @@ impl Rectangle {
             let x2 = self.bottom_right.x.min(other.bottom_right.x);
             let y1 = self.top_left.y.max(other.top_left.y);
             let y2 = self.bottom_right.y.min(other.bottom_right.y);
-            Some(Rectangle::new(x1,y1,x2-x1,y2-y1))
+            Some((Point::new(x1,y1),Point::new(x2,y2)))
         }
     }
     pub fn intersect_vector(&self, other: &Self) -> Option<Point> {
@@ -400,5 +433,83 @@ impl Rectangle {
 
             Some(Point::new(x2-x1,y2-y1))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_add_points() {
+        let p1 = Point::new(1,2);
+        let p2 = Point::new(3,4);
+        assert_eq!(p1+p2,Point::new(4,6));
+    }
+    #[test]
+    fn test_subtract_points() {
+        let p1 = Point::new(1,2);
+        let p2 = Point::new(3,5);
+        assert_eq!(p1-p2,Point::new(-2,-3));
+    }
+    #[test]
+    fn test_multiply_points() {
+        let p1 = Point::new(2,3);
+        let p2 = Point::new(4,5);
+        assert_eq!(p1*p2,Point::new(8,15));
+    }
+    #[test]
+    fn test_divide_points() {
+        let p1 =  Point::new(3,1);
+        let p2 = Point::new(6,4);
+        assert_eq!(p1 / p2,Point::new(0.5,0.25));
+    }
+    #[test]
+    fn test_add_point_f32() {
+        let p1 = Point::new(1,2);
+        assert_eq!(p1 + 5.0,Point::new(6.0,7.0));
+    }
+    #[test]
+    fn test_subtract_point_f32() {
+        let p1 = Point::new(1,2);
+        assert_eq!(p1 - 5.0,Point::new(-4.0,-3.0));
+    }
+    #[test]
+    fn test_multiply_point_f32() {
+        let p1 =  Point::new(3,4);
+        assert_eq!(p1 * 5.0,Point::new(15,20));
+    }
+    #[test]
+    fn test_divide_point_f32() {
+        let p1 = Point::new(3,4);
+        assert_eq!(p1 / 4.0,Point::new(0.75, 1.0));
+    }
+    #[test]
+    fn test_negate_point() {
+        let p1 = Point::new(5.0, 6.0);
+        assert_eq!(-p1,Point::new(-5.0,-6.0));
+    }
+    #[test]
+    fn test_add_assign_point() {
+        let mut p1 = Point::new(1,2);
+        p1 += Point::new(3,4);
+        assert_eq!(p1,Point::new(4,6));
+    }
+    #[test]
+    fn test_sub_assign_point() {
+        let mut p1 = Point::new(1,2);
+        p1 -= Point::new(5,4);
+        assert_eq!(p1,Point::new(-4,-2));
+    }
+    #[test]
+    fn test_mul_assign_point() {
+        let mut p1 = Point::new(2,3);
+        p1 *= Point::new(6,5);
+        assert_eq!(p1,Point::new(12,15));
+    }
+    #[test]
+    fn test_div_assign_point() {
+        let mut p1 = Point::new(6,8);
+        p1 /= Point::new(2,4);
+        assert_eq!(p1,Point::new(3,2));
     }
 }

@@ -1,5 +1,4 @@
-use std::cmp::{max, min};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use num_traits::AsPrimitive;
 use rand::SeedableRng;
 use neo_granseal::{core::NGCommand, start, GransealGameConfig, core::NGCore, events::Event, shape_pipeline::ShapeGfx, events::{Key, KeyState}, mesh::{FillStyle}, util::{Color, Point}, mesh::*, mesh::FillStyle::{FadeDown, Solid}, shape_pipeline::BufferedObjectID, MSAA, NeoGransealEventHandler};
@@ -23,6 +22,7 @@ pub struct Level {
     tiles: Vec<Vec<u8>>,
     tile_scale: u32,
     hit_boxes: Vec<Rectangle>,
+    debug_meshes: Vec<Mesh>,
 }
 impl Level {
     pub fn new() -> Self {
@@ -51,6 +51,7 @@ impl Level {
             ],
             tile_scale: TILE_SCALE as u32,
             hit_boxes: vec![],
+            debug_meshes: vec![],
         };
         s.generate_hitboxs();
         s
@@ -81,8 +82,6 @@ impl Level {
     }
     pub fn get_tile(&self, x: u32, y: u32) -> u8 {
         let lines = self.tiles.as_slice();
-       // if self.tiles.len() > y as usize {return b' '}
-        //if self.tiles[0].len() > x as usize {return b' '}
         lines[y as usize][x as usize]
     }
     pub fn is_blocking(&self, x: impl AsPrimitive<f32>, y: impl AsPrimitive<f32>) -> bool {
@@ -170,39 +169,54 @@ impl Player {
         mb.set_cursor(0,0);
         mb.set_style(Corners(Color::RED,Color::LIME,Color::BLUE,Color::BLACK));
         mb.rect(self.size);
-        mb.set_style(Solid(Color::INDIAN_RED));
-        mb.set_cursor(self.size.x/4.0,self.size.y/4.0);
-        mb.oval(Point::new(self.size.x/2.0,self.size.y/8.0));
         mb.set_filled(false);
-        mb.set_style(Solid(Color::GOLDENROD));
+        mb.set_style(Solid(Color::DIM_GRAY));
         mb.set_cursor(0,0);
         mb.rect(self.size);
         mb.build()
     }
-    pub fn update(&mut self,level: &Level, delta: Duration) {
+    pub fn update(&mut self,level: &mut Level, delta: Duration) {
         let d = delta.as_secs_f32();
+        let mut mb = MeshBuilder::new();
+        //mb.set_cursor(self.pos.x, self.pos.y);
+        mb.set_style(Solid(Color::HOT_PINK));
 
         self.pos.x += self.vel.x * d;
         self.pos.y += self.vel.y * d;
+
         let phb = self.hit_box();
-        let mut hits: Vec<Point> = vec![];
+        let mut hits: Vec<(Point,Point)> = vec![];
         level.hit_boxes.iter().for_each(|h| {
-            if let Some(v) = phb.intersect_vector(h) {
-                hits.push(v);
+            if let Some((tl,br)) = phb.overlapping_box(h) {
+                hits.push((tl,br));
+                mb.set_style(Solid(Color::HOT_PINK));
+                mb.line(tl,br);
+                if br.x - tl.x < br.y - tl.y {
+                    if self.vel.x > 0.0 {
+                        self.pos.x -= br.x - tl.x;
+                        self.vel.x = 0.0;
+                    }else{
+                        self.pos.x += br.x - tl.x;
+                        self.vel.x = 0.0;
+                    }
+                }else{
+                    if self.vel.y > 0.0 {
+                        self.pos.y -= br.y - tl.y;
+                        self.vel.y = 0.0;
+                    }else{
+                        self.pos.y += br.y - tl.y;
+                        self.vel.y = 0.0;
+                    }
+                }
+
+
+                mb.set_style(Solid(Color::LIME));
+
             }
         });
-        let mut mx = 0.0;
-        let mut my = 0.0;
-        while !hits.is_empty() {
-            let h = hits.pop().unwrap();
-            mx = h.x.max(mx);
-            my = h.y.max(my);
-        }
-        if mx < my {
-            self.pos.x -= mx;
-        }else{
-            self.pos.y -= my;
-        }
+
+
+        level.debug_meshes.push(mb.build());
 
     }
 }
@@ -245,10 +259,10 @@ impl NeoGransealEventHandler for Game {
                     mb.set_cursor(test_box.top_left.x,test_box.top_left.y);
                     mb.rect(Point::new(test_box.bottom_right.x - test_box.top_left.x,test_box.bottom_right.y - test_box.top_left.y));
                     mb.set_style(Solid(Color::LIME));
-                    if let Some(b) = intersect {
+                    if let Some((tl,br)) = intersect {
                         mb.set_style(Solid(Color::RED));
-                        mb.set_cursor(b.top_left.x,b.top_left.y);
-                        mb.rect(Point::new(b.bottom_right.x - b.top_left.x,b.bottom_right.y - b.top_left.y));
+                        mb.set_cursor(tl.x,tl.y);
+                        mb.rect(Point::new(br.x,br.y));
                     }
                     self.debug.clear();
                     self.debug.push(mb.build());
@@ -270,15 +284,18 @@ impl NeoGransealEventHandler for Game {
                 let player_speed = 400.0;
                 let delta = d.as_secs_f32();
                 core.cmd(NGCommand::SetTitle(format!("Gario, Neo-Granseal: {}",core.state.fps)));
-                //if core.key_held(Key::W) { self.player.vel.y -= delta * gravity*20.0 }
+                if core.key_held(Key::W) { self.player.vel.y -= delta * player_speed }
                 if core.key_held(Key::A) { self.player.vel.x -= delta * player_speed }
                 if core.key_held(Key::S) { self.player.vel.y += delta * player_speed }
                 if core.key_held(Key::D) { self.player.vel.x += delta * player_speed }
                 self.player.vel.y += gravity * delta;
-                self.player.update(&self.level,d);
-
-
+                self.player.update(&mut self.level,d);
                 self.cam.target(self.player.pos);
+                self.debug.clear();
+                if !self.level.debug_meshes.is_empty() {
+                    self.debug.push(self.level.debug_meshes.pop().unwrap());
+
+                }
 
             }
             Event::Load => {
