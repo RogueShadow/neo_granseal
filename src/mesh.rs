@@ -56,6 +56,9 @@ impl MeshBuilder {
             states: vec![],
         }
     }
+    pub fn set_cursor_p(&mut self, pos: Point) {
+        self.set_cursor(pos.x, pos.y);
+    }
     pub fn set_cursor(&mut self, x: impl AsPrimitive<f32>, y: impl AsPrimitive<f32>) {
         self.state.cursor.x = x.as_();
         self.state.cursor.y = y.as_();

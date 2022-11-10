@@ -1,5 +1,5 @@
 use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign, DivAssign};
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive};
 
 #[derive(Copy,Clone,Debug,PartialEq)]
 pub struct Color {
@@ -233,18 +233,24 @@ impl Point {
         Self {x: x.as_(),y: y.as_()}
     }
     pub fn len(&self) -> f32 {
-        (self.x*self.x + self.y*self.y).sqrt()
+        (self.x.powf(2.0) + self.y.powf(2.0)).sqrt()
     }
     pub fn norm(&self) -> Self {
         let len = self.len();
         Point::new(self.x / len, self.y / len)
     }
     pub fn angle(&self) -> f32 {
-        (self.x / self.y).atan()
+        (self.y / self.x).atan()
     }
     pub fn rotate(&self, a: f32) -> Self {
         let na = self.angle() + a;
         Point::new(self.x * na.cos(), self.y * na.sin())
+    }
+    pub fn dot(&self, rhs: &Self) -> f32 {
+        self.x * rhs.x + self.y * rhs.y
+    }
+    pub fn proj(&self, rhs: &Self) -> f32 {
+        self.dot(rhs) / rhs.len()
     }
 }
 impl Add for Point {
@@ -340,7 +346,6 @@ impl MulAssign<f32> for Point {
         self.y *= rhs;
     }
 }
-
 
 pub struct Camera {
     offset: Point,
@@ -511,5 +516,14 @@ mod tests {
         let mut p1 = Point::new(6,8);
         p1 /= Point::new(2,4);
         assert_eq!(p1,Point::new(3,2));
+    }
+    #[test]
+    fn test_dot_point() {
+        let mut p1 = Point::new(2,3);
+        let mut p2 = Point::new(4,5);
+        let p3 = p1.dot(&p2);
+        let p4 = p2.dot(&p1);
+        assert_eq!(p3, 23.0);
+        assert_eq!(p3,p4);
     }
 }

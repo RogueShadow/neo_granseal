@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{time::Duration, f32::consts::PI};
 use num_traits::AsPrimitive;
 use rand::SeedableRng;
 use neo_granseal::{core::NGCommand, start, GransealGameConfig, core::NGCore, events::Event, shape_pipeline::ShapeGfx, events::{Key, KeyState}, mesh::{FillStyle}, util::{Color, Point}, mesh::*, mesh::FillStyle::{FadeDown, Solid}, shape_pipeline::BufferedObjectID, MSAA, NeoGransealEventHandler};
@@ -22,7 +22,7 @@ pub struct Level {
     tiles: Vec<Vec<u8>>,
     tile_scale: u32,
     hit_boxes: Vec<Rectangle>,
-    debug_meshes: Vec<Mesh>,
+    walls: Vec<Wall>,
 }
 impl Level {
     pub fn new() -> Self {
@@ -51,9 +51,13 @@ impl Level {
             ],
             tile_scale: TILE_SCALE as u32,
             hit_boxes: vec![],
-            debug_meshes: vec![],
+            walls: vec![],
         };
         s.generate_hitboxs();
+        s.walls.push(Wall::new(Point::new(16,700),Point::new(800,400)));
+        s.walls.push(Wall::new(Point::new(0,600),Point::new(1024,600)));
+        s.walls.push(Wall::new(Point::new(200,0),Point::new(200,900)));
+        s.walls.push(Wall::new(Point::new(300,264),Point::new(500,64)));
         s
     }
     pub fn generate_hitboxs(&mut self) {
@@ -148,6 +152,44 @@ impl Level {
     }
 }
 
+pub struct Wall {
+    begin: Point,
+    end: Point,
+}
+impl Wall {
+    pub fn new(begin: Point, end: Point) -> Self {
+        Self {
+            begin,
+            end,
+        }
+    }
+    pub fn normal(&self) -> Point {
+        let d = (self.end - self.begin);
+        let a = d.angle() - PI/2.0;
+        Point::new(a.cos(),a.sin())
+    }
+    pub fn length(&self) -> f32 {
+        let d = (self.end - self.begin);
+        d.len()
+    }
+    pub fn axis(&self) -> Point {
+        let d = (self.end - self.begin);
+        let a = d.angle();
+        Point::new(a.cos(),a.sin())
+    }
+    pub fn debug(&self, mb: &mut MeshBuilder) {
+        mb.push();
+        mb.set_cursor_p(Point::ZERO);
+        mb.set_thickness(2.0);
+        mb.set_style(Solid(Color::INDIGO));
+        mb.line(self.begin, self.end);
+        mb.set_style(Solid(Color::BLUE));
+        mb.set_thickness(1.0);
+        mb.line(self.begin + self.axis() * (self.length()/2.0),self.begin+ self.axis() * (self.length()/2.0) + self.normal() * 32.0);
+        mb.pop();
+    }
+}
+
 struct Player {
     pos: Point,
     vel: Point,
@@ -170,7 +212,8 @@ impl Player {
         mb.set_style(Corners(Color::RED,Color::LIME,Color::BLUE,Color::BLACK));
         mb.rect(self.size);
         mb.set_filled(false);
-        mb.set_style(Solid(Color::DIM_GRAY));
+        mb.set_thickness(4.0);
+        mb.set_style(Solid(Color::BLACK));
         mb.set_cursor(0,0);
         mb.rect(self.size);
         mb.build()
@@ -185,12 +228,14 @@ impl Player {
         self.pos.y += self.vel.y * d;
 
         let phb = self.hit_box();
-        let mut hits: Vec<(Point,Point)> = vec![];
+
+        level.walls.iter().for_each(|w| {
+
+        });
+
         level.hit_boxes.iter().for_each(|h| {
             if let Some((tl,br)) = phb.overlapping_box(h) {
-                hits.push((tl,br));
-                mb.set_style(Solid(Color::HOT_PINK));
-                mb.line(tl,br);
+
                 if br.x - tl.x < br.y - tl.y {
                     if self.vel.x > 0.0 {
                         self.pos.x -= br.x - tl.x;
@@ -208,16 +253,8 @@ impl Player {
                         self.vel.y = 0.0;
                     }
                 }
-
-
-                mb.set_style(Solid(Color::LIME));
-
             }
         });
-
-
-        level.debug_meshes.push(mb.build());
-
     }
 }
 struct Game {
@@ -225,7 +262,6 @@ struct Game {
     level: Level,
     player: Player,
     cam: Camera,
-    debug: Vec<Mesh>,
 }
 impl Game {
     pub fn new() -> Self {
@@ -234,7 +270,6 @@ impl Game {
             level: Level::new(),
             player: Player::new(Point::new(128,HEIGHT - 128),Point::new(TILE_SCALE,TILE_SCALE)),
             cam: Camera::new(Point::new(WIDTH,HEIGHT)),
-            debug: vec![],
         }
     }
 }
@@ -252,20 +287,6 @@ impl NeoGransealEventHandler for Game {
             Event::MousePressed {button,state} => {
                 if button == MouseButton::Left && state == KeyState::Pressed {
                     let mp = core.state.mouse.pos + self.cam.get_offset();
-                    let halfs = 32.0;
-                    let test_box = Rectangle::new(mp.x - halfs,mp.y - halfs,halfs * 2.0,halfs * 2.0);
-                    let intersect = test_box.overlapping_box(&self.player.hit_box());
-                    let mut mb = MeshBuilder::new();
-                    mb.set_cursor(test_box.top_left.x,test_box.top_left.y);
-                    mb.rect(Point::new(test_box.bottom_right.x - test_box.top_left.x,test_box.bottom_right.y - test_box.top_left.y));
-                    mb.set_style(Solid(Color::LIME));
-                    if let Some((tl,br)) = intersect {
-                        mb.set_style(Solid(Color::RED));
-                        mb.set_cursor(tl.x,tl.y);
-                        mb.rect(Point::new(br.x,br.y));
-                    }
-                    self.debug.clear();
-                    self.debug.push(mb.build());
                 }
             }
             Event::Draw => {
@@ -273,10 +294,17 @@ impl NeoGransealEventHandler for Game {
                 g.set_position(-self.cam.get_offset());
                 g.draw_buffered_mesh(0,Point::ZERO);
                 g.draw_mesh(self.player.mesh(),self.player.pos);
-                self.debug.iter_mut().for_each(|m| {
-                    g.set_fill_style(Solid(Color::RED));
-                    g.draw_mesh(m.clone(),Point::ZERO);
+
+                let mut mb = MeshBuilder::new();
+                self.level.walls.iter().for_each(|w|{
+                    let axis = w.axis();
+                    let proj = self.player.pos.proj(&axis);
+                    let shadow = axis * proj;
+                    w.debug(&mut mb);
+                    mb.set_style(Solid(Color::SPRING_GREEN));
+                    mb.line(shadow - w.normal() * 128.0,shadow + w.normal() * 126.0);
                 });
+                g.draw_mesh(mb.build(), Point::ZERO);
                 g.finish();
             }
             Event::Update(d) => {
@@ -291,12 +319,6 @@ impl NeoGransealEventHandler for Game {
                 self.player.vel.y += gravity * delta;
                 self.player.update(&mut self.level,d);
                 self.cam.target(self.player.pos);
-                self.debug.clear();
-                if !self.level.debug_meshes.is_empty() {
-                    self.debug.push(self.level.debug_meshes.pop().unwrap());
-
-                }
-
             }
             Event::Load => {
                 core.buffer_object(0,self.level.level_mesh());
