@@ -501,15 +501,15 @@ impl <'draw> ShapeGfx<'draw> {
     }
     pub fn line(&mut self, start: Point, end: Point) {
         let mesh = line(start,end,self.state.thickness,self.state.line_style,self.state.color);
-        self.draw_mesh(mesh, Point::new(0.0,0.0))
+        self.draw_mesh(&mesh, Point::new(0.0,0.0))
     }
     pub fn rect(&mut self, pos: Point, size: Point) {
         if self.state.fill {
             let mut mesh = rect_filled(Point::new(0,0),size, self.state.color);
-            self.draw_mesh(mesh,pos);
+            self.draw_mesh(&mesh,pos);
         } else {
             let mut mesh = rect_outlined(Point::new(0,0),size,self.state.thickness,self.state.color);
-            self.draw_mesh(mesh,pos);
+            self.draw_mesh(&mesh,pos);
         }
     }
     pub fn circle(&mut self, center: Point, radius: Point, resolution: f32) {
@@ -518,17 +518,17 @@ impl <'draw> ShapeGfx<'draw> {
     pub fn arc(&mut self, center: Point, radius: Point, arc_begin: f32, arc_end: f32, resolution: f32) {
         if self.state.fill {
             let mut mesh = oval_filled(radius,radius,arc_begin,arc_end,resolution,self.state.color);
-            self.draw_mesh(mesh, center)
+            self.draw_mesh(&mesh, center)
         } else {
             let mut mesh = oval_outlined(radius,radius,arc_begin,arc_end,resolution,self.state.thickness,self.state.color);
-            self.draw_mesh(mesh, center)
+            self.draw_mesh(&mesh, center)
         }
     }
-    pub fn draw_mesh(&mut self, mesh: Mesh, pos: Point) {
+    pub fn draw_mesh(&mut self, mesh: &Mesh, pos: Point) {
         let start_vertex = self.data.vertices.len();
         let start_index = self.data.indices.len();
-        self.data.vertices.extend(mesh.vertices);
-        self.data.indices.extend(mesh.indices);
+        self.data.vertices.extend(mesh.vertices.as_slice());
+        self.data.indices.extend(mesh.indices.as_slice());
         let end_index = self.data.indices.len();
         let info = SSRObjectInfo {
             bo_slot: None,
