@@ -398,26 +398,39 @@ impl Camera {
 pub struct Rectangle {
     pub top_left: Point,
     pub bottom_right: Point,
+    pub test: bool,
 }
 impl Rectangle {
+    pub fn new2(pos: Point, size: Point) -> Self {
+        Rectangle {
+            top_left: pos,
+            bottom_right: pos + size,
+            test: false,
+        }
+    }
     pub fn new(x: impl AsPrimitive<f32>,y: impl AsPrimitive<f32>,w: impl AsPrimitive<f32>,h: impl AsPrimitive<f32>) -> Self {
         Self {
             top_left: Point::new(x,y),
             bottom_right: Point::new(x.as_()+w.as_(),y.as_()+h.as_()),
+            test: false,
         }
     }
-    pub fn intersects(&self, other: &Self) -> bool {
-        if  self.top_left.x > other.bottom_right.x ||
-            self.bottom_right.x < other.top_left.x ||
-            self.top_left.y > other.bottom_right.y ||
-            self.bottom_right.y < other.top_left.y {
-            false
-        }else{
-            true
-        }
+    pub fn contains_point(&self, other: &Point) -> bool {
+        if other.x < self.top_left.x {return false}
+        if other.x > self.bottom_right.x {return false}
+        if other.y < self.top_left.y {return false}
+        if other.y > self.bottom_right.y {return false}
+        true
+    }
+    pub fn intersects_rect(&self, other: &Self) -> bool {
+        if other.bottom_right.x < self.top_left.x {return false}
+        if other.top_left.x > self.bottom_right.x {return false}
+        if other.bottom_right.y < self.top_left.y {return false}
+        if other.top_left.y > self.bottom_right.y {return false}
+        true
     }
     pub fn overlapping_box(&self, other: &Self) -> Option<(Point,Point)> {
-        if !self.intersects(other) {
+        if !self.intersects_rect(other) {
             return None;
         }else{
             let x1 = self.top_left.x.max(other.top_left.x);
@@ -428,7 +441,7 @@ impl Rectangle {
         }
     }
     pub fn intersect_vector(&self, other: &Self) -> Option<Point> {
-        if !self.intersects(other) {
+        if !self.intersects_rect(other) {
             return None;
         }else{
             let x1 = self.top_left.x.max(other.top_left.x);

@@ -81,6 +81,7 @@ impl MeshBuilder {
         self.state.thickness = thickness;
     }
     pub fn set_line_style(&mut self, style: LineStyle) {self.state.line_style = style; }
+    pub fn set_resolution(&mut self, res: f32) {self.state.resolution = res;}
     pub fn push(&mut self) {
         self.states.push(self.state);
     }
