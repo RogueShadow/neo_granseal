@@ -1,5 +1,6 @@
 use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign, DivAssign};
 use num_traits::{AsPrimitive};
+use rand::{Rng, SeedableRng};
 
 #[derive(Copy,Clone,Debug,PartialEq)]
 pub struct Color {
@@ -188,6 +189,15 @@ impl Color {
         self.g = (self.g + v).clamp(0.0,1.0);
         self.b = (self.b + v).clamp(0.0,1.0);
         self
+    }
+    pub fn random() -> Self {
+        let mut r = rand_xorshift::XorShiftRng::from_rng(rand::thread_rng()).unwrap();
+        Self {
+            r: r.gen::<f32>(),
+            g: r.gen::<f32>(),
+            b: r.gen::<f32>(),
+            a: 1.0,
+        }
     }
     pub fn hsl(mut self, hue: f32, s: f32, l: f32) -> Self {
         let c = (1.0 - ((2.0 * l) - 1.0).abs()) * s;
@@ -400,12 +410,7 @@ pub struct Ray {
     pub dir: Point,
 }
 impl Ray {
-    pub fn new(origin: Point, dir: Point) -> Self {
-        Self {
-            origin,
-            dir,
-        }
-    }
+    pub fn new(origin: Point, dir: Point) -> Self { Self { origin, dir, } }
     pub fn cast_rect(&self, rect: &Rectangle) -> Option<RayHit> {
         let mut near = (rect.top_left - self.origin) / self.dir;
         let mut far = (rect.bottom_right - self.origin) / self.dir;
@@ -416,24 +421,17 @@ impl Ray {
         let hit_far = far.x.min(far.y);
         if hit_far < 0.0 {return None}
         let hit = self.origin + self.dir * hit_near;
-        let normal = if near.x > near.y {
-            if self.dir.x < 0.0 {
-                Point::new(1,0)
-            } else {
-                Point::new(-1,0)
-            }
-        } else {
-            if self.dir.y < 0.0 {
-                Point::new(0,1)
-            } else {
-                Point::new(0,-1)
+        let normal = match near.x > near.y {
+            true => match self.dir.x < 0.0 {
+                true => Point::new(1,0),
+                false => Point::new(-1,0),
+            },
+            false => match self.dir.y < 0.0 {
+                true => Point::new(0,1),
+                false => Point::new(0,-1),
             }
         };
-        Some(RayHit {
-            hit,
-            normal,
-            time: hit_near,
-        })
+        Some(RayHit { hit, normal, time: hit_near, })
     }
 }
 pub struct RayHit {
