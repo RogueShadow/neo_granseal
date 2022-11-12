@@ -395,6 +395,54 @@ impl Camera {
     }
 }
 #[derive(Copy, Clone, PartialEq, Debug)]
+pub struct Ray {
+    pub origin: Point,
+    pub dir: Point,
+}
+impl Ray {
+    pub fn new(origin: Point, dir: Point) -> Self {
+        Self {
+            origin,
+            dir,
+        }
+    }
+    pub fn cast_rect(&self, rect: &Rectangle) -> Option<RayHit> {
+        let mut near = (rect.top_left - self.origin) / self.dir;
+        let mut far = (rect.bottom_right - self.origin) / self.dir;
+        if near.x > far.x {std::mem::swap(&mut near.x,&mut far.x)}
+        if near.y > far.y {std::mem::swap(&mut near.y,&mut far.y)}
+        if near.x > far.y || near.y > far.x {return None}
+        let hit_near = near.x.max(near.y);
+        let hit_far = far.x.min(far.y);
+        if hit_far < 0.0 {return None}
+        let hit = self.origin + self.dir * hit_near;
+        let normal = if near.x > near.y {
+            if self.dir.x < 0.0 {
+                Point::new(1,0)
+            } else {
+                Point::new(-1,0)
+            }
+        } else {
+            if self.dir.y < 0.0 {
+                Point::new(0,1)
+            } else {
+                Point::new(0,-1)
+            }
+        };
+        Some(RayHit {
+            hit,
+            normal,
+            time: hit_near,
+        })
+    }
+}
+pub struct RayHit {
+    pub hit: Point,
+    pub normal: Point,
+    pub time: f32,
+}
+
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Rectangle {
     pub top_left: Point,
     pub bottom_right: Point,

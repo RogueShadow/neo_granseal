@@ -4,11 +4,11 @@ use rand::SeedableRng;
 use neo_granseal::{core::NGCommand, start, GransealGameConfig, core::NGCore, events::Event, shape_pipeline::ShapeGfx, events::{Key, KeyState}, mesh::{FillStyle}, util::{Color, Point}, mesh::*, mesh::FillStyle::{FadeDown, Solid}, shape_pipeline::BufferedObjectID, MSAA, NeoGransealEventHandler};
 use neo_granseal::events::MouseButton;
 use neo_granseal::mesh::FillStyle::{Corners, Radial};
-use neo_granseal::util::{Camera, Rectangle};
+use neo_granseal::util::{Camera, Ray, Rectangle};
 
-pub const TILE_SCALE: u32 = 39;
-pub const WIDTH: u32 = 12 * TILE_SCALE;
-pub const HEIGHT: u32 = 10 * TILE_SCALE;
+pub const TILE_SCALE: u32 = 64;
+pub const WIDTH: u32 = TILE_SCALE * 14;
+pub const HEIGHT: u32 = TILE_SCALE * 12;
 
 
 fn main() {
@@ -260,6 +260,8 @@ struct Game {
     level: Level,
     player: Player,
     cam: Camera,
+    ray_origin: Point,
+    debug: Vec<MBShapes>,
 }
 impl Game {
     pub fn new() -> Self {
@@ -268,6 +270,8 @@ impl Game {
             level: Level::new(),
             player: Player::new(Point::new(128,HEIGHT - 128),Point::new(TILE_SCALE,TILE_SCALE)),
             cam: Camera::new(Point::new(WIDTH,HEIGHT)),
+            ray_origin: Point::new(512,512),
+            debug: vec![]
         }
     }
 }
@@ -285,6 +289,7 @@ impl NeoGransealEventHandler for Game {
             Event::MousePressed {button,state} => {
                 if button == MouseButton::Left && state == KeyState::Pressed {
                     let mp = core.state.mouse.pos + self.cam.get_offset();
+                    self.ray_origin = mp;
                 }
             }
             Event::Draw => {
@@ -302,10 +307,38 @@ impl NeoGransealEventHandler for Game {
                        mb.rect(h.bottom_right - h.top_left);
                    }
                 });
+                self.debug.iter().for_each(|s| {
+                   mb.shape(*s);
+                });
                 g.draw_mesh(mb.build(), Point::ZERO);
+
                 g.finish();
             }
             Event::Update(d) => {
+                self.debug.clear();
+                let origin = self.ray_origin;
+                let mp = core.state.mouse.pos + self.cam.get_offset();
+                let dir = (mp - origin);
+                let ray = Ray::new(origin,dir);
+                let mut state = MBState::new();
+                self.debug.push(MBShapes::Line(origin,mp,Some(state)));
+                if let Some(rh) = ray.cast_rect(&self.player.hit_box()) {
+                    if rh.time < 1.0 {
+                        state.cursor = rh.hit - Point::new(4,4);
+                        state.fill_style = Solid(Color::RED);
+                        self.debug.push(MBShapes::Rect(Point::new(8,8),Some(state)));
+                    }
+                }
+                self.level.hit_boxes.iter().for_each(|hb| {
+                   if let Some(rh) = ray.cast_rect(hb) {
+                       if rh.time < 1.0 {
+                           state.cursor = rh.hit - Point::new(4,4);
+                           state.fill_style = Solid(Color::RED);
+                           self.debug.push(MBShapes::Rect(Point::new(8,8),Some(state)));
+                       }
+                   }
+                });
+
                 let gravity = 1600.0;
                 let player_speed = 800.0;
                 let delta = d.as_secs_f32();

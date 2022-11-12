@@ -18,15 +18,15 @@ pub enum LineStyle {
     Right,
 }
 #[derive(Copy, Clone,Debug)]
-struct MBState {
-    cursor: Point,
-    filled: bool,
-    fill_style: FillStyle,
-    line_style: LineStyle,
-    thickness: f32,
-    rotation: f32,
-    rot_origin: Point,
-    resolution: f32,
+pub struct MBState {
+    pub cursor: Point,
+    pub filled: bool,
+    pub fill_style: FillStyle,
+    pub line_style: LineStyle,
+    pub thickness: f32,
+    pub rotation: f32,
+    pub rot_origin: Point,
+    pub resolution: f32,
 }
 impl MBState {
     pub fn new() -> Self {
@@ -42,9 +42,16 @@ impl MBState {
         }
     }
 }
+#[derive(Debug,Clone,Copy)]
+pub enum MBShapes {
+    Line(Point,Point,Option<MBState>),
+    Rect(Point,Option<MBState>),
+    Oval(Point,Option<MBState>),
+}
+
 pub struct MeshBuilder {
     state: MBState,
-    meshes: Vec<Mesh>,
+    pub meshes: Vec<Mesh>,
     states: Vec<MBState>,
 }
 
@@ -87,6 +94,14 @@ impl MeshBuilder {
     }
     pub fn pop(&mut self) {
         self.state = self.states.pop().unwrap_or_else(||{self.state});
+    }
+
+    pub fn shape(&mut self, shape: MBShapes) {
+        match shape {
+            MBShapes::Line(begin,end, state) => {self.push();self.state = state.unwrap_or(self.state);self.line(begin,end);self.pop();}
+            MBShapes::Rect(size,state) => {self.push();self.state = state.unwrap_or(self.state);self.rect(size);self.pop();}
+            MBShapes::Oval(size,state) => {self.push();self.state = state.unwrap_or(self.state);self.oval(size);self.pop();}
+        }
     }
 
     pub fn rect(&mut self, size: Point) {
