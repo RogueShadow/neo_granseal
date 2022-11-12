@@ -48,6 +48,21 @@ pub enum MBShapes {
     Rect(Point,Option<MBState>),
     Oval(Point,Option<MBState>),
 }
+pub struct ShapeBuilder {
+    state: MBState,
+    shapes: Vec<MBShapes>,
+    states: Vec<MBState>,
+}
+impl ShapeBuilder {
+    pub fn new() -> Self {
+        Self {
+            state: MBState::new(),
+            shapes: vec![],
+            states: vec![],
+        }
+    }
+    pub fn set_cursor(&mut self, cursor: Point) { self.state.cursor = cursor; }
+}
 
 pub struct MeshBuilder {
     state: MBState,
@@ -175,6 +190,7 @@ pub struct Mesh {
     pub vertices: Vec<Vertex>,
     pub indices: Vec<u32>,
 }
+
 
 impl Mesh {
     pub fn new() -> Self {

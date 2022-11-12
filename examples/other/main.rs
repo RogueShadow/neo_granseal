@@ -58,6 +58,7 @@ impl Level {
         s
     }
     pub fn generate_hitboxs(&mut self) {
+        self.hit_boxes.clear();
         let width = self.width();
         let height = self.height();
         for x in 0..width {
@@ -200,6 +201,7 @@ struct Player {
     pos: Point,
     vel: Point,
     size: Point,
+    mesh: Mesh,
 }
 impl Player {
     pub fn new(pos: Point, size: Point) -> Self {
@@ -207,22 +209,26 @@ impl Player {
             pos,
             vel: Point::ZERO,
             size,
+            mesh: {
+                let mut mb = MeshBuilder::new();
+                mb.set_cursor(0,0);
+                mb.set_style(Corners(Color::random(),Color::random(),Color::random(),Color::random()));
+                mb.rect(size);
+                mb.set_filled(false);
+                mb.set_thickness(4.0);
+                mb.set_style(Solid(Color::BLACK));
+                mb.set_cursor(0,0);
+                mb.rect(size);
+                mb.build()
+            },
         }
     }
     pub fn hit_box(&self) -> Rectangle {
         Rectangle::new(self.pos.x,self.pos.y,self.size.x-0.1,self.size.y-0.1)
     }
-    pub fn mesh(&self) -> Mesh {
-        let mut mb = MeshBuilder::new();
-        mb.set_cursor(0,0);
-        mb.set_style(Corners(Color::RED,Color::LIME,Color::BLUE,Color::BLACK));
-        mb.rect(self.size);
-        mb.set_filled(false);
-        mb.set_thickness(4.0);
-        mb.set_style(Solid(Color::BLACK));
-        mb.set_cursor(0,0);
-        mb.rect(self.size);
-        mb.build()
+
+    pub fn mesh(&self) -> &Mesh {
+        &self.mesh
     }
     pub fn update(&mut self,level: &mut Level, delta: Duration) {
         let d = delta.as_secs_f32();
@@ -296,7 +302,7 @@ impl NeoGransealEventHandler for Game {
                 let mut g = ShapeGfx::new(core);
                 g.set_position(-self.cam.get_offset());
                 g.draw_buffered_mesh(0,Point::ZERO);
-                g.draw_mesh(self.player.mesh(),self.player.pos);
+                g.draw_mesh(&self.player.mesh(),self.player.pos.clone());
 
                 let mut mb = MeshBuilder::new();
 
@@ -310,23 +316,24 @@ impl NeoGransealEventHandler for Game {
                 self.debug.iter().for_each(|s| {
                    mb.shape(*s);
                 });
-                g.draw_mesh(mb.build(), Point::ZERO);
+                g.draw_mesh(&mb.build(), Point::ZERO);
 
                 g.finish();
             }
             Event::Update(d) => {
                 self.debug.clear();
-                let origin = self.ray_origin;
                 let mp = core.state.mouse.pos + self.cam.get_offset();
-                let dir = (mp - origin);
-                let ray = Ray::new(origin,dir);
+                let ray = Ray::new(self.ray_origin,mp - self.ray_origin);
                 let mut state = MBState::new();
-                self.debug.push(MBShapes::Line(origin,mp,Some(state)));
+                self.debug.push(MBShapes::Line(self.ray_origin,mp,Some(state)));
                 if let Some(rh) = ray.cast_rect(&self.player.hit_box()) {
                     if rh.time < 1.0 {
                         state.cursor = rh.hit - Point::new(4,4);
                         state.fill_style = Solid(Color::RED);
                         self.debug.push(MBShapes::Rect(Point::new(8,8),Some(state)));
+                        state.fill_style = Solid(Color::LIME);
+                        state.cursor = Point::ZERO;
+                        self.debug.push(MBShapes::Line(rh.hit,rh.hit + rh.normal * 16.0,Some(state)))
                     }
                 }
                 self.level.hit_boxes.iter().for_each(|hb| {
@@ -335,6 +342,9 @@ impl NeoGransealEventHandler for Game {
                            state.cursor = rh.hit - Point::new(4,4);
                            state.fill_style = Solid(Color::RED);
                            self.debug.push(MBShapes::Rect(Point::new(8,8),Some(state)));
+                           state.fill_style = Solid(Color::LIME);
+                           state.cursor = Point::ZERO;
+                           self.debug.push(MBShapes::Line(rh.hit,rh.hit + rh.normal * 16.0,Some(state)))
                        }
                    }
                 });
