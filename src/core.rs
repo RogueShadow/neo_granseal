@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::collections::HashMap;
 use crate::{map_present_modes, GransealGameConfig, NGRenderPipeline, events};
 use pollster::FutureExt;
@@ -167,8 +168,14 @@ impl NGCore {
             self.state.keys[&key]
         }
     }
-    pub fn cmd(&mut self, cmd: NGCommand) {
-        self.cmd_queue.push(cmd);
+    pub fn render(&mut self, pipeline: usize, data: Box<dyn Any>) {
+        self.cmd_queue.push(NGCommand::Render(pipeline,data));
+    }
+    pub fn set_title(&mut self, title: String) {
+        self.cmd_queue.push(NGCommand::SetTitle(title));
+    }
+    pub fn set_cursor_visibility(&mut self, visible: bool) {
+        self.cmd_queue.push(NGCommand::SetCursorVisibility(visible))
     }
     pub fn new(event_loop: &EventLoop<()>, config: GransealGameConfig) -> Result<Self,NGError> {
         let timer = std::time::Instant::now();

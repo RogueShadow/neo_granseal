@@ -48,21 +48,6 @@ pub enum MBShapes {
     Rect(Point,Option<MBState>),
     Oval(Point,Option<MBState>),
 }
-pub struct ShapeBuilder {
-    state: MBState,
-    shapes: Vec<MBShapes>,
-    states: Vec<MBState>,
-}
-impl ShapeBuilder {
-    pub fn new() -> Self {
-        Self {
-            state: MBState::new(),
-            shapes: vec![],
-            states: vec![],
-        }
-    }
-    pub fn set_cursor(&mut self, cursor: Point) { self.state.cursor = cursor; }
-}
 
 pub struct MeshBuilder {
     state: MBState,
@@ -140,6 +125,20 @@ impl MeshBuilder {
             oval_filled(self.state.cursor - radius / 2.0, radius, 0.0, TAU, self.state.resolution, self.state.fill_style)
         } else {
             oval_outlined(self.state.cursor - radius / 2.0, radius, 0.0, TAU, self.state.resolution, self.state.thickness, self.state.fill_style)
+        };
+        if self.state.rotation != 0.0 {
+            let offset = -self.state.cursor - self.state.rot_origin;
+            m.translate(offset);
+            m.rotate(self.state.rotation);
+            m.translate(-offset);
+        }
+        self.meshes.push(m);
+    }
+    pub fn arc(&mut  self, radius: Point, arc_begin: f32, arc_end: f32) {
+        let mut m = if self.state.filled {
+            oval_filled(self.state.cursor - radius / 2.0, radius, arc_begin, arc_end, self.state.resolution, self.state.fill_style)
+        } else {
+            oval_outlined(self.state.cursor - radius / 2.0, radius, arc_begin,arc_end,self.state.resolution,self.state.thickness, self.state.fill_style)
         };
         if self.state.rotation != 0.0 {
             let offset = -self.state.cursor - self.state.rot_origin;
@@ -230,6 +229,12 @@ impl Mesh {
         self.vertices.iter_mut().for_each(|v| {
             v.x += pos.x;
             v.y += pos.y;
+        })
+    }
+    pub fn scale(&mut self, scale: f32) {
+        self.vertices.iter_mut().for_each(|v| {
+            v.x *= scale;
+            v.y *= scale;
         })
     }
     pub fn rotate(&mut self, rotation: f32) {
@@ -512,5 +517,5 @@ pub fn raw_quad_filled(p1: Point, p2: Point, p3: Point,p4: Point, style: FillSty
 }
 
 pub fn combine(mut meshes: Vec<Mesh>) -> Mesh {
-    meshes.iter_mut().fold(Mesh::new(),|mut acc, m|acc.add(m))
+    meshes.iter_mut().fold(Mesh::new(),|acc, m|acc.add(m))
 }

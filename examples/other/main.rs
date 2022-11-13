@@ -1,10 +1,15 @@
-use std::{time::Duration, f32::consts::PI};
-use num_traits::AsPrimitive;
-use rand::SeedableRng;
-use neo_granseal::{core::NGCommand, start, GransealGameConfig, core::NGCore, events::Event, shape_pipeline::ShapeGfx, events::{Key, KeyState}, mesh::{FillStyle}, util::{Color, Point}, mesh::*, mesh::FillStyle::{FadeDown, Solid}, shape_pipeline::BufferedObjectID, MSAA, NeoGransealEventHandler};
-use neo_granseal::events::MouseButton;
-use neo_granseal::mesh::FillStyle::{Corners, Radial};
-use neo_granseal::util::{Camera, Ray, Rectangle};
+use std::f32::consts::PI;
+use std::time::Duration;
+use neo_granseal::{
+    prelude::*,
+    util::*,
+    mesh::{
+        FillStyle::*,
+        *,
+    },
+};
+use neo_granseal::events::{Key, KeyState, MouseButton};
+
 
 pub const TILE_SCALE: u32 = 64;
 pub const WIDTH: u32 = TILE_SCALE * 14;
@@ -12,7 +17,7 @@ pub const HEIGHT: u32 = TILE_SCALE * 12;
 
 
 fn main() {
-    start(Game::new(),GransealGameConfig::new()
+    start(Game::new(), GransealGameConfig::new()
               .vsync(false)
               .size(WIDTH as i32, HEIGHT as i32)
               .clear_color(Color::CORNFLOWER_BLUE)
@@ -23,7 +28,6 @@ pub struct Level {
     tiles: Vec<Vec<u8>>,
     tile_scale: u32,
     hit_boxes: Vec<Rectangle>,
-    walls: Vec<LineSegment>,
 }
 impl Level {
     pub fn new() -> Self {
@@ -52,7 +56,6 @@ impl Level {
             ],
             tile_scale: TILE_SCALE as u32,
             hit_boxes: vec![],
-            walls: vec![],
         };
         s.generate_hitboxs();
         s
@@ -164,16 +167,16 @@ impl LineSegment {
         }
     }
     pub fn normal(&self) -> Point {
-        let d = (self.end - self.begin);
+        let d = self.end - self.begin;
         let a = d.angle() - PI/2.0;
         Point::new(a.cos(),a.sin())
     }
     pub fn length(&self) -> f32 {
-        let d = (self.end - self.begin);
+        let d = self.end - self.begin;
         d.len()
     }
     pub fn axis(&self) -> Point {
-        let d = (self.end - self.begin);
+        let d = self.end - self.begin;
         let a = d.angle();
         Point::new(a.cos(),a.sin())
     }
@@ -235,7 +238,7 @@ impl Player {
 
         self.pos.x += self.vel.x * d;
         level.hit_boxes.iter().for_each(|h|{
-           if let Some((tl,br)) = h.overlapping_box(&self.hit_box()) {
+           if let Some((tl,_)) = h.overlapping_box(&self.hit_box()) {
                if self.pos.x + self.size.x/2.0 > tl.x  {
                    self.pos.x -= self.vel.x * d;
                    self.vel.x = 0.0;
@@ -248,7 +251,7 @@ impl Player {
 
         self.pos.y += self.vel.y * d;
         level.hit_boxes.iter().for_each(|h|{
-            if let Some((tl,br)) = h.overlapping_box(&self.hit_box()) {
+            if let Some((tl,_)) = h.overlapping_box(&self.hit_box()) {
                 if self.pos.y + self.size.y/2.0 > tl.y  {
                     self.pos.y -= self.vel.y * d;
                     self.vel.y = 0.0;
@@ -262,7 +265,6 @@ impl Player {
     }
 }
 struct Game {
-    rng: rand_xorshift::XorShiftRng,
     level: Level,
     player: Player,
     cam: Camera,
@@ -272,9 +274,8 @@ struct Game {
 impl Game {
     pub fn new() -> Self {
         Self {
-            rng: rand_xorshift::XorShiftRng::from_rng(rand::thread_rng()).expect("get Rng"),
             level: Level::new(),
-            player: Player::new(Point::new(128,HEIGHT - 128),Point::new(TILE_SCALE,TILE_SCALE)),
+            player: Player::new(Point::new(128,HEIGHT - 128),Point::new(TILE_SCALE as f32 * 1.5,TILE_SCALE as f32 * 2.0)),
             cam: Camera::new(Point::new(WIDTH,HEIGHT)),
             ray_origin: Point::new(512,512),
             debug: vec![]
@@ -352,14 +353,14 @@ impl NeoGransealEventHandler for Game {
                 let gravity = 1600.0;
                 let player_speed = 800.0;
                 let delta = d.as_secs_f32();
-                core.cmd(NGCommand::SetTitle(format!("Neo-Granseal: {}",core.state.fps)));
+                core.set_title(format!("Neo-Granseal: {}",core.state.fps));
                 //if core.key_held(Key::W) { self.player.vel.y -= delta * player_speed }
                 if core.key_held(Key::A) { self.player.vel.x -= delta * player_speed }
                 if core.key_held(Key::S) { self.player.vel.y += delta * player_speed }
                 if core.key_held(Key::D) { self.player.vel.x += delta * player_speed }
                 self.player.vel.y += gravity * delta;
                 self.player.update(&mut self.level,d);
-                self.player.vel *= (1.0 - d.as_secs_f32() * 2.0);
+                self.player.vel *= 1.0 - d.as_secs_f32() * 2.0;
                 self.cam.target(self.player.pos);
                 self.level.hit_boxes.iter_mut().for_each(|h|{
                    if h.contains_point(&(core.state.mouse.pos + self.cam.get_offset())) {

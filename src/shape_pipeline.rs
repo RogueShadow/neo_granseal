@@ -92,11 +92,6 @@ pub struct SSRMaterial {
 }
 
 impl SSRMaterial {
-    fn new() -> Self {
-        Self {
-            kind: 0,
-        }
-    }
     pub fn oval(mut self) -> Self {
         self.kind = 1;
         self
@@ -430,6 +425,7 @@ pub struct SRState {
     pub rotation: f32,
     pub rot_origin: Point,
     pub kind: i32,
+    pub resolution: f32,
 }
 impl SRState {
     pub fn new() -> Self {
@@ -442,6 +438,7 @@ impl SRState {
             rotation: 0.0,
             rot_origin: Point::new(0,0),
             kind: 0,
+            resolution: 4.0,
         }
     }
 }
@@ -456,24 +453,15 @@ pub struct ShapeGfx<'draw> {
 
 impl <'draw> ShapeGfx<'draw> {
     pub fn set_position(&mut self, pos: Point) {self.state.pos = pos}
-        pub fn p(&mut self, pos: Point){self.set_position(pos)}
     pub fn set_fill_style(&mut self, c: FillStyle) {self.state.color = c}
-        pub fn fs(&mut self, fs: FillStyle){self.set_fill_style(fs)}
-            pub fn solid(&mut self, c: Color){self.state.color = FillStyle::Solid(c)}
-            pub fn fade_d(&mut self, c1: Color, c2: Color){self.state.color = FillStyle::FadeDown(c1,c2)}
-            pub fn fade_l(&mut self, c1: Color, c2: Color){self.state.color = FillStyle::FadeLeft(c1,c2)}
-            pub fn corners(&mut self, c1: Color, c2: Color, c3: Color, c4: Color){self.state.color = FillStyle::Corners(c1,c2,c3,c4)}
     pub fn set_line_thickness(&mut self, t: f32) {self.state.thickness = t}
-        pub fn t(&mut self, lt: f32){self.set_line_thickness(lt)}
     pub fn set_line_style(&mut self, l: LineStyle) {self.state.line_style = l}
-        pub fn ls(&mut self, ls: LineStyle){self.set_line_style(ls)}
     pub fn set_fill(&mut self, f: bool) {self.state.fill = f}
-        pub fn f(&mut self, f: bool){self.set_fill(f)}
     pub fn set_rotation(&mut self, r: f32) {self.state.rotation = r}
-        pub fn r(&mut self, r: f32){self.set_rotation(r)}
     pub fn set_rotation_origin(&mut self, origin: Point) {
         self.state.rot_origin = origin;
     }
+    pub fn set_resolution(&mut self, resolution: f32) {self.state.resolution = resolution; }
 
     pub fn translate(&mut self, t: Point) {self.state.pos += t}
     pub fn rotate(&mut self, r: f32) {self.state.rotation += r}
@@ -512,7 +500,7 @@ impl <'draw> ShapeGfx<'draw> {
             self.draw_mesh(&mesh,pos);
         }
     }
-    pub fn circle(&mut self, center: Point, radius: Point, resolution: f32) {
+    pub fn oval(&mut self, center: Point, radius: Point, resolution: f32) {
         self.arc(center,radius,0.0,std::f32::consts::TAU,resolution);
     }
     pub fn arc(&mut self, center: Point, radius: Point, arc_begin: f32, arc_end: f32, resolution: f32) {
@@ -563,16 +551,7 @@ impl <'draw> ShapeGfx<'draw> {
         self.data.materials.push(material);
         self.data.object_info.push(*info);
     }
-    fn colors(&self) -> (Color, Color, Color, Color) {
-        match self.state.color {
-            FillStyle::Solid(color) => {(color,color,color,color)}
-            FillStyle::FadeDown(color1, color2) => {(color2,color1,color1,color2)}
-            FillStyle::FadeLeft(color1, color2) => {(color1,color1,color2,color2)}
-            FillStyle::Corners(c1, c2, c3, c4) => {(c1,c2,c3,c4)}
-            FillStyle::Radial(c1,c2) => {(c1,c2,c1,c2)}
-        }
-    }
     pub fn finish(&mut self) {
-        self.core.cmd(NGCommand::Render(0, Box::new(self.data.to_owned())))
+        self.core.render(0,Box::new(self.data.to_owned()));
     }
 }
