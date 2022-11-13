@@ -356,6 +356,13 @@ impl MulAssign<f32> for Point {
         self.y *= rhs;
     }
 }
+impl Mul<Point> for f32  {
+    type Output = Point;
+
+    fn mul(self, rhs: Point) -> Self::Output {
+        Point::new(self * rhs.x,self * rhs.y)
+    }
+}
 
 pub struct Camera {
     offset: Point,

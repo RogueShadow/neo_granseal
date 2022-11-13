@@ -270,6 +270,7 @@ struct Game {
     cam: Camera,
     ray_origin: Point,
     debug: Vec<MBShapes>,
+    font: rusttype::Font<'static>,
 }
 impl Game {
     pub fn new() -> Self {
@@ -278,7 +279,8 @@ impl Game {
             player: Player::new(Point::new(128,HEIGHT - 128),Point::new(TILE_SCALE as f32 * 1.5,TILE_SCALE as f32 * 2.0)),
             cam: Camera::new(Point::new(WIDTH,HEIGHT)),
             ray_origin: Point::new(512,512),
-            debug: vec![]
+            debug: vec![],
+            font: rusttype::Font::try_from_bytes(include_bytes!("../../SourceSansPro-Regular.otf")).unwrap(),
         }
     }
 }
@@ -300,6 +302,7 @@ impl NeoGransealEventHandler for Game {
                 }
             }
             Event::Draw => {
+                let mp = core.state.mouse.pos + self.cam.get_offset();
                 let mut g = ShapeGfx::new(core);
                 g.set_position(-self.cam.get_offset());
                 g.draw_buffered_mesh(0,Point::ZERO);
@@ -307,18 +310,22 @@ impl NeoGransealEventHandler for Game {
 
                 let mut mb = MeshBuilder::new();
 
-                self.level.hit_boxes.iter().for_each(|h|{
-                   if h.test {
-                       mb.set_cursor_p(h.top_left);
-                       mb.set_filled(false);
-                       mb.rect(h.bottom_right - h.top_left);
-                   }
-                });
                 self.debug.iter().for_each(|s| {
                    mb.shape(*s);
                 });
-                g.draw_mesh(&mb.build(), Point::ZERO);
 
+                //g.draw_mesh(&mb.build(), Point::ZERO);
+
+                //g.draw_mesh(&quadratic_curve(mp,self.player.pos,Point::new(500,500)),Point::ZERO);
+                let mut gs: Vec<rusttype::Glyph> = vec![];
+                for c in String::from("Hello World.").chars() {
+                    gs.push(self.font.glyph(c));
+                }
+
+
+                g.draw_mesh(&glyphs(&self.font,"Hello World",200.0),Point::new(400,400));
+                g.draw_mesh(&glyph(self.font.glyph('&'),164.0),self.player.pos + Point::new(-64,-64));
+                g.draw_mesh(&cubic_curve(mp,mp+Point::new(32,32),self.player.pos - Point::new(32,32),self.player.pos,Solid(Color::THISTLE)),Point::ZERO);
                 g.finish();
             }
             Event::Update(d) => {

@@ -60,15 +60,7 @@ pub(crate) fn main_loop(
                     h.event(&mut core,nge);
                 }
                 match event {
-                    WindowEvent::Resized(_) => {}
-                    WindowEvent::Moved(_) => {}
                     WindowEvent::CloseRequested => {*control_flow = event_loop::ControlFlow::Exit;}
-                    WindowEvent::Destroyed => {}
-                    WindowEvent::DroppedFile(_) => {}
-                    WindowEvent::HoveredFile(_) => {}
-                    WindowEvent::HoveredFileCancelled => {}
-                    WindowEvent::ReceivedCharacter(_) => {}
-                    WindowEvent::Focused(_) => {}
                     WindowEvent::KeyboardInput {input, ..} => {
                         match input {
                             KeyboardInput {virtual_keycode,state, ..} => {
@@ -86,15 +78,10 @@ pub(crate) fn main_loop(
                             }
                         }
                     }
-                    WindowEvent::ModifiersChanged(..) => {}
-                    WindowEvent::Ime(_) => {}
                     WindowEvent::CursorMoved { position, .. } => {
                         core.state.mouse.pos.x = position.x as f32;
                         core.state.mouse.pos.y = position.y as f32;
                     }
-                    WindowEvent::CursorEntered { .. } => {}
-                    WindowEvent::CursorLeft { .. } => {}
-                    WindowEvent::MouseWheel { .. } => {}
                     WindowEvent::MouseInput {button,state, .. } => {
                         match button {
                             MouseButton::Left => {core.state.mouse.left = match state {
@@ -109,12 +96,7 @@ pub(crate) fn main_loop(
                             MouseButton::Other(_) => {}
                         }
                     }
-                    WindowEvent::TouchpadPressure { .. } => {}
-                    WindowEvent::AxisMotion { .. } => {}
-                    WindowEvent::Touch(_) => {}
-                    WindowEvent::ScaleFactorChanged { .. } => {}
-                    WindowEvent::ThemeChanged(_) => {}
-                    WindowEvent::Occluded(_) => {}
+                    _ => {}
                 }
             }
             Event::MainEventsCleared => core.window.request_redraw(),
