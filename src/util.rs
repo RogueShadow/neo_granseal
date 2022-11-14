@@ -1,6 +1,7 @@
 use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign, DivAssign};
 use num_traits::{AsPrimitive};
 use rand::{Rng, SeedableRng};
+use crate::mesh::{Path, PathBuilder};
 
 #[derive(Copy,Clone,Debug,PartialEq)]
 pub struct Color {
@@ -505,6 +506,25 @@ impl Rectangle {
             Some(Point::new(x2-x1,y2-y1))
         }
     }
+}
+pub fn cubic_to_point(time: f32, begin: Point, control1: Point, control2: Point, end: Point) -> Point {
+    let part1 = (1.0 - time).powf(3.0) * begin;
+    let part2 = 3.0 * (1.0 - time).powf(2.0) * time * control1;
+    let part3 = 3.0 * (1.0 - time) * time.powf(2.0) * control2;
+    let part4 = time.powf(3.0) * end;
+    (part1 + part2 + part3 + part4)
+}
+pub fn quadratic_to_point(time: f32, begin: Point, control: Point, end: Point) -> Point {
+    control + (1.0 - time).powf(2.0) * (begin - control) + time.powf(2.0) * (end - control)
+}
+pub fn text_to_path(font: &rusttype::Font, text: &str,scale: f32) -> Path {
+    let mut pb = PathBuilder::new();
+    for c in text.chars() {
+        let sg = font.glyph(c).scaled(rusttype::Scale::uniform(scale));
+        sg.build_outline(&mut pb);
+        pb.translate_offset(Point::new(sg.h_metrics().advance_width,0));
+    }
+    pb.build()
 }
 
 #[cfg(test)]

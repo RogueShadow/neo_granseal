@@ -2,7 +2,7 @@ use std::any::Any;
 use std::collections::HashMap;
 use crate::{map_present_modes, GransealGameConfig, NGRenderPipeline, events};
 use pollster::FutureExt;
-use wgpu::{BufferAddress, BufferUsages, Features};
+use wgpu::{BufferUsages, Features};
 use wgpu::util::DeviceExt;
 use winit::dpi::PhysicalSize;
 use winit::event_loop::EventLoop;

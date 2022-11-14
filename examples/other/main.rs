@@ -287,6 +287,7 @@ impl Game {
 
 impl NeoGransealEventHandler for Game {
     fn event(&mut self, core: &mut NGCore, e: Event) {
+        let timer = core.timer.elapsed().as_secs_f32();
         match e {
             Event::KeyEvent {key, state} => {
                 if state == KeyState::Pressed {
@@ -314,18 +315,15 @@ impl NeoGransealEventHandler for Game {
                    mb.shape(*s);
                 });
 
-                //g.draw_mesh(&mb.build(), Point::ZERO);
+                mb.draw_text(&self.font,"Where in the world is Carmen Sandiego?",112.0);
 
-                //g.draw_mesh(&quadratic_curve(mp,self.player.pos,Point::new(500,500)),Point::ZERO);
                 let mut gs: Vec<rusttype::Glyph> = vec![];
                 for c in String::from("Hello World.").chars() {
                     gs.push(self.font.glyph(c));
                 }
 
-
-                g.draw_mesh(&glyphs(&self.font,"Hello World",200.0),Point::new(400,400));
-                g.draw_mesh(&glyph(self.font.glyph('&'),164.0),self.player.pos + Point::new(-64,-64));
-                g.draw_mesh(&cubic_curve(mp,mp+Point::new(32,32),self.player.pos - Point::new(32,32),self.player.pos,Solid(Color::THISTLE)),Point::ZERO);
+                g.draw_mesh(&mb.build(),Point::new(300,900));
+                g.draw_mesh(&cubic_curve(mp,mp+Point::new(32,32),self.player.pos - Point::new(32,32),self.player.pos,Solid(Color::THISTLE),8.0),Point::ZERO);
                 g.finish();
             }
             Event::Update(d) => {
@@ -367,7 +365,7 @@ impl NeoGransealEventHandler for Game {
                 if core.key_held(Key::D) { self.player.vel.x += delta * player_speed }
                 self.player.vel.y += gravity * delta;
                 self.player.update(&mut self.level,d);
-                self.player.vel *= 1.0 - d.as_secs_f32() * 2.0;
+                self.player.vel *= 1.0 - delta;
                 self.cam.target(self.player.pos);
                 self.level.hit_boxes.iter_mut().for_each(|h|{
                    if h.contains_point(&(core.state.mouse.pos + self.cam.get_offset())) {

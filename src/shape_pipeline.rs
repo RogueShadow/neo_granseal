@@ -1,7 +1,6 @@
 use bytemuck::{Pod, Zeroable};
 use wgpu::util::{DeviceExt};
-use crate::{Color, GlobalUniforms, mesh, MSAA, NGCore, NGError, NGRenderPipeline, Point};
-use crate::core::NGCommand;
+use crate::{Color, GlobalUniforms, MSAA, NGCore, NGError, NGRenderPipeline, Point};
 use crate::mesh::*;
 
 
