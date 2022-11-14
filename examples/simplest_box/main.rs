@@ -1,3 +1,4 @@
+use neo_granseal::mesh::MeshBuilder;
 use neo_granseal::prelude::*;
 
 fn main() {
@@ -10,8 +11,10 @@ impl NeoGransealEventHandler for Box {
     fn event(&mut self, core: &mut NGCore, event: Event) {
         match event {
             Event::Draw => {
+                let mut mb = MeshBuilder::new();
+                mb.rect(Point::new(128.0,256.0));
                 let mut g = ShapeGfx::new(core);
-                g.rect(Point::new(128.0,128.0),Point::new(128.0,128.0));
+                g.draw_mesh(&mb.build(),Point::new(128.0,128.0));
                 g.finish();
             }
             _ => {}

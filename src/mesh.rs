@@ -3,7 +3,7 @@ use num_traits::AsPrimitive;
 use rusttype::OutlineBuilder;
 use crate::{Color, Point};
 use crate::shape_pipeline::{Vertex};
-use crate::util::{cubic_to_point, quadratic_to_point, text_to_path};
+use crate::util::{Contour, cubic_to_point, PathBuilder, PathData, quadratic_to_point, text_to_path};
 
 #[derive(Copy,Clone,Debug,PartialEq)]
 pub enum FillStyle {
@@ -53,100 +53,11 @@ pub enum MBShapes {
     Oval(Point,Option<MBState>),
 }
 
-pub struct Path {
-    pub segments: Vec<PathSegment>,
-}
-pub struct PathSegment {
-    pub contours: Vec<Contour>,
-}
-#[derive(Debug,Clone,Copy)]
-pub enum Contour {
-    MoveTo(Point), //basically new segment
-    LineTo(Point),
-    QuadTo(Point,Point), // control, end
-    CubicTo(Point,Point,Point), // control1, control2, end
-    ClosePath,   // basically end segment
-}
-
-pub struct PathBuilder {
-    contours: Vec<Contour>,
-    segments: Vec<PathSegment>,
-    pub(crate) offset: Point,
-}
-impl PathBuilder {
-    pub(crate) fn new() -> Self {
-        Self {
-            contours: vec![],
-            segments: vec![],
-            offset: Point::ZERO,
-        }
-    }
-    fn move_to(&mut self, pos: Point) -> &mut Self {
-        self.contours.push(Contour::MoveTo(pos + self.offset));
-        self
-    }
-    fn line_to(&mut self, end: Point) -> &mut Self {
-        self.contours.push(Contour::LineTo(end + self.offset));
-        self
-    }
-    fn quadratic_to(&mut self, control: Point, end: Point) -> &mut Self {
-        self.contours.push(Contour::QuadTo(control + self.offset,end + self.offset));
-        self
-    }
-    fn cubic_to(&mut self, control1: Point, control2: Point, end: Point) -> &mut Self {
-        self.contours.push(Contour::CubicTo(control1 + self.offset,control2 + self.offset,end + self.offset));
-        self
-    }
-    fn close_path(&mut self) -> &mut Self {
-        self.contours.push(Contour::ClosePath);
-        let mut path_segment = PathSegment {contours: vec![]};
-        path_segment.contours.append(&mut self.contours);
-        self.segments.push(path_segment);
-        self.contours.clear();
-        self
-    }
-    pub fn set_offset(&mut self, offset: Point) {
-        self.offset = offset;
-    }
-    pub fn translate_offset(&mut self, offset: Point) {
-        self.offset += offset;
-    }
-    pub fn clear_offset(&mut self)  {
-        self.offset = Point::ZERO;
-    }
-    pub(crate) fn build(&mut self) -> Path {
-        let mut path = Path {segments: vec![]};
-        path.segments.append(&mut self.segments);
-        path
-    }
-}
-
-impl OutlineBuilder for PathBuilder {
-    fn move_to(&mut self, x: f32, y: f32) {
-        self.move_to(Point::new(x,y));
-    }
-
-    fn line_to(&mut self, x: f32, y: f32) {
-        self.line_to(Point::new(x,y));
-    }
-
-    fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
-        self.quadratic_to(Point::new(x1,y1),Point::new(x,y));
-    }
-
-    fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
-        self.cubic_to(Point::new(x1,y1),Point::new(x2,y2),Point::new(x,y));
-    }
-
-    fn close(&mut self) {
-        self.close_path();
-    }
-}
 
 pub struct MeshBuilder {
-    state: MBState,
+    pub(crate) state: MBState,
     pub meshes: Vec<Mesh>,
-    states: Vec<MBState>,
+    pub(crate) states: Vec<MBState>,
 }
 
 impl MeshBuilder {
@@ -157,16 +68,11 @@ impl MeshBuilder {
             states: vec![],
         }
     }
-    pub fn set_cursor_p(&mut self, pos: Point) {
-        self.set_cursor(pos.x, pos.y);
+    pub fn set_cursor(&mut self, cursor: Point) {
+        self.state.cursor = cursor;
     }
-    pub fn set_cursor(&mut self, x: impl AsPrimitive<f32>, y: impl AsPrimitive<f32>) {
-        self.state.cursor.x = x.as_();
-        self.state.cursor.y = y.as_();
-    }
-    pub fn move_cursor(&mut self, x: impl AsPrimitive<f32>, y: impl AsPrimitive<f32>) {
-        self.state.cursor.x += x.as_();
-        self.state.cursor.y += y.as_();
+    pub fn move_cursor(&mut self, pos: Point) {
+        self.state.cursor += pos;
     }
     pub fn set_style(&mut self, style: FillStyle) {
         self.state.fill_style = style;
@@ -197,7 +103,7 @@ impl MeshBuilder {
             MBShapes::Oval(size,state) => {self.push();self.state = state.unwrap_or(self.state);self.oval(size);self.pop();}
         }
     }
-    pub fn stroke_path(&mut self, path: Path) {
+    pub fn stroke_path(&mut self, path: PathData) {
         for seg in path.segments {
             for con in seg.contours {
                 match con {
@@ -211,8 +117,10 @@ impl MeshBuilder {
         }
     }
     pub fn draw_text(&mut self,font: &rusttype::Font, text: &str, scale: f32) {
-        let path = text_to_path(font,text,scale);
-        self.stroke_path(path);
+        let mut pb = PathBuilder::new();
+        pb.set_offset(self.state.cursor);
+        text_to_path(&mut pb,font,text,scale);
+        self.stroke_path(pb.build());
     }
     pub fn rect(&mut self, size: Point) {
         let mut m = if self.state.filled {
@@ -232,9 +140,9 @@ impl MeshBuilder {
     }
     pub fn oval(&mut self, radius: Point) {
         let mut m = if self.state.filled {
-            oval_filled(self.state.cursor - radius / 2.0, radius, 0.0, TAU, self.state.resolution, self.state.fill_style)
+            oval_filled(self.state.cursor + radius, radius, 0.0, TAU, self.state.resolution, self.state.fill_style)
         } else {
-            oval_outlined(self.state.cursor - radius / 2.0, radius, 0.0, TAU, self.state.resolution, self.state.thickness, self.state.fill_style)
+            oval_outlined(self.state.cursor + radius, radius, 0.0, TAU, self.state.resolution, self.state.thickness, self.state.fill_style)
         };
         if self.state.rotation != 0.0 {
             let offset = -self.state.cursor - self.state.rot_origin;
@@ -246,9 +154,9 @@ impl MeshBuilder {
     }
     pub fn arc(&mut  self, radius: Point, arc_begin: f32, arc_end: f32) {
         let mut m = if self.state.filled {
-            oval_filled(self.state.cursor - radius / 2.0, radius, arc_begin, arc_end, self.state.resolution, self.state.fill_style)
+            oval_filled(self.state.cursor + radius, radius, arc_begin, arc_end, self.state.resolution, self.state.fill_style)
         } else {
-            oval_outlined(self.state.cursor - radius / 2.0, radius, arc_begin,arc_end,self.state.resolution,self.state.thickness, self.state.fill_style)
+            oval_outlined(self.state.cursor + radius, radius, arc_begin,arc_end,self.state.resolution,self.state.thickness, self.state.fill_style)
         };
         if self.state.rotation != 0.0 {
             let offset = -self.state.cursor - self.state.rot_origin;
@@ -283,11 +191,11 @@ impl MeshBuilder {
             m.rotate(self.state.rotation);
             m.translate(-offset);
         }
-        self.set_cursor_p(end);
+        self.set_cursor(end);
         self.meshes.push(m);
     }
     pub fn quadratic(&mut self, begin:  Point, control: Point, end: Point) {
-        let mut m = quadratic_curve(begin,end,control,self.state.fill_style,self.state.resolution);
+        let mut m = quadratic_curve(begin,end,control,self.state.thickness,self.state.line_style,self.state.fill_style,self.state.resolution);
         if self.state.rotation != 0.0 {
             let offset = -self.state.cursor - self.state.rot_origin;
             m.translate(offset);
@@ -297,18 +205,18 @@ impl MeshBuilder {
         self.meshes.push(m);
     }
     pub fn quad_to(&mut self, control: Point, end: Point) {
-        let mut m = quadratic_curve(self.state.cursor,end,control,self.state.fill_style,self.state.resolution);
+        let mut m = quadratic_curve(self.state.cursor,end,control,self.state.thickness,self.state.line_style,self.state.fill_style,self.state.resolution);
         if self.state.rotation != 0.0 {
             let offset = -self.state.cursor - self.state.rot_origin;
             m.translate(offset);
             m.rotate(self.state.rotation);
             m.translate(-offset);
         }
-        self.set_cursor_p(end);
+        self.set_cursor(end);
         self.meshes.push(m);
     }
     pub fn cubic(&mut self, begin: Point, control1: Point, control2: Point, end: Point) {
-        let mut m = cubic_curve(begin,control1,control2,end,self.state.fill_style,self.state.resolution);
+        let mut m = cubic_curve(begin,control1,control2,end,self.state.thickness,self.state.line_style,self.state.fill_style,self.state.resolution);
         if self.state.rotation != 0.0 {
             let offset = -self.state.cursor - self.state.rot_origin;
             m.translate(offset);
@@ -318,14 +226,14 @@ impl MeshBuilder {
         self.meshes.push(m);
     }
     pub fn cubic_to(&mut self, control1: Point,control2: Point, end: Point) {
-        let mut m = cubic_curve(self.state.cursor,control1,control2,end,self.state.fill_style,self.state.resolution);
+        let mut m = cubic_curve(self.state.cursor,control1,control2,end,self.state.thickness,self.state.line_style,self.state.fill_style,self.state.resolution);
         if self.state.rotation != 0.0 {
             let offset = -self.state.cursor - self.state.rot_origin;
             m.translate(offset);
             m.rotate(self.state.rotation);
             m.translate(-offset);
         }
-        self.set_cursor_p(end);
+        self.set_cursor(end);
         self.meshes.push(m);
     }
     pub fn triangle_raw(&mut self, p1: Point, p2: Point, p3: Point) {
@@ -685,9 +593,8 @@ pub fn raw_quad_filled(p1: Point, p2: Point, p3: Point,p4: Point, style: FillSty
     m.indices = vec![2,1,0, 3,2,0];
     m
 }
-pub fn quadratic_curve(begin: Point, end: Point, control: Point, style: FillStyle, resolution: f32) -> Mesh {
-    let mut m = MeshBuilder::new();
-    m.set_style(style);
+pub fn quadratic_curve(begin: Point, end: Point, control: Point,thickness: f32,line_style: LineStyle, style: FillStyle, resolution: f32) -> Mesh {
+    let mut meshes: Vec<Mesh> = vec![];
     let mut points: Vec<Point> = vec![];
     let distance = (end - begin).len();
     let count = (distance / resolution).ceil() as i32;
@@ -696,13 +603,12 @@ pub fn quadratic_curve(begin: Point, end: Point, control: Point, style: FillStyl
         points.push(quadratic_to_point(t,begin,control,end));
     });
     (0..points.len() - 1).for_each(|i|{
-        m.line(points[i],points[i+1]);
+        meshes.push(line(points[i],points[i+1],thickness,line_style,style));
     });
-    m.build()
+    combine(meshes)
 }
-pub fn cubic_curve(begin: Point, control1: Point,control2: Point, end: Point,style: FillStyle, resolution: f32) -> Mesh {
-    let mut m = MeshBuilder::new();
-    m.set_style(style);
+pub fn cubic_curve(begin: Point, control1: Point,control2: Point, end: Point,thickness: f32, line_style: LineStyle, style: FillStyle, resolution: f32) -> Mesh {
+    let mut meshes: Vec<Mesh> = vec![];
     let mut points: Vec<Point> = vec![];
     let distance = (end - begin).len();
     let count = (distance / resolution).ceil() as i32;
@@ -711,17 +617,9 @@ pub fn cubic_curve(begin: Point, control1: Point,control2: Point, end: Point,sty
         points.push(cubic_to_point(t,begin,control1,control2,end));
     });
     (0..points.len() - 1).for_each(|i|{
-        m.line(points[i],points[i+1]);
+        meshes.push(line(points[i],points[i+1],thickness,line_style,style));
     });
-    m.build()
-}
-pub fn  glyph(glyph: rusttype::Glyph, scale: f32) -> Mesh {
-    let g = glyph.scaled(rusttype::Scale::uniform(scale));
-    let mut m = PathBuilder::new();
-    g.build_outline(&mut m);
-    let mut mb = MeshBuilder::new();
-    mb.stroke_path(m.build());
-    mb.build()
+    combine(meshes)
 }
 
 pub fn combine(mut meshes: Vec<Mesh>) -> Mesh {

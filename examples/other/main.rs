@@ -125,7 +125,7 @@ impl Level {
                 let tx = x * self.tile_scale;
                 let ty = y * self.tile_scale;
                 let tile_type = self.get_tile(x,y);
-                mb.set_cursor(tx,ty);
+                mb.set_cursor(Point::new(tx,ty));
                 mb.push();
                 match tile_type {
                     b'g' => {
@@ -151,6 +151,9 @@ impl Level {
                 mb.pop();
             }
         }
+        mb.set_cursor(Point::new(500,1000));
+        mb.set_thickness(1.0);
+        mb.draw_text(&rusttype::Font::try_from_bytes(include_bytes!("../../DroidSerif-Regular.ttf")).unwrap(),"Where in the world is Carmen Sandiego? I don't know, do you know? Why won't you tell me. My goodness. The Quick Brown Fox Jumped Over The Lazy Dog.",50.0);
         mb.build()
     }
 }
@@ -183,14 +186,14 @@ impl LineSegment {
     pub fn debug(&self, mb: &mut MeshBuilder) {
         mb.push();
         mb.set_resolution(1.0);
-        mb.set_cursor_p(Point::ZERO);
+        mb.set_cursor(Point::ZERO);
         mb.set_thickness(1.0);
         mb.set_style(Radial(Color::DEEP_PINK,Color::HOT_PINK));
-        mb.set_cursor_p(self.begin);
+        mb.set_cursor(self.begin);
         mb.oval(Point::new(4,4));
-        mb.set_cursor_p(self.end);
+        mb.set_cursor(self.end);
         mb.oval(Point::new(4,4));
-        mb.set_cursor_p(Point::ZERO);
+        mb.set_cursor(Point::ZERO);
         mb.set_style(Solid(Color::INDIGO));
         mb.line(self.begin,self.end);
         mb.set_style(Solid(Color::BLUE));
@@ -214,13 +217,13 @@ impl Player {
             size,
             mesh: {
                 let mut mb = MeshBuilder::new();
-                mb.set_cursor(0,0);
+                mb.set_cursor(Point::ZERO);
                 mb.set_style(Corners(Color::random(),Color::random(),Color::random(),Color::random()));
                 mb.rect(size);
                 mb.set_filled(false);
                 mb.set_thickness(4.0);
                 mb.set_style(Solid(Color::BLACK));
-                mb.set_cursor(0,0);
+                mb.set_cursor(Point::ZERO);
                 mb.rect(size);
                 mb.build()
             },
@@ -280,7 +283,7 @@ impl Game {
             cam: Camera::new(Point::new(WIDTH,HEIGHT)),
             ray_origin: Point::new(512,512),
             debug: vec![],
-            font: rusttype::Font::try_from_bytes(include_bytes!("../../SourceSansPro-Regular.otf")).unwrap(),
+            font: rusttype::Font::try_from_bytes(include_bytes!("../../DroidSerif-Regular.ttf")).unwrap(),
         }
     }
 }
@@ -305,9 +308,9 @@ impl NeoGransealEventHandler for Game {
             Event::Draw => {
                 let mp = core.state.mouse.pos + self.cam.get_offset();
                 let mut g = ShapeGfx::new(core);
-                g.set_position(-self.cam.get_offset());
+                g.set_offset(-self.cam.get_offset());
                 g.draw_buffered_mesh(0,Point::ZERO);
-                g.draw_mesh(&self.player.mesh(),self.player.pos.clone());
+                g.draw_mesh(&self.player.mesh(),self.player.pos);
 
                 let mut mb = MeshBuilder::new();
 
@@ -315,7 +318,7 @@ impl NeoGransealEventHandler for Game {
                    mb.shape(*s);
                 });
 
-                mb.draw_text(&self.font,"Where in the world is Carmen Sandiego?",112.0);
+
 
                 let mut gs: Vec<rusttype::Glyph> = vec![];
                 for c in String::from("Hello World.").chars() {
@@ -323,7 +326,7 @@ impl NeoGransealEventHandler for Game {
                 }
 
                 g.draw_mesh(&mb.build(),Point::new(300,900));
-                g.draw_mesh(&cubic_curve(mp,mp+Point::new(32,32),self.player.pos - Point::new(32,32),self.player.pos,Solid(Color::THISTLE),8.0),Point::ZERO);
+                g.draw_mesh(&cubic_curve(mp,mp+Point::new(32,32),self.player.pos - Point::new(32,32),self.player.pos,1.0,LineStyle::Center,Solid(Color::THISTLE),8.0),Point::ZERO);
                 g.finish();
             }
             Event::Update(d) => {

@@ -412,68 +412,21 @@ impl AsRef<SSRRenderData> for SSRRenderData {
     }
 }
 
-
-
-#[derive(Copy, Clone, Debug)]
-pub struct SRState {
-    pub fill: bool,
-    pub color: FillStyle,
-    pub thickness: f32,
-    pub line_style: LineStyle,
-    pub pos: Point,
-    pub rotation: f32,
-    pub rot_origin: Point,
-    pub kind: i32,
-    pub resolution: f32,
-}
-impl SRState {
-    pub fn new() -> Self {
-        Self {
-            fill: true,
-            color: FillStyle::Solid(Color::TEAL),
-            thickness: 1.0,
-            line_style: LineStyle::Center,
-            pos: Point::new(0.0,0.0),
-            rotation: 0.0,
-            rot_origin: Point::new(0,0),
-            kind: 0,
-            resolution: 4.0,
-        }
-    }
-}
-
 pub struct ShapeGfx<'draw> {
     core: &'draw mut NGCore,
-    pub data: SSRRenderData,
-    pub state: SRState,
-    pub states: Vec<SRState>,
+    data: SSRRenderData,
+    offset: Point,
+    rotation: f32,
+    rotation_origin: Point,
 }
 
 
 impl <'draw> ShapeGfx<'draw> {
-    pub fn set_position(&mut self, pos: Point) {self.state.pos = pos}
-    pub fn set_fill_style(&mut self, c: FillStyle) {self.state.color = c}
-    pub fn set_line_thickness(&mut self, t: f32) {self.state.thickness = t}
-    pub fn set_line_style(&mut self, l: LineStyle) {self.state.line_style = l}
-    pub fn set_fill(&mut self, f: bool) {self.state.fill = f}
-    pub fn set_rotation(&mut self, r: f32) {self.state.rotation = r}
-    pub fn set_rotation_origin(&mut self, origin: Point) {
-        self.state.rot_origin = origin;
-    }
-    pub fn set_resolution(&mut self, resolution: f32) {self.state.resolution = resolution; }
-
-    pub fn translate(&mut self, t: Point) {self.state.pos += t}
-    pub fn rotate(&mut self, r: f32) {self.state.rotation += r}
-
-    pub fn current_pos(&self) -> Point {
-        self.state.pos
-    }
-    pub fn current_rot(&self) -> f32 {
-        self.state.rotation
-    }
-
-    pub fn push_state(&mut self) {self.states.push(self.state)}
-    pub fn pop_state(&mut self) {self.state = self.states.pop().expect("Pop state")}
+    pub fn set_offset(&mut self, cursor: Point) {self.offset = cursor}
+    pub fn translate_offset(&mut self, t: Point) {self.offset += t}
+    pub fn rotate(&mut self, r: f32) {self.rotation += r}
+    pub fn set_rotation(&mut self, r: f32) {self.rotation = r}
+    pub fn set_rotation_origin(&mut self, origin: Point) {self.rotation_origin = origin}
 
     pub fn data(&self) -> &SSRRenderData {
         self.data.as_ref()
@@ -482,33 +435,9 @@ impl <'draw> ShapeGfx<'draw> {
         Self {
             core,
             data: SSRRenderData::new(),
-            state: SRState::new(),
-            states: vec![],
-        }
-    }
-    pub fn line(&mut self, start: Point, end: Point) {
-        let mesh = line(start,end,self.state.thickness,self.state.line_style,self.state.color);
-        self.draw_mesh(&mesh, Point::new(0.0,0.0))
-    }
-    pub fn rect(&mut self, pos: Point, size: Point) {
-        if self.state.fill {
-            let mut mesh = rect_filled(Point::new(0,0),size, self.state.color);
-            self.draw_mesh(&mesh,pos);
-        } else {
-            let mut mesh = rect_outlined(Point::new(0,0),size,self.state.thickness,self.state.color);
-            self.draw_mesh(&mesh,pos);
-        }
-    }
-    pub fn oval(&mut self, center: Point, radius: Point, resolution: f32) {
-        self.arc(center,radius,0.0,std::f32::consts::TAU,resolution);
-    }
-    pub fn arc(&mut self, center: Point, radius: Point, arc_begin: f32, arc_end: f32, resolution: f32) {
-        if self.state.fill {
-            let mut mesh = oval_filled(radius,radius,arc_begin,arc_end,resolution,self.state.color);
-            self.draw_mesh(&mesh, center)
-        } else {
-            let mut mesh = oval_outlined(radius,radius,arc_begin,arc_end,resolution,self.state.thickness,self.state.color);
-            self.draw_mesh(&mesh, center)
+            offset: Point::ZERO,
+            rotation: 0.0,
+            rotation_origin: Point::ZERO,
         }
     }
     pub fn draw_mesh(&mut self, mesh: &Mesh, pos: Point) {
@@ -524,13 +453,13 @@ impl <'draw> ShapeGfx<'draw> {
             end_index: end_index as u32,
         };
         let transform = SSRTransform {
-            x: self.state.pos.x + pos.x,
-            y: self.state.pos.y + pos.y,
-            r: self.state.rotation,
-            rx: self.state.rot_origin.x,
-            ry: self.state.rot_origin.y,
+            x: self.offset.x + pos.x,
+            y: self.offset.y + pos.y,
+            r: self.rotation,
+            rx: self.rotation_origin.x,
+            ry: self.rotation_origin.y,
         };
-        let material = SSRMaterial {kind: self.state.kind };
+        let material = SSRMaterial {kind: 0 };
         self.data.transforms.push(transform);
         self.data.materials.push(material);
         self.data.object_info.push(info);
@@ -538,13 +467,13 @@ impl <'draw> ShapeGfx<'draw> {
     pub fn draw_buffered_mesh(&mut self,obj: BufferedObjectID, pos: Point) {
         let info = self.core.buffered_objects.get(obj).unwrap();
         let transform = SSRTransform {
-            x: self.state.pos.x + pos.x,
-            y: self.state.pos.y + pos.y,
-            r: self.state.rotation,
-            rx: self.state.rot_origin.x,
-            ry: self.state.rot_origin.y,
+            x: self.offset.x + pos.x,
+            y: self.offset.y + pos.y,
+            r: self.rotation,
+            rx: self.rotation_origin.x,
+            ry: self.rotation_origin.y,
         };
-        let material = SSRMaterial {kind: self.state.kind };
+        let material = SSRMaterial {kind: 0 };
 
         self.data.transforms.push(transform);
         self.data.materials.push(material);
