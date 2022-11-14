@@ -517,10 +517,13 @@ pub fn quadratic_to_point(time: f32, begin: Point, control: Point, end: Point) -
     control + (1.0 - time).powf(2.0) * (begin - control) + time.powf(2.0) * (end - control)
 }
 pub fn text_to_path<'a>(pb: &'a mut PathBuilder,font: &rusttype::Font, text: &str,scale: f32) -> &'a PathBuilder {
-    for c in text.chars() {
-        let sg = font.glyph(c).scaled(rusttype::Scale::uniform(scale));
-        sg.build_outline(pb);
-        pb.translate_offset(Point::new(sg.h_metrics().advance_width,0));
+    let v_metrics = font.v_metrics(rusttype::Scale::uniform(scale));
+    let glyphs: Vec<_> = font.layout(text,rusttype::Scale::uniform(scale),rusttype::point(0.0, 0.0 + v_metrics.ascent )).collect();
+    for g in glyphs {
+        if let Some(bb) = g.pixel_bounding_box(){
+            pb.set_offset(Point::new(bb.min.x,bb.min.y));
+            g.build_outline(pb);
+        }
     }
     pb
 }

@@ -117,10 +117,28 @@ impl MeshBuilder {
         }
     }
     pub fn draw_text(&mut self,font: &rusttype::Font, text: &str, scale: f32) {
-        let mut pb = PathBuilder::new();
-        pb.set_offset(self.state.cursor);
-        text_to_path(&mut pb,font,text,scale);
-        self.stroke_path(pb.build());
+        if self.state.filled {
+            let v_metrics = font.v_metrics(rusttype::Scale::uniform(scale));
+            let glyphs: Vec<_> = font.layout(text,rusttype::Scale::uniform(scale),rusttype::point(0.0, 0.0 + v_metrics.ascent )).collect();
+            self.push();
+            let offset = self.state.cursor;
+            for g in glyphs {
+                if let Some(bb) = g.pixel_bounding_box() {
+                    g.draw(|x, y, v| {
+                        if v > 0.001 {
+                            self.set_cursor(Point::new(offset.x + bb.min.x as f32 + x as f32,offset.y + bb.min.y as f32 + y as f32));
+                            self.rect(Point::new(1, 1));
+                        }
+                    });
+                }
+            }
+            self.pop();
+        }else {
+            let mut pb = PathBuilder::new();
+            pb.set_offset(self.state.cursor);
+            text_to_path(&mut pb,font,text,scale);
+            self.stroke_path(pb.build());
+        }
     }
     pub fn rect(&mut self, size: Point) {
         let mut m = if self.state.filled {

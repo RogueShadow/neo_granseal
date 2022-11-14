@@ -327,6 +327,7 @@ impl NeoGransealEventHandler for Game {
 
                 g.draw_mesh(&mb.build(),Point::new(300,900));
                 g.draw_mesh(&cubic_curve(mp,mp+Point::new(32,32),self.player.pos - Point::new(32,32),self.player.pos,1.0,LineStyle::Center,Solid(Color::THISTLE),8.0),Point::ZERO);
+                g.draw_buffered_mesh(1,Point::new(300,1000));
                 g.finish();
             }
             Event::Update(d) => {
@@ -379,6 +380,15 @@ impl NeoGransealEventHandler for Game {
             Event::Load => {
                 core.buffer_object(0,self.level.level_mesh());
                 self.cam.set_bounds(Point::new(0,0),Point::new(self.level.width() * TILE_SCALE,self.level.height()*TILE_SCALE));
+                let mut mb = MeshBuilder::new();
+                mb.set_style(FillStyle::Solid(Color::FIRE_BRICK));
+                mb.draw_text(&self.font,"Hello Text.",22.0);
+                mb.set_filled(false);
+                mb.set_style(FillStyle::Solid(Color::ORANGE));
+                mb.set_cursor(Point::new(900,900));
+                mb.draw_text(&self.font,"Break a leg.",122.0);
+                let text = mb.build();
+                core.buffer_object(0,text);
             }
             _ => {}
         }
