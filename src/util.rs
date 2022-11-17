@@ -1,6 +1,8 @@
+use std::f32::consts::PI;
 use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign, DivAssign};
 use num_traits::{AsPrimitive};
 use rand::{Rng, SeedableRng};
+use crate::mesh::{FillStyle, MeshBuilder};
 
 #[derive(Copy,Clone,Debug,PartialEq)]
 pub struct Color {
@@ -527,7 +529,64 @@ pub fn text_to_path<'a>(pb: &'a mut PathBuilder,font: &rusttype::Font, text: &st
     }
     pb
 }
-
+pub struct LineSegment {
+    pub begin: Point,
+    pub end: Point,
+}
+impl LineSegment {
+    pub fn new(begin: Point, end: Point) -> Self {
+        Self {
+            begin,
+            end,
+        }
+    }
+    pub fn normal(&self) -> Point {
+        let d = self.end - self.begin;
+        let a = d.angle() - PI/2.0;
+        Point::new(a.cos(),a.sin())
+    }
+    pub fn length(&self) -> f32 {
+        let d = self.end - self.begin;
+        d.len()
+    }
+    pub fn axis(&self) -> Point {
+        let d = self.end - self.begin;
+        let a = d.angle();
+        Point::new(a.cos(),a.sin())
+    }
+    pub fn raycast(&self, others: &Vec<Self>) -> Option<Point> {
+        let mut hit: Option<Point> = None;
+        let mut record = f32::MAX;
+        for wall in others {
+            if let Some(p) = self.intersection(wall) {
+               if hit.is_some() {
+                   let d = (hit.unwrap() - p).len();
+                   if d < record {
+                       record = d;
+                       hit = Some(p);
+                   }
+               }else{
+                   hit = Some(p);
+               }
+            }
+        }
+        hit
+    }
+    pub fn intersection(&self, other: &Self) -> Option<Point> {
+        let denominator = (self.begin.x - self.end.x) * (other.begin.y - other.end.y) - (self.begin.y - self.end.y) * (other.begin.x - other.end.x);
+        let t_numerator = (self.begin.x - other.begin.x) * (other.begin.y - other.end.y) - (self.begin.x - other.begin.y) * (other.begin.x - other.end.x);
+        let u_numerator = (self.begin.x - other.begin.x) * (self.begin.y - self.end.y) - (self.begin.y - other.begin.y) * (self.begin.x - self.end.x);
+        let t = t_numerator / denominator;
+        let u = u_numerator / denominator;
+        return if u > 0.0 && u < 1.0 && t > 0.0 {
+            let x = (self.begin.x + t * (self.end.x - self.begin.x));
+            let y = (self.begin.y + t * (self.end.y - self.begin.y));
+            Some(Point::new(x,y))
+        } else {
+            None
+        }
+    }
+}
 pub struct PathData {
     pub segments: Vec<PathSegment>,
 }

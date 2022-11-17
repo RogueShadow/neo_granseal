@@ -410,6 +410,56 @@ impl Mesh {
         self
     }
 }
+pub struct Polygon {
+    pub points: Vec<Point>,
+    pub edges: Vec<(usize,usize)>,
+}
+pub fn path_to_polygon(path: &PathData, resolution: f32) -> Polygon {
+    let mut last = Point::ZERO;
+    let mut points = vec![];
+    let mut edges: Vec<(usize,usize)> = vec![];
+    for segment in path.segments.iter() {
+        for contour in segment.contours.iter() {
+            match contour {
+                Contour::MoveTo(start) => {points.push(*start);last = *start}
+                Contour::LineTo(end) => {points.push(*end);edges.push((points.len() - 2,points.len() - 1));last = *end;}
+                Contour::QuadTo(cp, end) => {
+                    let d = *end - last;
+                    let count = (d.len()/resolution).ceil() as i32;
+                    let mut lastp = last;
+                    (0..=count).for_each(|i|{
+                        let t =  i as f32 / count as f32;
+                        let p = quadratic_to_point(t, last, *cp, *end);
+                        points.push(p);
+                        edges.push((points.len() - 2,points.len()-1));
+                        lastp = p;
+                    });
+                    last = lastp;
+                }
+                Contour::CubicTo(cp1, cp2, end) => {
+                    let mut lastp = last;
+                    let start = points.last().unwrap().clone();
+                    let d = *end - start;
+                    let count = (d.len()/resolution).ceil() as i32;
+                    (0..=count).for_each(|i|{
+                        let t =  i as f32 / count as f32;
+                        let p = cubic_to_point(t, start, *cp1, *cp2, *end);
+                        points.push(p);
+                        edges.push((points.len() - 2,points.len()-1));
+                        lastp = p;
+                    });
+                    last = lastp;
+                }
+                Contour::ClosePath => {
+                    let start = points.first().unwrap();
+                    let end = points.last().unwrap();
+                    edges.push((0,points.len() - 1));
+                }
+            }
+        }
+    }
+    Polygon { points, edges }
+}
 
 fn style_colors(style: FillStyle) -> (Color, Color, Color, Color) {
     match style {

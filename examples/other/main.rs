@@ -1,5 +1,8 @@
-use std::f32::consts::PI;
+use std::f32::consts::{PI, TAU};
+use std::iter::repeat;
 use std::time::Duration;
+use rand::{Rng, SeedableRng};
+use rand_xorshift::XorShiftRng;
 use neo_granseal::{
     prelude::*,
     util::*,
@@ -158,50 +161,7 @@ impl Level {
     }
 }
 
-pub struct LineSegment {
-    begin: Point,
-    end: Point,
-}
-impl LineSegment {
-    pub fn new(begin: Point, end: Point) -> Self {
-        Self {
-            begin,
-            end,
-        }
-    }
-    pub fn normal(&self) -> Point {
-        let d = self.end - self.begin;
-        let a = d.angle() - PI/2.0;
-        Point::new(a.cos(),a.sin())
-    }
-    pub fn length(&self) -> f32 {
-        let d = self.end - self.begin;
-        d.len()
-    }
-    pub fn axis(&self) -> Point {
-        let d = self.end - self.begin;
-        let a = d.angle();
-        Point::new(a.cos(),a.sin())
-    }
-    pub fn debug(&self, mb: &mut MeshBuilder) {
-        mb.push();
-        mb.set_resolution(1.0);
-        mb.set_cursor(Point::ZERO);
-        mb.set_thickness(1.0);
-        mb.set_style(Radial(Color::DEEP_PINK,Color::HOT_PINK));
-        mb.set_cursor(self.begin);
-        mb.oval(Point::new(4,4));
-        mb.set_cursor(self.end);
-        mb.oval(Point::new(4,4));
-        mb.set_cursor(Point::ZERO);
-        mb.set_style(Solid(Color::INDIGO));
-        mb.line(self.begin,self.end);
-        mb.set_style(Solid(Color::BLUE));
-        mb.set_thickness(1.0);
-        mb.line(self.begin + self.axis() * (self.length()/2.0),self.begin+ self.axis() * (self.length()/2.0) + self.normal() * 32.0);
-        mb.pop();
-    }
-}
+
 
 struct Player {
     pos: Point,
@@ -273,7 +233,10 @@ struct Game {
     cam: Camera,
     ray_origin: Point,
     debug: Vec<MBShapes>,
+    walls: Vec<LineSegment>,
     font: rusttype::Font<'static>,
+    rng: XorShiftRng,
+    ray: LineSegment,
 }
 impl Game {
     pub fn new() -> Self {
@@ -283,7 +246,10 @@ impl Game {
             cam: Camera::new(Point::new(WIDTH,HEIGHT)),
             ray_origin: Point::new(512,512),
             debug: vec![],
+            walls: vec![],
             font: rusttype::Font::try_from_bytes(include_bytes!("../../DroidSerif-Regular.ttf")).unwrap(),
+            rng: XorShiftRng::from_rng(rand::thread_rng()).unwrap(),
+            ray: LineSegment::new(Point::ZERO,Point::new(1000,1000)),
         }
     }
 }
@@ -303,6 +269,7 @@ impl NeoGransealEventHandler for Game {
                 if button == MouseButton::Left && state == KeyState::Pressed {
                     let mp = core.state.mouse.pos + self.cam.get_offset();
                     self.ray_origin = mp;
+                    self.ray.begin = mp;
                 }
             }
             Event::Draw => {
@@ -319,20 +286,32 @@ impl NeoGransealEventHandler for Game {
                 });
 
 
-
                 let mut gs: Vec<rusttype::Glyph> = vec![];
                 for c in String::from("Hello World.").chars() {
                     gs.push(self.font.glyph(c));
                 }
 
                 g.draw_mesh(&mb.build(),Point::new(300,900));
-                g.draw_mesh(&cubic_curve(mp,mp+Point::new(32,32),self.player.pos - Point::new(32,32),self.player.pos,1.0,LineStyle::Center,Solid(Color::THISTLE),8.0),Point::ZERO);
                 g.draw_buffered_mesh(1,Point::new(300,1000));
+                g.draw_buffered_mesh(2,Point::new(400,800));
+                let mut mb = MeshBuilder::new();
+                mb.line(self.walls[0].begin,self.walls[0].end);
+
+                mb.line(self.ray.begin,self.ray.end);
+                if let Some(hit) = self.ray.intersection(&self.walls[0]) {
+                    mb.set_cursor(hit);
+                    mb.set_style(FillStyle::Solid(Color::RED));
+                    mb.rect(Point::new(4,4));
+                }
+
+
+                g.draw_mesh(&mb.build(),Point::ZERO);
                 g.finish();
             }
             Event::Update(d) => {
                 self.debug.clear();
                 let mp = core.state.mouse.pos + self.cam.get_offset();
+                self.ray.end = mp;
                 let ray = Ray::new(self.ray_origin,mp - self.ray_origin);
                 let mut state = MBState::new();
                 self.debug.push(MBShapes::Line(self.ray_origin,mp,Some(state)));
@@ -378,6 +357,9 @@ impl NeoGransealEventHandler for Game {
                 });
             }
             Event::Load => {
+                (0..10).for_each(|i|{
+                   self.walls.push(LineSegment::new(Point::new(self.rng.gen::<f32>()*2000.0 as f32,self.rng.gen::<f32>()*1200.0 as f32),Point::new(self.rng.gen::<f32>()*2000.0 as f32,self.rng.gen::<f32>()*1200.0 as f32))) ;
+                });
                 core.buffer_object(0,self.level.level_mesh());
                 self.cam.set_bounds(Point::new(0,0),Point::new(self.level.width() * TILE_SCALE,self.level.height()*TILE_SCALE));
                 let mut mb = MeshBuilder::new();
@@ -389,6 +371,25 @@ impl NeoGransealEventHandler for Game {
                 mb.draw_text(&self.font,"Break a leg.",122.0);
                 let text = mb.build();
                 core.buffer_object(0,text);
+
+                let mut pb = PathBuilder::new();
+                pb.move_to(Point::new(50,0));
+                let radius = 50.0;
+                let count = 100;
+                (0..=count).for_each(|i|{
+                   let a = (TAU / count as f32) * i as f32;
+                    pb.line_to(Point::new(radius * a.cos(),radius * a.sin()));
+                });
+                pb.close_path();
+
+                let path = pb.build();
+                let polygon = path_to_polygon(&path, 4.0);
+                let mut mb = MeshBuilder::new();
+                for (start,end) in polygon.edges {
+                    mb.line(polygon.points[start],polygon.points[end]);
+                }
+                let mesh = mb.build();
+                core.buffer_object(0,mesh);
             }
             _ => {}
         }
