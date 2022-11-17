@@ -14,6 +14,7 @@ pub mod prelude {
         crate::events::Event,
         crate::shape_pipeline::ShapeGfx,
         crate::util::{Color,Point},
+        crate::mesh::MeshBuilder,
     };
 }
 use prelude::*;

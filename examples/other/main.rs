@@ -268,8 +268,7 @@ impl NeoGransealEventHandler for Game {
             Event::MousePressed {button,state} => {
                 if button == MouseButton::Left && state == KeyState::Pressed {
                     let mp = core.state.mouse.pos + self.cam.get_offset();
-                    self.ray_origin = mp;
-                    self.ray.begin = mp;
+
                 }
             }
             Event::Draw => {
@@ -294,37 +293,15 @@ impl NeoGransealEventHandler for Game {
                 g.draw_mesh(&mb.build(),Point::new(300,900));
                 g.draw_buffered_mesh(1,Point::new(300,1000));
                 g.draw_buffered_mesh(2,Point::new(400,800));
-                let mut mb = MeshBuilder::new();
-                mb.line(self.walls[0].begin,self.walls[0].end);
 
-                mb.line(self.ray.begin,self.ray.end);
-                if let Some(hit) = self.ray.intersection(&self.walls[0]) {
-                    mb.set_cursor(hit);
-                    mb.set_style(FillStyle::Solid(Color::RED));
-                    mb.rect(Point::new(4,4));
-                }
-
-
-                g.draw_mesh(&mb.build(),Point::ZERO);
                 g.finish();
             }
             Event::Update(d) => {
                 self.debug.clear();
                 let mp = core.state.mouse.pos + self.cam.get_offset();
-                self.ray.end = mp;
-                let ray = Ray::new(self.ray_origin,mp - self.ray_origin);
+
                 let mut state = MBState::new();
-                self.debug.push(MBShapes::Line(self.ray_origin,mp,Some(state)));
-                if let Some(rh) = ray.cast_rect(&self.player.hit_box()) {
-                    if rh.time < 1.0 {
-                        state.cursor = rh.hit - Point::new(4,4);
-                        state.fill_style = Solid(Color::RED);
-                        self.debug.push(MBShapes::Rect(Point::new(8,8),Some(state)));
-                        state.fill_style = Solid(Color::LIME);
-                        state.cursor = Point::ZERO;
-                        self.debug.push(MBShapes::Line(rh.hit,rh.hit + rh.normal * 16.0,Some(state)))
-                    }
-                }
+
                 self.level.hit_boxes.iter().for_each(|hb| {
                    if let Some(rh) = ray.cast_rect(hb) {
                        if rh.time < 1.0 {
@@ -357,9 +334,6 @@ impl NeoGransealEventHandler for Game {
                 });
             }
             Event::Load => {
-                (0..10).for_each(|i|{
-                   self.walls.push(LineSegment::new(Point::new(self.rng.gen::<f32>()*2000.0 as f32,self.rng.gen::<f32>()*1200.0 as f32),Point::new(self.rng.gen::<f32>()*2000.0 as f32,self.rng.gen::<f32>()*1200.0 as f32))) ;
-                });
                 core.buffer_object(0,self.level.level_mesh());
                 self.cam.set_bounds(Point::new(0,0),Point::new(self.level.width() * TILE_SCALE,self.level.height()*TILE_SCALE));
                 let mut mb = MeshBuilder::new();

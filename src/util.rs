@@ -558,29 +558,33 @@ impl LineSegment {
         let mut hit: Option<Point> = None;
         let mut record = f32::MAX;
         for wall in others {
-            if let Some(p) = self.intersection(wall) {
-               if hit.is_some() {
-                   let d = (hit.unwrap() - p).len();
-                   if d < record {
-                       record = d;
-                       hit = Some(p);
-                   }
-               }else{
+        if let Some(p) = self.intersection(wall) {
+               let d = (p - self.begin).len();
+               if d < record {
+                   record = d;
                    hit = Some(p);
                }
-            }
+           }
         }
         hit
     }
     pub fn intersection(&self, other: &Self) -> Option<Point> {
-        let denominator = (self.begin.x - self.end.x) * (other.begin.y - other.end.y) - (self.begin.y - self.end.y) * (other.begin.x - other.end.x);
-        let t_numerator = (self.begin.x - other.begin.x) * (other.begin.y - other.end.y) - (self.begin.x - other.begin.y) * (other.begin.x - other.end.x);
-        let u_numerator = (self.begin.x - other.begin.x) * (self.begin.y - self.end.y) - (self.begin.y - other.begin.y) * (self.begin.x - self.end.x);
-        let t = t_numerator / denominator;
-        let u = u_numerator / denominator;
+        let x1 = self.begin.x;
+        let y1 = self.begin.y;
+        let x2 = self.end.x;
+        let y2 = self.end.y;
+        let x3 = other.begin.x;
+        let y3 = other.begin.y;
+        let x4 = other.end.x;
+        let y4 = other.end.y;
+        let denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+        let t_num = (x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4);
+        let u_num = (x1 - x3) * (y1 - y2) - (y1 - y3) * (x1 - x2);
+        let t = t_num / denom;
+        let u = u_num / denom;
         return if u > 0.0 && u < 1.0 && t > 0.0 {
-            let x = (self.begin.x + t * (self.end.x - self.begin.x));
-            let y = (self.begin.y + t * (self.end.y - self.begin.y));
+            let x = (other.begin.x + u * (other.end.x - other.begin.x));
+            let y = (other.begin.y + u * (other.end.y - other.begin.y));
             Some(Point::new(x,y))
         } else {
             None
