@@ -103,14 +103,14 @@ impl MeshBuilder {
             MBShapes::Oval(size,state) => {self.push();self.state = state.unwrap_or(self.state);self.oval(size);self.pop();}
         }
     }
-    pub fn stroke_path(&mut self, path: PathData) {
-        for seg in path.segments {
-            for con in seg.contours {
+    pub fn stroke_path(&mut self, path: &PathData) {
+        for seg in path.segments.iter() {
+            for con in seg.contours.iter() {
                 match con {
-                    Contour::MoveTo(begin) => {self.move_to(begin);}
-                    Contour::LineTo(end) => {self.line_to(end)}
-                    Contour::QuadTo(cp, end) => {self.quad_to(cp,end)}
-                    Contour::CubicTo(cp1, cp2, end) => {self.cubic_to(cp1,cp2,end)}
+                    Contour::MoveTo(begin) => {self.move_to(*begin);}
+                    Contour::LineTo(end) => {self.line_to(*end)}
+                    Contour::QuadTo(cp, end) => {self.quad_to(*cp,*end)}
+                    Contour::CubicTo(cp1, cp2, end) => {self.cubic_to(*cp1,*cp2,*end)}
                     Contour::ClosePath => {self.close_path();}
                 }
             }
@@ -137,7 +137,7 @@ impl MeshBuilder {
             let mut pb = PathBuilder::new();
             pb.set_offset(self.state.cursor);
             text_to_path(&mut pb,font,text,scale);
-            self.stroke_path(pb.build());
+            self.stroke_path(&pb.build());
         }
     }
     pub fn rect(&mut self, size: Point) {

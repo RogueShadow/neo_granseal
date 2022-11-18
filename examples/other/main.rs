@@ -236,7 +236,7 @@ struct Game {
     walls: Vec<LineSegment>,
     font: rusttype::Font<'static>,
     rng: XorShiftRng,
-    ray: LineSegment,
+    ray: Ray,
 }
 impl Game {
     pub fn new() -> Self {
@@ -249,7 +249,7 @@ impl Game {
             walls: vec![],
             font: rusttype::Font::try_from_bytes(include_bytes!("../../DroidSerif-Regular.ttf")).unwrap(),
             rng: XorShiftRng::from_rng(rand::thread_rng()).unwrap(),
-            ray: LineSegment::new(Point::ZERO,Point::new(1000,1000)),
+            ray: Ray::new(Point::ZERO, Point::new(1,1)),
         }
     }
 }
@@ -268,7 +268,6 @@ impl NeoGransealEventHandler for Game {
             Event::MousePressed {button,state} => {
                 if button == MouseButton::Left && state == KeyState::Pressed {
                     let mp = core.state.mouse.pos + self.cam.get_offset();
-
                 }
             }
             Event::Draw => {
@@ -285,6 +284,8 @@ impl NeoGransealEventHandler for Game {
                 });
 
 
+
+
                 let mut gs: Vec<rusttype::Glyph> = vec![];
                 for c in String::from("Hello World.").chars() {
                     gs.push(self.font.glyph(c));
@@ -297,26 +298,16 @@ impl NeoGransealEventHandler for Game {
                 g.finish();
             }
             Event::Update(d) => {
+                let time = core.timer.elapsed().as_secs_f32();
                 self.debug.clear();
                 let mp = core.state.mouse.pos + self.cam.get_offset();
 
                 let mut state = MBState::new();
 
-                self.level.hit_boxes.iter().for_each(|hb| {
-                   if let Some(rh) = ray.cast_rect(hb) {
-                       if rh.time < 1.0 {
-                           state.cursor = rh.hit - Point::new(4,4);
-                           state.fill_style = Solid(Color::RED);
-                           self.debug.push(MBShapes::Rect(Point::new(8,8),Some(state)));
-                           state.fill_style = Solid(Color::LIME);
-                           state.cursor = Point::ZERO;
-                           self.debug.push(MBShapes::Line(rh.hit,rh.hit + rh.normal * 16.0,Some(state)))
-                       }
-                   }
-                });
 
                 let gravity = 1600.0;
                 let player_speed = 800.0;
+
                 let delta = d.as_secs_f32();
                 core.set_title(format!("Neo-Granseal: {}",core.state.fps));
                 //if core.key_held(Key::W) { self.player.vel.y -= delta * player_speed }

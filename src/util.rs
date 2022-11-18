@@ -234,6 +234,32 @@ impl From<Color> for wgpu::Color {
         }
     }
 }
+pub struct AnimatedPoint {
+    start: Point,
+    end: Point,
+    dist: Point,
+    time: f32,
+}
+impl AnimatedPoint {
+    pub fn new(start: Point, end: Point, time: f32) -> Self {
+        Self {
+            start,
+            end,
+            dist: end - start,
+            time,
+        }
+    }
+    pub fn animate(&self, pct: f32) -> Point {
+        let time = (pct / self.time);
+        if time < 0.0 {return self.start}
+        if time > 1.0 {return self.end}
+        Point::new(
+            lerp(self.start.x,self.end.x,time),
+            lerp(self.start.y,self.end.y,time)
+        )
+    }
+}
+
 #[derive(Copy,Clone,Debug,PartialEq)]
 pub struct Point {
     pub x: f32,
@@ -420,6 +446,7 @@ pub struct Ray {
 }
 impl Ray {
     pub fn new(origin: Point, dir: Point) -> Self { Self { origin, dir, } }
+    /// Raycast against an AABB.
     pub fn cast_rect(&self, rect: &Rectangle) -> Option<RayHit> {
         let mut near = (rect.top_left - self.origin) / self.dir;
         let mut far = (rect.bottom_right - self.origin) / self.dir;
@@ -441,6 +468,45 @@ impl Ray {
             }
         };
         Some(RayHit { hit, normal, time: hit_near, })
+    }
+    pub fn cast(&self, other: &Vec<LineSegment>) -> Option<RayHit> {
+        let mut closest = f32::MAX;
+        let mut hit: Option<RayHit> = None;
+        for line in other.iter() {
+            if let Some(h) = self.intersection(line) {
+                let distance = (h.hit - self.origin).len();
+                if distance < closest {
+                    hit = Some(h);
+                    closest = distance;
+                }
+            }
+
+        }
+        hit
+    }
+    /// Ray intersection against a LineSegment.
+    pub fn intersection(&self, other: &LineSegment) -> Option<RayHit> {
+        let x1 = self.origin.x;
+        let y1 = self.origin.y;
+        let x2 = self.dir.x;
+        let y2 = self.dir.y;
+        let x3 = other.begin.x;
+        let y3 = other.begin.y;
+        let x4 = other.end.x;
+        let y4 = other.end.y;
+        let denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+        let t_num = (x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4);
+        let u_num = (x1 - x3) * (y1 - y2) - (y1 - y3) * (x1 - x2);
+        let t = t_num / denom; // t represents the ray. any positive number
+                                    // is an intersection somewhere. negative is behind the ray, we don't want that.
+        let u = u_num / denom; // u is the position on the line segment, if u is between 0 and 1 it is on the segment.
+        return if u > 0.0 && u < 1.0 && t > 0.0 {
+            let x = (other.begin.x + u * (other.end.x - other.begin.x));
+            let y = (other.begin.y + u * (other.end.y - other.begin.y));
+            Some(RayHit {hit: Point::new(x,y), normal: Point::ZERO, time: 0.0 })
+        } else {
+            None
+        }
     }
 }
 pub struct RayHit {
@@ -591,9 +657,11 @@ impl LineSegment {
         }
     }
 }
+#[derive(Clone,Debug)]
 pub struct PathData {
     pub segments: Vec<PathSegment>,
 }
+#[derive(Clone,Debug)]
 pub struct PathSegment {
     pub contours: Vec<Contour>,
 }
@@ -610,6 +678,8 @@ pub struct PathBuilder {
     contours: Vec<Contour>,
     segments: Vec<PathSegment>,
     offset: Point,
+    pub pathing: bool,
+    pub built: bool,
 }
 impl PathBuilder {
     pub fn new() -> Self {
@@ -617,9 +687,12 @@ impl PathBuilder {
             contours: vec![],
             segments: vec![],
             offset: Point::ZERO,
+            pathing: false,
+            built: false,
         }
     }
     pub fn move_to(&mut self, pos: Point) -> &mut Self {
+        self.pathing = true;
         self.contours.push(Contour::MoveTo(pos + self.offset));
         self
     }
@@ -653,6 +726,7 @@ impl PathBuilder {
         self.offset = Point::ZERO;
     }
     pub fn build(&mut self) -> PathData {
+        self.built = true;
         let mut path = PathData {segments: vec![]};
         path.segments.append(&mut self.segments);
         path
@@ -680,6 +754,15 @@ impl rusttype::OutlineBuilder for PathBuilder {
         self.close_path();
     }
 }
+
+pub fn lerp(start: f32, end: f32,pct: f32) -> f32 {
+    start + (end - start) * pct
+}
+pub fn ease_in(pct: f32) -> f32 {let pct = pct.clamp(0.0,1.0); pct * pct}
+pub fn flip(pct: f32) -> f32 {let pct = pct.clamp(0.0,1.0); 1.0 - pct}
+
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
