@@ -280,6 +280,9 @@ impl Point {
     pub fn angle(&self) -> f32 {
         (self.y / self.x).atan()
     }
+    pub fn angle2(&self) -> f32 {
+        self.y.atan2(self.x)
+    }
     pub fn rotate(&self, a: f32) -> Self {
         let na = self.angle() + a;
         Point::new(self.x * na.cos(), self.y * na.sin())
@@ -620,7 +623,7 @@ impl LineSegment {
         let a = d.angle();
         Point::new(a.cos(),a.sin())
     }
-    pub fn raycast(&self, others: &Vec<Self>) -> Option<Point> {
+    pub fn first_intersection(&self, others: &Vec<Self>) -> Option<Point> {
         let mut hit: Option<Point> = None;
         let mut record = f32::MAX;
         for wall in others {
@@ -648,7 +651,7 @@ impl LineSegment {
         let u_num = (x1 - x3) * (y1 - y2) - (y1 - y3) * (x1 - x2);
         let t = t_num / denom;
         let u = u_num / denom;
-        return if u > 0.0 && u < 1.0 && t > 0.0 {
+        return if u > 0.0 && u < 1.0 && t > 0.0 && t < 1.0{
             let x = (other.begin.x + u * (other.end.x - other.begin.x));
             let y = (other.begin.y + u * (other.end.y - other.begin.y));
             Some(Point::new(x,y))

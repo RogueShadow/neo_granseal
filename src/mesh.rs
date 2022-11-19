@@ -689,6 +689,22 @@ pub fn cubic_curve(begin: Point, control1: Point,control2: Point, end: Point,thi
     });
     combine(meshes)
 }
+pub fn fill_path_fan(center: &Point, path: &PathData) -> Mesh{
+    let mut mb = Mesh::new();
+    mb.vertices.push(Vertex::new(center.x,center.y));
+    mb.vertices.extend::<Vec<Vertex>>(path_to_polygon(path,1.0).points.iter().map(|p|{Vertex::new(p.x,p.y)}).collect());
+    (1..mb.vertices.len()).for_each(|i|{
+        let i = i as u32;
+        mb.indices.push(0);
+        mb.indices.push(i+1);
+        mb.indices.push(i)
+    });
+    let i = mb.vertices.len() as u32;
+    mb.indices.push(0);
+    mb.indices.push(1);
+    mb.indices.push(i-1);
+    mb
+}
 
 pub fn combine(mut meshes: Vec<Mesh>) -> Mesh {
     meshes.iter_mut().fold(Mesh::new(),|acc, m|acc.add(m))
