@@ -2,8 +2,9 @@ use std::f32::consts::{PI, TAU};
 use num_traits::AsPrimitive;
 use rusttype::OutlineBuilder;
 use crate::{Color, Point};
+use crate::mesh::FillStyle::Solid;
 use crate::shape_pipeline::{Vertex};
-use crate::util::{Contour, cubic_to_point, PathBuilder, PathData, quadratic_to_point, text_to_path};
+use crate::util::{Contour, cubic_to_point, LineSegment, PathBuilder, PathData, quadratic_to_point, Ray, text_to_path};
 
 #[derive(Copy,Clone,Debug,PartialEq)]
 pub enum FillStyle {
@@ -114,6 +115,11 @@ impl MeshBuilder {
                     Contour::ClosePath => {self.close_path();}
                 }
             }
+        }
+    }
+    pub fn draw_polygon(&mut self, polygon: &Polygon) {
+        for (start,end) in polygon.edges.iter() {
+            self.line(polygon.points[*start],polygon.points[*end]);
         }
     }
     pub fn draw_text(&mut self,font: &rusttype::Font, text: &str, scale: f32) {
@@ -414,6 +420,58 @@ pub struct Polygon {
     pub points: Vec<Point>,
     pub edges: Vec<(usize,usize)>,
 }
+impl Polygon {
+    pub fn new() -> Self {
+        Self {
+            points: vec![],
+            edges: vec![],
+        }
+    }
+    pub fn get_vertex_and_neighbors(&self, index: usize) -> Vec<Point> {
+        let mut result: Vec<Point> = vec![];
+        let mut edges: Vec<(usize,usize)> = vec![];
+        let edges = self.edges.iter().filter(|(start,end)| {*start == index || *end == index}).collect::<Vec<&(usize,usize)>>();
+        match &edges.len() {
+            0 => {println!("No edge for point")}
+            1 => {
+               let (s,e) = edges[0];
+                if *s == index {
+                    result.push(self.points[*s]);
+                    result.push(self.points[*e]);
+                }else{
+                    result.push(self.points[*e]);
+                    result.push(self.points[*s]);
+                }
+            }
+            2 => {
+                let (s1,e1) = edges[0];
+                let (s2,e2) = edges[1];
+                if s1 == e1 {println!("Very odd!")}
+                if s2 == e2 {println!("Very odd!")}
+                match (*s1 == index,*s2 == index) {
+                    (true,true) => {
+                        result.push(self.points[*e1]);
+                        result.push(self.points[*e2]);
+                    }
+                    (true,false) => {
+                        result.push(self.points[*e1]);
+                        result.push(self.points[*s2]);
+                    }
+                    (false,true) => {
+                        result.push(self.points[*s1]);
+                        result.push(self.points[*e2]);
+                    }
+                    (false,false) => {
+                        result.push(self.points[*s1]);
+                        result.push(self.points[*s2]);
+                    }
+                }
+            }
+            n => {println!("{} edges, very odd",n)}
+        }
+        result
+    }
+}
 pub fn path_to_polygon(path: &PathData, resolution: f32) -> Polygon {
     let mut last = Point::ZERO;
     let mut points = vec![];
@@ -421,8 +479,15 @@ pub fn path_to_polygon(path: &PathData, resolution: f32) -> Polygon {
     for segment in path.segments.iter() {
         for contour in segment.contours.iter() {
             match contour {
-                Contour::MoveTo(start) => {points.push(*start);last = *start}
-                Contour::LineTo(end) => {points.push(*end);edges.push((points.len() - 2,points.len() - 1));last = *end;}
+                Contour::MoveTo(start) => {
+                    points.push(*start);
+                    last = *start;
+                }
+                Contour::LineTo(end) => {
+                    points.push(*end);
+                    edges.push((points.len() - 2,points.len() - 1));
+                    last = *end;
+                }
                 Contour::QuadTo(cp, end) => {
                     let d = *end - last;
                     let count = (d.len()/resolution).ceil() as i32;
@@ -451,9 +516,7 @@ pub fn path_to_polygon(path: &PathData, resolution: f32) -> Polygon {
                     last = lastp;
                 }
                 Contour::ClosePath => {
-                    let start = points.first().unwrap();
-                    let end = points.last().unwrap();
-                    edges.push((0,points.len() - 1));
+
                 }
             }
         }
@@ -704,6 +767,61 @@ pub fn fill_path_fan(center: &Point, path: &PathData) -> Mesh{
     mb.indices.push(1);
     mb.indices.push(i-1);
     mb
+}
+
+pub fn path_to_mesh(path: &PathData) -> Mesh {
+    let mut m = Mesh::new();
+    let tess = lyon_tessellation::FillTessellator::new();
+
+    m
+}
+
+pub fn polygon_to_mesh(polygon: &Polygon) -> Mesh {
+    let mut m = Mesh::new();
+    m
+}
+pub struct TrapQuery {
+
+}
+pub fn polygon_trapezoid_map(polygon: &Polygon) -> Mesh {
+    let mut mb = MeshBuilder::new();
+    let mut line_segments: Vec<LineSegment> = vec![];
+    for (start,end) in polygon.edges.iter() {
+        line_segments.push(LineSegment::new(polygon.points[*start], polygon.points[*end]));
+        mb.push();
+        mb.set_style(Solid(Color::RED));
+        mb.set_cursor(polygon.points[*start] - Point::new(2,2));
+        mb.rect(Point::new(4,4));
+        mb.pop()
+    }
+    let mut rays: Vec<Ray> = vec![];
+    for (i,p) in polygon.points.iter().enumerate() {
+        let neighbors = polygon.get_vertex_and_neighbors(i);
+        if neighbors.len() == 2 {
+            match (neighbors[0].x >= p.x,neighbors[1].x >=  p.x) {
+                (true,true) => {
+
+                }
+                (false,false) => {
+                    rays.push(Ray::new(*p,*p + Point::new(0,-1)));
+                    rays.push(Ray::new(*p,*p + Point::new(0,1)));
+                }
+                (true,false) => {
+                    rays.push(Ray::new(*p,*p + Point::new(0,-1)));
+                }
+                (false,true) => {
+                    rays.push(Ray::new(*p,*p + Point::new(0,1)));
+                }
+            }
+        }
+    }
+    mb.set_style(Solid(Color::GREEN));
+    for r in rays.iter() {
+        if let Some(hit) = r.cast(&line_segments) {
+            mb.line(r.origin,hit.hit);
+        }
+    }
+    mb.build()
 }
 
 pub fn combine(mut meshes: Vec<Mesh>) -> Mesh {

@@ -1,8 +1,10 @@
 use std::f32::consts::PI;
 use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign, DivAssign};
+use lyon_tessellation::path::iterator::PathIterator;
+use lyon_tessellation::path::PathEvent;
 use num_traits::{AsPrimitive};
 use rand::{Rng, SeedableRng};
-use crate::mesh::{FillStyle, MeshBuilder};
+use crate::mesh::{FillStyle, MeshBuilder, Polygon};
 
 #[derive(Copy,Clone,Debug,PartialEq)]
 pub struct Color {
@@ -448,6 +450,12 @@ pub struct Ray {
     pub dir: Point,
 }
 impl Ray {
+    pub fn new_dir(origin: Point, dir: f32) -> Self {
+        Self {
+            origin,
+            dir: origin + Point::new(dir.cos(),dir.sin()),
+        }
+    }
     pub fn new(origin: Point, dir: Point) -> Self { Self { origin, dir, } }
     /// Raycast against an AABB.
     pub fn cast_rect(&self, rect: &Rectangle) -> Option<RayHit> {
@@ -489,24 +497,14 @@ impl Ray {
     }
     /// Ray intersection against a LineSegment.
     pub fn intersection(&self, other: &LineSegment) -> Option<RayHit> {
-        let x1 = self.origin.x;
-        let y1 = self.origin.y;
-        let x2 = self.dir.x;
-        let y2 = self.dir.y;
-        let x3 = other.begin.x;
-        let y3 = other.begin.y;
-        let x4 = other.end.x;
-        let y4 = other.end.y;
-        let denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
-        let t_num = (x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4);
-        let u_num = (x1 - x3) * (y1 - y2) - (y1 - y3) * (x1 - x2);
-        let t = t_num / denom; // t represents the ray. any positive number
-                                    // is an intersection somewhere. negative is behind the ray, we don't want that.
-        let u = u_num / denom; // u is the position on the line segment, if u is between 0 and 1 it is on the segment.
-        return if u > 0.0 && u < 1.0 && t > 0.0 {
-            let x = (other.begin.x + u * (other.end.x - other.begin.x));
-            let y = (other.begin.y + u * (other.end.y - other.begin.y));
-            Some(RayHit {hit: Point::new(x,y), normal: Point::ZERO, time: 0.0 })
+        if let Some((t, u)) = intersect_t_u(&self.origin, &self.dir, &other.begin, &other.end) {
+            if u > 0.0 && u < 1.0 && t > 0.0 {
+                let x = (other.begin.x + u * (other.end.x - other.begin.x));
+                let y = (other.begin.y + u * (other.end.y - other.begin.y));
+                Some(RayHit {hit: Point::new(x,y), normal: Point::ZERO, time: 0.0 })
+            } else {
+                None
+            }
         } else {
             None
         }
@@ -598,6 +596,75 @@ pub fn text_to_path<'a>(pb: &'a mut PathBuilder,font: &rusttype::Font, text: &st
     }
     pb
 }
+/// Meant to represent a line that stretches to infinity in both directions.
+pub struct Line {
+    pub first: Point,
+    pub second: Point,
+}
+impl Line {
+    pub fn new(first: Point, second: Point) -> Self {
+        Self {
+            first,
+            second,
+        }
+    }
+    pub fn intersections_line_segment(&self, other: &Vec<LineSegment>) -> Option<Vec<Point>> {
+        let mut intersections = vec![];
+        for ls in other {
+            if let Some(intersection) =  self.intersect_line_segment(ls) {
+                intersections.push(intersection);
+            }
+        }
+        if  intersections.is_empty() {
+            None
+        } else {
+            Some(intersections)
+        }
+    }
+    pub fn intersect_line_segment(&self, other: &LineSegment) -> Option<Point> {
+        if let Some((t, u)) = intersect_t_u(&self.first, &self.second, &other.begin, &other.end) {
+            if u > 0.0 && u < 1.0 {
+                let x = (other.begin.x + u * (other.end.x - other.begin.x));
+                let y = (other.begin.y + u * (other.end.y - other.begin.y));
+                Some(Point::new(x, y))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+    pub fn intersections(&self, other: &Vec<Self>) -> Option<Vec<Point>> {
+        let mut intersections = vec![];
+        for axis in other {
+            if let Some(intersection) = self.intersect(axis) {
+                intersections.push(intersection);
+            }
+        }
+        if intersections.is_empty() {
+            return None
+        }
+        Some(intersections)
+    }
+    pub fn intersect(&self, other: &Self) -> Option<Point> {
+        if let Some((t, u)) = intersect_t_u(&self.first, &self.second, &other.first, &other.second) {
+            let x = (other.first.x + u * (other.second.x - other.first.x));
+            let y = (other.first.y + u * (other.second.y - other.first.y));
+            Some(Point::new(x,y))
+        } else {
+            None
+        }
+    }
+}
+/// Line intersection  formula. For re-use. None when parallel, otherwise Some(Point)
+pub fn intersect_t_u(p1: &Point, p2: &Point, p3: &Point, p4:  &Point) -> Option<(f32,f32)> {
+    let denom = (p1.x - p2.x) * (p3.y - p4.y) - (p1.y - p2.y) * (p3.x - p4.x);
+    let t_num = (p1.x - p3.x) * (p3.y - p4.y) - (p1.y - p3.y) * (p3.x - p4.x);
+    let u_num = (p1.x - p3.x) * (p1.y - p2.y) - (p1.y - p3.y) * (p1.x - p2.x);
+    if denom == 0.0 {return None}
+    Some((t_num / denom,u_num / denom))
+}
+/// LineSegment, has a start and end point.
 pub struct LineSegment {
     pub begin: Point,
     pub end: Point,
@@ -638,23 +705,14 @@ impl LineSegment {
         hit
     }
     pub fn intersection(&self, other: &Self) -> Option<Point> {
-        let x1 = self.begin.x;
-        let y1 = self.begin.y;
-        let x2 = self.end.x;
-        let y2 = self.end.y;
-        let x3 = other.begin.x;
-        let y3 = other.begin.y;
-        let x4 = other.end.x;
-        let y4 = other.end.y;
-        let denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
-        let t_num = (x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4);
-        let u_num = (x1 - x3) * (y1 - y2) - (y1 - y3) * (x1 - x2);
-        let t = t_num / denom;
-        let u = u_num / denom;
-        return if u > 0.0 && u < 1.0 && t > 0.0 && t < 1.0{
-            let x = (other.begin.x + u * (other.end.x - other.begin.x));
-            let y = (other.begin.y + u * (other.end.y - other.begin.y));
-            Some(Point::new(x,y))
+        return if let Some((t, u)) = intersect_t_u(&self.begin, &self.end, &other.begin, &other.end) {
+            if u >= 0.0 && u <= 1.0 && t >= 0.0 && t <= 1.0 {
+                let x = (other.begin.x + u * (other.end.x - other.begin.x));
+                let y = (other.begin.y + u * (other.end.y - other.begin.y));
+                Some(Point::new(x, y))
+            } else {
+                None
+            }
         } else {
             None
         }
@@ -764,7 +822,51 @@ pub fn lerp(start: f32, end: f32,pct: f32) -> f32 {
 pub fn ease_in(pct: f32) -> f32 {let pct = pct.clamp(0.0,1.0); pct * pct}
 pub fn flip(pct: f32) -> f32 {let pct = pct.clamp(0.0,1.0); 1.0 - pct}
 
+pub fn is_y_monotone(polygon: &Polygon, debug: Option<&mut MeshBuilder>) -> bool {
+    let mut hits = 0;
+    let mut hit_p = vec![];
+    let segments = &polygon.edges.iter().map(|(s,e)|{LineSegment::new(polygon.points[*s],polygon.points[*e])}).collect::<Vec<_>>();
+    for p in polygon.points.iter() {
+        let line = Line::new(*p,*p + Point::new(0,100));
+        if let Some(intersections) = line.intersections_line_segment(segments) {
+            hits = intersections.len().max(hits);
+            hit_p.extend(intersections);
+        }
+    }
+    if let Some(mb) = debug {
+        mb.push();
+        mb.set_style(FillStyle::Solid(Color::RED));
+        for h in hit_p {
+            mb.set_cursor(h - Point::new(2,2));
+            mb.rect(Point::new(4,4));
+        }
+        mb.pop();
+    }
+    return hits <= 2
+}
+pub fn is_x_monotone(polygon: &Polygon, debug: Option<&mut MeshBuilder>) -> bool {
+    let mut hits = 0;
+    let mut hit_p = vec![];
 
+    let segments = &polygon.edges.iter().map(|(s,e)|{LineSegment::new(polygon.points[*s],polygon.points[*e])}).collect::<Vec<_>>();
+    for p in polygon.points.iter() {
+        let line = Line::new(*p,*p + Point::new(100,0));
+        if let Some(intersections) = line.intersections_line_segment(segments) {
+            hits = intersections.len().max(hits);
+            hit_p.extend(intersections);
+        }
+    }
+    if let Some(mb) = debug {
+        mb.push();
+        mb.set_style(FillStyle::Solid(Color::MAGENTA));
+        for h in hit_p {
+            mb.set_cursor(h - Point::new(2,2));
+            mb.rect(Point::new(4,4));
+        }
+        mb.pop();
+    }
+    return hits <= 2
+}
 
 #[cfg(test)]
 mod tests {
