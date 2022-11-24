@@ -706,7 +706,7 @@ impl LineSegment {
     }
     pub fn intersection(&self, other: &Self) -> Option<Point> {
         return if let Some((t, u)) = intersect_t_u(&self.begin, &self.end, &other.begin, &other.end) {
-            if u >= 0.0 && u <= 1.0 && t >= 0.0 && t <= 1.0 {
+            if u > 0.0 && u < 1.0 && t > 0.0 && t < 1.0 {
                 let x = (other.begin.x + u * (other.end.x - other.begin.x));
                 let y = (other.begin.y + u * (other.end.y - other.begin.y));
                 Some(Point::new(x, y))
@@ -732,7 +732,7 @@ pub enum Contour {
     LineTo(Point),
     QuadTo(Point,Point), // control, end
     CubicTo(Point,Point,Point), // control1, control2, end
-    ClosePath,   // basically end segment
+    ClosePath(bool),   // basically end segment
 }
 
 pub struct PathBuilder {
@@ -769,8 +769,8 @@ impl PathBuilder {
         self.contours.push(Contour::CubicTo(control1 + self.offset,control2 + self.offset,end + self.offset));
         self
     }
-    pub fn close_path(&mut self) -> &mut Self {
-        self.contours.push(Contour::ClosePath);
+    pub fn close_path(&mut self, close: bool) -> &mut Self {
+        self.contours.push(Contour::ClosePath(close));
         let mut path_segment = PathSegment {contours: vec![]};
         path_segment.contours.append(&mut self.contours);
         self.segments.push(path_segment);
@@ -812,7 +812,7 @@ impl rusttype::OutlineBuilder for PathBuilder {
     }
 
     fn close(&mut self) {
-        self.close_path();
+        self.close_path(true);
     }
 }
 
@@ -843,6 +843,58 @@ pub fn is_y_monotone(polygon: &Polygon, debug: Option<&mut MeshBuilder>) -> bool
         mb.pop();
     }
     return hits <= 2
+}
+pub fn is_convex_polygon2(polygon: &Polygon) -> bool {
+    let mut result = true;
+
+    for test in 0..polygon.points.len() {
+        let neighbors = polygon.get_vertex_and_neighbors(test);
+
+        let testp = polygon.points[test];
+
+        let first = (testp - neighbors[0]);
+        let second = (testp - neighbors[1]);
+
+
+            let mut total = (second.angle() - first.angle()).to_degrees();
+            if total < 0.0 {
+                total += 360.0;
+            }
+            if total > 180.0 { result = false;println!("{:?} {:?} {:?}", polygon.points[test], neighbors[0], neighbors[1]); }
+            println!("p: {} {:?}", test, total);
+
+
+    }
+    result
+}
+pub fn is_convex_polygon(polygon: &Polygon, debug: &mut MeshBuilder) -> bool {
+    debug.push();
+    let mut result = true;
+
+    'label: for testp in 0..polygon.points.len() {
+        for endp in 0..polygon.points.len() {
+            if testp != endp {
+                debug.set_style(FillStyle::Solid(Color::BLUE));
+                let test = LineSegment::new(polygon.points[testp], polygon.points[endp]);
+                debug.line(test.begin,test.end);
+                let mut segments = vec![];
+                polygon.edges.iter().for_each(|(b,e)|{
+                    if *b != testp && *e != testp {
+                        debug.set_style(FillStyle::Solid(Color::BROWN));
+                        let segment = LineSegment::new(polygon.points[*b], polygon.points[*e]);
+                        debug.line(segment.begin,segment.end);
+                        segments.push(segment);
+                    }
+                });
+                if test.first_intersection(&segments).is_some() {
+                    result = false;
+                    break 'label;
+                }
+            }
+        };
+    };
+    debug.pop();
+    result
 }
 pub fn is_x_monotone(polygon: &Polygon, debug: Option<&mut MeshBuilder>) -> bool {
     let mut hits = 0;

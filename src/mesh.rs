@@ -112,7 +112,7 @@ impl MeshBuilder {
                     Contour::LineTo(end) => {self.line_to(*end)}
                     Contour::QuadTo(cp, end) => {self.quad_to(*cp,*end)}
                     Contour::CubicTo(cp1, cp2, end) => {self.cubic_to(*cp1,*cp2,*end)}
-                    Contour::ClosePath => {self.close_path();}
+                    Contour::ClosePath(bool) => {self.close_path(*bool);}
                 }
             }
         }
@@ -204,8 +204,8 @@ impl MeshBuilder {
         self.state.path_start = pos;
         self.state.cursor = pos;
     }
-    pub fn close_path(&mut self) {
-        self.line_to(self.state.path_start);
+    pub fn close_path(&mut self, closed: bool) {
+        if closed  {self.line_to(self.state.path_start);}
     }
     pub fn line_to(&mut self, end: Point) {
         let mut m = line(self.state.cursor, end, self.state.thickness,self.state.line_style,self.state.fill_style);
@@ -515,8 +515,10 @@ pub fn path_to_polygon(path: &PathData, resolution: f32) -> Polygon {
                     });
                     last = lastp;
                 }
-                Contour::ClosePath => {
-
+                Contour::ClosePath(close) => {
+                    if *close {
+                        edges.push((points.len() - 1,0));
+                    }
                 }
             }
         }
