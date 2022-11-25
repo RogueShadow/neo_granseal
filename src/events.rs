@@ -1,5 +1,5 @@
 use std::time::Duration;
-use crate::util::Point;
+use crate::math::Vec2;
 
 #[derive(Copy, Clone, Debug,PartialEq)]
 pub enum Event {
@@ -12,7 +12,7 @@ pub enum Event {
         button: MouseButton,
     },
     MouseMoved {
-        position: Point,
+        position: Vec2,
     },
     Draw,
     Update(Duration),
@@ -191,7 +191,7 @@ pub fn map_events(event: &winit::event::WindowEvent) -> Option<Event> {
             button: map_mouse_buttons(button),
         }),
         winit::event::WindowEvent::CursorMoved {position, ..} => {
-            Some(Event::MouseMoved {position: Point::new(position.x as f32,position.y as f32)})
+            Some(Event::MouseMoved {position: Vec2::new(position.x as f32,position.y as f32)})
         }
         _ => None,
     }

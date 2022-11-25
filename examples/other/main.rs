@@ -1,8 +1,5 @@
-use std::f32::consts::{PI, TAU};
-use std::iter::repeat;
+use std::f32::consts::TAU;
 use std::time::Duration;
-use rand::{Rng, SeedableRng};
-use rand_xorshift::XorShiftRng;
 use neo_granseal::{
     prelude::*,
     util::*,
@@ -60,10 +57,10 @@ impl Level {
             tile_scale: TILE_SCALE as u32,
             hit_boxes: vec![],
         };
-        s.generate_hitboxs();
+        s.generate_hitboxes();
         s
     }
-    pub fn generate_hitboxs(&mut self) {
+    pub fn generate_hitboxes(&mut self) {
         self.hit_boxes.clear();
         let width = self.width();
         let height = self.height();
@@ -94,7 +91,7 @@ impl Level {
         if x as usize >= lines[0].len() {return b'x'}
         lines[y as usize][x as usize]
     }
-    pub fn is_blocking(&self, p: Point) -> bool {
+    pub fn is_blocking(&self, p: Vec2) -> bool {
         let x = (p.x / TILE_SCALE as f32) as u32;
         let y = (p.y / TILE_SCALE as f32) as u32;
         match self.get_tile(x,y) {
@@ -103,9 +100,9 @@ impl Level {
             _ => {false}
         }
     }
-    pub fn intersects(&self, hbox: &Rectangle) -> bool {
+    pub fn intersects(&self, hitbox: &Rectangle) -> bool {
         for hb in self.hit_boxes.iter() {
-            if hb.intersects_rect(hbox) {
+            if hb.intersects_rect(hitbox) {
                 return true;
             }
         }
@@ -121,14 +118,14 @@ impl Level {
     pub fn level_mesh(&self) -> Mesh {
         let width = self.width();
         let height = self.height();
-        let tile_size = Point::new(self.tile_scale,self.tile_scale);
+        let tile_size = Vec2::new(self.tile_scale,self.tile_scale);
         let mut mb = MeshBuilder::new();
         for x in 0..width {
             for y in 0..height {
                 let tx = x * self.tile_scale;
                 let ty = y * self.tile_scale;
                 let tile_type = self.get_tile(x,y);
-                mb.set_cursor(Point::new(tx,ty));
+                mb.set_cursor(Vec2::new(tx,ty));
                 mb.push();
                 match tile_type {
                     b'g' => {
@@ -138,7 +135,7 @@ impl Level {
                         mb.set_line_style(LineStyle::Right);
                         mb.set_style(FadeDown(Color::BLACK,Color::GREEN));
                         mb.set_filled(true);
-                        mb.line(Point::ZERO,Point::new(self.tile_scale,0));
+                        mb.line(Vec2::ZERO,Vec2::new(self.tile_scale,0));
                     }
                     b'x' => {
                         mb.set_style(FadeDown(Color::DIM_GRAY,Color::BLACK));
@@ -154,9 +151,9 @@ impl Level {
                 mb.pop();
             }
         }
-        mb.set_cursor(Point::new(500,1000));
+        mb.set_cursor(Vec2::new(500,1000));
         mb.set_thickness(1.0);
-        mb.draw_text(&rusttype::Font::try_from_bytes(include_bytes!("../../DroidSerif-Regular.ttf")).unwrap(),"Where in the world is Carmen Sandiego? I don't know, do you know? Why won't you tell me. My goodness. The Quick Brown Fox Jumped Over The Lazy Dog.",50.0);
+        mb.draw_text(&rusttype::Font::try_from_bytes(include_bytes!("../../Roboto-Regular.ttf")).unwrap(),"Where in the world is Carmen Sandiego? I don't know, do you know? Why won't you tell me. My goodness. The Quick Brown Fox Jumped Over The Lazy Dog.",50.0);
         mb.build()
     }
 }
@@ -164,26 +161,26 @@ impl Level {
 
 
 struct Player {
-    pos: Point,
-    vel: Point,
-    size: Point,
+    pos: Vec2,
+    vel: Vec2,
+    size: Vec2,
     mesh: Mesh,
 }
 impl Player {
-    pub fn new(pos: Point, size: Point) -> Self {
+    pub fn new(pos: Vec2, size: Vec2) -> Self {
         Self {
             pos,
-            vel: Point::ZERO,
+            vel: Vec2::ZERO,
             size,
             mesh: {
                 let mut mb = MeshBuilder::new();
-                mb.set_cursor(Point::ZERO);
+                mb.set_cursor(Vec2::ZERO);
                 mb.set_style(Corners(Color::random(),Color::random(),Color::random(),Color::random()));
                 mb.rect(size);
                 mb.set_filled(false);
                 mb.set_thickness(4.0);
                 mb.set_style(Solid(Color::BLACK));
-                mb.set_cursor(Point::ZERO);
+                mb.set_cursor(Vec2::ZERO);
                 mb.rect(size);
                 mb.build()
             },
@@ -231,32 +228,23 @@ struct Game {
     level: Level,
     player: Player,
     cam: Camera,
-    ray_origin: Point,
     debug: Vec<MBShapes>,
-    walls: Vec<LineSegment>,
     font: rusttype::Font<'static>,
-    rng: XorShiftRng,
-    ray: Ray,
 }
 impl Game {
     pub fn new() -> Self {
         Self {
             level: Level::new(),
-            player: Player::new(Point::new(128,HEIGHT - 128),Point::new(TILE_SCALE as f32 * 1.5,TILE_SCALE as f32 * 2.0)),
-            cam: Camera::new(Point::new(WIDTH,HEIGHT)),
-            ray_origin: Point::new(512,512),
+            player: Player::new(Vec2::new(128,HEIGHT - 128),Vec2::new(TILE_SCALE as f32 * 1.5,TILE_SCALE as f32 * 2.0)),
+            cam: Camera::new(Vec2::new(WIDTH,HEIGHT)),
             debug: vec![],
-            walls: vec![],
-            font: rusttype::Font::try_from_bytes(include_bytes!("../../DroidSerif-Regular.ttf")).unwrap(),
-            rng: XorShiftRng::from_rng(rand::thread_rng()).unwrap(),
-            ray: Ray::new(Point::ZERO, Point::new(1,1)),
+            font: rusttype::Font::try_from_bytes(include_bytes!("../../Roboto-Regular.ttf")).unwrap(),
         }
     }
 }
 
 impl NeoGransealEventHandler for Game {
     fn event(&mut self, core: &mut NGCore, e: Event) {
-        let timer = core.timer.elapsed().as_secs_f32();
         match e {
             Event::KeyEvent {key, state} => {
                 if state == KeyState::Pressed {
@@ -267,14 +255,13 @@ impl NeoGransealEventHandler for Game {
             }
             Event::MousePressed {button,state} => {
                 if button == MouseButton::Left && state == KeyState::Pressed {
-                    let mp = core.state.mouse.pos + self.cam.get_offset();
+
                 }
             }
             Event::Draw => {
-                let mp = core.state.mouse.pos + self.cam.get_offset();
                 let mut g = ShapeGfx::new(core);
                 g.set_offset(-self.cam.get_offset());
-                g.draw_buffered_mesh(0,Point::ZERO);
+                g.draw_buffered_mesh(0,Vec2::ZERO);
                 g.draw_mesh(&self.player.mesh(),self.player.pos);
 
                 let mut mb = MeshBuilder::new();
@@ -284,26 +271,19 @@ impl NeoGransealEventHandler for Game {
                 });
 
 
-
-
                 let mut gs: Vec<rusttype::Glyph> = vec![];
                 for c in String::from("Hello World.").chars() {
                     gs.push(self.font.glyph(c));
                 }
 
-                g.draw_mesh(&mb.build(),Point::new(300,900));
-                g.draw_buffered_mesh(1,Point::new(300,1000));
-                g.draw_buffered_mesh(2,Point::new(400,800));
+                g.draw_mesh(&mb.build(),Vec2::new(300,900));
+                g.draw_buffered_mesh(1,Vec2::new(300,1000));
+                g.draw_buffered_mesh(2,Vec2::new(400,800));
 
                 g.finish();
             }
             Event::Update(d) => {
-                let time = core.timer.elapsed().as_secs_f32();
                 self.debug.clear();
-                let mp = core.state.mouse.pos + self.cam.get_offset();
-
-                let mut state = MBState::new();
-
 
                 let gravity = 1600.0;
                 let player_speed = 800.0;
@@ -326,26 +306,26 @@ impl NeoGransealEventHandler for Game {
             }
             Event::Load => {
                 core.buffer_object(0,self.level.level_mesh());
-                self.cam.set_bounds(Point::new(0,0),Point::new(self.level.width() * TILE_SCALE,self.level.height()*TILE_SCALE));
+                self.cam.set_bounds(Vec2::new(0,0),Vec2::new(self.level.width() * TILE_SCALE,self.level.height()*TILE_SCALE));
                 let mut mb = MeshBuilder::new();
-                mb.set_style(FillStyle::Solid(Color::FIRE_BRICK));
+                mb.set_style(Solid(Color::FIRE_BRICK));
                 mb.draw_text(&self.font,"Hello Text.",22.0);
                 mb.set_filled(false);
-                mb.set_style(FillStyle::Solid(Color::ORANGE));
-                mb.set_cursor(Point::new(900,900));
+                mb.set_style(Solid(Color::ORANGE));
+                mb.set_cursor(Vec2::new(900,900));
                 mb.draw_text(&self.font,"Break a leg.",122.0);
                 let text = mb.build();
                 core.buffer_object(0,text);
 
                 let mut pb = PathBuilder::new();
-                pb.move_to(Point::new(50,0));
+                pb.move_to(Vec2::new(50,0));
                 let radius = 50.0;
                 let count = 100;
                 (0..=count).for_each(|i|{
                    let a = (TAU / count as f32) * i as f32;
-                    pb.line_to(Point::new(radius * a.cos(),radius * a.sin()));
+                    pb.line_to(Vec2::new(radius * a.cos(),radius * a.sin()));
                 });
-                pb.close_path();
+                pb.close_path(false);
 
                 let path = pb.build();
                 let polygon = path_to_polygon(&path, 4.0);

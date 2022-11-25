@@ -12,9 +12,9 @@ impl NeoGransealEventHandler for Box {
         match event {
             Event::Draw => {
                 let mut mb = MeshBuilder::new();
-                mb.rect(Point::new(128.0,256.0));
+                mb.rect(Vec2::new(128.0,256.0));
                 let mut g = ShapeGfx::new(core);
-                g.draw_mesh(&mb.build(),Point::new(128.0,128.0));
+                g.draw_mesh(&mb.build(),Vec2::new(128.0,128.0));
                 g.finish();
             }
             _ => {}

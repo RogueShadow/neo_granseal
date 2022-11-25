@@ -1,6 +1,6 @@
 use std::any::Any;
 use std::collections::HashMap;
-use crate::{map_present_modes, GransealGameConfig, NGRenderPipeline, events};
+use crate::{map_present_modes, GransealGameConfig, NGRenderPipeline};
 use pollster::FutureExt;
 use wgpu::{BufferUsages, Features};
 use wgpu::util::DeviceExt;
@@ -37,13 +37,13 @@ impl From<wgpu::SurfaceError> for NGError {
 }
 pub enum NGCommand {
     AddPipeline(Box<dyn NGRenderPipeline>),
-    Render(usize, Box<dyn std::any::Any>),
+    Render(usize, Box<dyn Any>),
     SetCursorVisibility(bool),
     SetTitle(String),
 }
 
 pub struct MouseState {
-    pub pos: crate::util::Point,
+    pub pos: crate::math::Vec2,
     pub left: bool,
     pub right: bool,
     pub middle: bool,
@@ -62,7 +62,7 @@ impl EngineState {
     pub fn new() -> Self {
         Self {
             mouse: MouseState {
-                pos: crate::util::Point::new(0,0),
+                pos: crate::math::Vec2::new(0,0),
                 left: false,
                 right: false,
                 middle: false,

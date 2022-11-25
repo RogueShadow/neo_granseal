@@ -1,6 +1,7 @@
 use bytemuck::{Pod, Zeroable};
 use wgpu::util::{DeviceExt};
-use crate::{Color, GlobalUniforms, MSAA, NGCore, NGError, NGRenderPipeline, Point};
+use crate::{Color, GlobalUniforms, MSAA, NGCore, NGError, NGRenderPipeline};
+use crate::math::Vec2;
 use crate::mesh::*;
 
 
@@ -36,7 +37,7 @@ impl Vertex {
         self.v = v;
         self
     }
-    pub fn point(p: Point) -> Self {
+    pub fn point(p: Vec2) -> Self {
         Self {
             x: p.x,
             y: p.y,
@@ -74,7 +75,7 @@ pub struct SSRTransform {
     ry: f32,
 }
 impl SSRTransform {
-    pub fn new(pos: Point, r: f32, origin: Point) -> Self {
+    pub fn new(pos: Vec2, r: f32, origin: Vec2) -> Self {
         Self {
             x: pos.x,
             y: pos.y,
@@ -415,18 +416,18 @@ impl AsRef<SSRRenderData> for SSRRenderData {
 pub struct ShapeGfx<'draw> {
     core: &'draw mut NGCore,
     data: SSRRenderData,
-    offset: Point,
+    offset: Vec2,
     rotation: f32,
-    rotation_origin: Point,
+    rotation_origin: Vec2,
 }
 
 
 impl <'draw> ShapeGfx<'draw> {
-    pub fn set_offset(&mut self, cursor: Point) {self.offset = cursor}
-    pub fn translate_offset(&mut self, t: Point) {self.offset += t}
+    pub fn set_offset(&mut self, cursor: Vec2) {self.offset = cursor}
+    pub fn translate_offset(&mut self, t: Vec2) {self.offset += t}
     pub fn rotate(&mut self, r: f32) {self.rotation += r}
     pub fn set_rotation(&mut self, r: f32) {self.rotation = r}
-    pub fn set_rotation_origin(&mut self, origin: Point) {self.rotation_origin = origin}
+    pub fn set_rotation_origin(&mut self, origin: Vec2) {self.rotation_origin = origin}
 
     pub fn data(&self) -> &SSRRenderData {
         self.data.as_ref()
@@ -435,12 +436,12 @@ impl <'draw> ShapeGfx<'draw> {
         Self {
             core,
             data: SSRRenderData::new(),
-            offset: Point::ZERO,
+            offset: Vec2::ZERO,
             rotation: 0.0,
-            rotation_origin: Point::ZERO,
+            rotation_origin: Vec2::ZERO,
         }
     }
-    pub fn draw_mesh(&mut self, mesh: &Mesh, pos: Point) {
+    pub fn draw_mesh(&mut self, mesh: &Mesh, pos: Vec2) {
         let start_vertex = self.data.vertices.len();
         let start_index = self.data.indices.len();
         self.data.vertices.extend(mesh.vertices.as_slice());
@@ -464,7 +465,7 @@ impl <'draw> ShapeGfx<'draw> {
         self.data.materials.push(material);
         self.data.object_info.push(info);
     }
-    pub fn draw_buffered_mesh(&mut self,obj: BufferedObjectID, pos: Point) {
+    pub fn draw_buffered_mesh(&mut self,obj: BufferedObjectID, pos: Vec2) {
         let info = self.core.buffered_objects.get(obj).unwrap();
         let transform = SSRTransform {
             x: self.offset.x + pos.x,

@@ -4,6 +4,7 @@ pub mod main_loop;
 pub mod shape_pipeline;
 pub mod util;
 pub mod mesh;
+pub mod math;
 
 pub mod prelude {
     pub use {
@@ -13,7 +14,8 @@ pub mod prelude {
         crate::core::{NGCore,NGError},
         crate::events::Event,
         crate::shape_pipeline::ShapeGfx,
-        crate::util::{Color,Point},
+        crate::util::{Color},
+        crate::math::Vec2,
         crate::mesh::MeshBuilder,
     };
 }

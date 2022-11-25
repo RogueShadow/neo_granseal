@@ -1,10 +1,8 @@
 use std::f32::consts::PI;
-use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign, DivAssign};
-use lyon_tessellation::path::iterator::PathIterator;
-use lyon_tessellation::path::PathEvent;
 use num_traits::{AsPrimitive};
 use rand::{Rng, SeedableRng};
 use crate::mesh::{FillStyle, MeshBuilder, Polygon};
+use crate::math::Vec2;
 
 #[derive(Copy,Clone,Debug,PartialEq)]
 pub struct Color {
@@ -236,190 +234,53 @@ impl From<Color> for wgpu::Color {
         }
     }
 }
-pub struct AnimatedPoint {
-    start: Point,
-    end: Point,
-    dist: Point,
+pub struct AnimatedVec2 {
+    start: Vec2,
+    end: Vec2,
     time: f32,
 }
-impl AnimatedPoint {
-    pub fn new(start: Point, end: Point, time: f32) -> Self {
+impl AnimatedVec2 {
+    pub fn new(start: Vec2, end: Vec2, time: f32) -> Self {
         Self {
             start,
             end,
-            dist: end - start,
             time,
         }
     }
-    pub fn animate(&self, pct: f32) -> Point {
-        let time = (pct / self.time);
+    pub fn animate(&self, pct: f32) -> Vec2 {
+        let time = pct / self.time;
         if time < 0.0 {return self.start}
         if time > 1.0 {return self.end}
-        Point::new(
+        Vec2::new(
             lerp(self.start.x,self.end.x,time),
             lerp(self.start.y,self.end.y,time)
         )
     }
 }
 
-#[derive(Copy,Clone,Debug,PartialEq)]
-pub struct Point {
-    pub x: f32,
-    pub y: f32,
-}
-impl Point {
-    pub const ZERO: Point = Point { x: 0.0, y: 0.0};
-    pub fn new(x: impl AsPrimitive<f32>, y: impl AsPrimitive<f32>) -> Self {
-        Self {x: x.as_(),y: y.as_()}
-    }
-    pub fn len(&self) -> f32 {
-        (self.x.powf(2.0) + self.y.powf(2.0)).sqrt()
-    }
-    pub fn norm(&self) -> Self {
-        let len = self.len();
-        Point::new(self.x / len, self.y / len)
-    }
-    pub fn angle(&self) -> f32 {
-        (self.y / self.x).atan()
-    }
-    pub fn angle2(&self) -> f32 {
-        self.y.atan2(self.x)
-    }
-    pub fn rotate(&self, a: f32) -> Self {
-        let na = self.angle() + a;
-        Point::new(self.x * na.cos(), self.y * na.sin())
-    }
-    pub fn dot(&self, rhs: &Self) -> f32 {
-        self.x * rhs.x + self.y * rhs.y
-    }
-    pub fn proj(&self, rhs: &Self) -> f32 {
-        self.dot(rhs) / rhs.len()
-    }
-}
-impl Add for Point {
-    type Output = Point;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        Point::new(self.x + rhs.x, self.y + rhs.y)
-    }
-}
-impl Sub for Point {
-    type Output = Point;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        Point::new(self.x - rhs.x, self.y - rhs.y)
-    }
-}
-impl Mul for Point {
-    type Output = Point;
-
-    fn mul(self, rhs: Point) -> Self::Output {
-        Point::new(self.x * rhs.x,self.y * rhs.y)
-    }
-}
-impl Div for Point {
-    type Output = Point;
-
-    fn div(self, rhs: Point) -> Self::Output {
-        Point::new(self.x / rhs.x, self.y / rhs.y)
-    }
-}
-impl <T>Add<T> for Point where T: AsPrimitive<f32> {
-    type Output = Point;
-
-    fn add(self, rhs: T) -> Self::Output {
-        Point::new(self.x + rhs.as_(),self.y + rhs.as_())
-    }
-}
-impl <T>Sub<T> for Point where T: AsPrimitive<f32> {
-    type Output =  Point;
-
-    fn sub(self, rhs: T) -> Self::Output {
-        Point::new(self.x - rhs.as_(),self.y - rhs.as_())
-    }
-}
-impl <T>Mul<T> for Point where T: AsPrimitive<f32> {
-    type Output = Point;
-
-    fn mul(self, rhs: T) -> Self::Output {
-        Point::new(self.x * rhs.as_(),self.y * rhs.as_())
-    }
-}
-impl <T>Div<T> for Point where T: AsPrimitive<f32> {
-    type Output = Point;
-
-    fn div(self, rhs: T) -> Self::Output {
-        Self::Output::new(self.x / rhs.as_(),self.y / rhs.as_())
-    }
-}
-impl Neg for Point {
-    type Output = Point;
-
-    fn neg(self) -> Self::Output {
-        Point::new(-self.x,-self.y)
-    }
-}
-impl AddAssign for Point {
-    fn add_assign(&mut self, rhs: Point) {
-        self.x += rhs.x;
-        self.y += rhs.y;
-    }
-}
-impl SubAssign for Point {
-    fn sub_assign(&mut self, rhs: Point) {
-        self.x -= rhs.x;
-        self.y -= rhs.y;
-    }
-}
-impl MulAssign for Point {
-    fn mul_assign(&mut self, rhs: Self) {
-        self.x *= rhs.x;
-        self.y *= rhs.y;
-    }
-}
-impl DivAssign for Point {
-    fn div_assign(&mut self, rhs: Self) {
-        self.x /= rhs.x;
-        self.y /= rhs.y;
-    }
-}
-impl MulAssign<f32> for Point {
-    fn mul_assign(&mut self, rhs: f32) {
-        self.x *= rhs;
-        self.y *= rhs;
-    }
-}
-impl Mul<Point> for f32  {
-    type Output = Point;
-
-    fn mul(self, rhs: Point) -> Self::Output {
-        Point::new(self * rhs.x,self * rhs.y)
-    }
-}
-
 pub struct Camera {
-    offset: Point,
-    lower_bound: Point,
-    upper_bound: Point,
-    screen_size: Point,
+    offset: Vec2,
+    lower_bound: Vec2,
+    upper_bound: Vec2,
+    screen_size: Vec2,
     bounded: bool,
 }
 impl Camera {
-    pub fn new(screen_size: Point) -> Self {
+    pub fn new(screen_size: Vec2) -> Self {
         Self {
-            offset: Point::ZERO,
-            lower_bound: Point::ZERO,
-            upper_bound: Point::ZERO,
+            offset: Vec2::ZERO,
+            lower_bound: Vec2::ZERO,
+            upper_bound: Vec2::ZERO,
             screen_size,
             bounded: false,
         }
     }
-    pub fn set_bounds(&mut self, lower_bound: Point, upper_bound: Point) {
+    pub fn set_bounds(&mut self, lower_bound: Vec2, upper_bound: Vec2) {
         self.bounded = true;
         self.lower_bound = lower_bound;
         self.upper_bound = upper_bound;
     }
-    pub fn target(&mut self, pos: Point) {
+    pub fn target(&mut self, pos: Vec2) {
         if self.bounded {
             self.offset.x = if pos.x < (self.screen_size.x / 2.0) + self.lower_bound.x { self.lower_bound.x } else {
                 if pos.x > self.upper_bound.x - self.screen_size.x / 2.0 {
@@ -440,23 +301,23 @@ impl Camera {
             self.offset.y = pos.y - (self.screen_size.y / 2.0);
         }
     }
-    pub fn get_offset(&self) -> Point {
+    pub fn get_offset(&self) -> Vec2 {
         self.offset
     }
 }
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Ray {
-    pub origin: Point,
-    pub dir: Point,
+    pub origin: Vec2,
+    pub dir: Vec2,
 }
 impl Ray {
-    pub fn new_dir(origin: Point, dir: f32) -> Self {
+    pub fn new_dir(origin: Vec2, dir: f32) -> Self {
         Self {
             origin,
-            dir: origin + Point::new(dir.cos(),dir.sin()),
+            dir: origin + Vec2::new(dir.cos(),dir.sin()),
         }
     }
-    pub fn new(origin: Point, dir: Point) -> Self { Self { origin, dir, } }
+    pub fn new(origin: Vec2, dir: Vec2) -> Self { Self { origin, dir, } }
     /// Raycast against an AABB.
     pub fn cast_rect(&self, rect: &Rectangle) -> Option<RayHit> {
         let mut near = (rect.top_left - self.origin) / self.dir;
@@ -470,12 +331,12 @@ impl Ray {
         let hit = self.origin + self.dir * hit_near;
         let normal = match near.x > near.y {
             true => match self.dir.x < 0.0 {
-                true => Point::new(1,0),
-                false => Point::new(-1,0),
+                true => Vec2::new(1,0),
+                false => Vec2::new(-1,0),
             },
             false => match self.dir.y < 0.0 {
-                true => Point::new(0,1),
-                false => Point::new(0,-1),
+                true => Vec2::new(0,1),
+                false => Vec2::new(0,-1),
             }
         };
         Some(RayHit { hit, normal, time: hit_near, })
@@ -499,9 +360,9 @@ impl Ray {
     pub fn intersection(&self, other: &LineSegment) -> Option<RayHit> {
         if let Some((t, u)) = intersect_t_u(&self.origin, &self.dir, &other.begin, &other.end) {
             if u > 0.0 && u < 1.0 && t > 0.0 {
-                let x = (other.begin.x + u * (other.end.x - other.begin.x));
-                let y = (other.begin.y + u * (other.end.y - other.begin.y));
-                Some(RayHit {hit: Point::new(x,y), normal: Point::ZERO, time: 0.0 })
+                let x = other.begin.x + u * (other.end.x - other.begin.x);
+                let y = other.begin.y + u * (other.end.y - other.begin.y);
+                Some(RayHit {hit: Vec2::new(x,y), normal: Vec2::ZERO, time: 0.0 })
             } else {
                 None
             }
@@ -511,19 +372,19 @@ impl Ray {
     }
 }
 pub struct RayHit {
-    pub hit: Point,
-    pub normal: Point,
+    pub hit: Vec2,
+    pub normal: Vec2,
     pub time: f32,
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Rectangle {
-    pub top_left: Point,
-    pub bottom_right: Point,
+    pub top_left: Vec2,
+    pub bottom_right: Vec2,
     pub test: bool,
 }
 impl Rectangle {
-    pub fn new2(pos: Point, size: Point) -> Self {
+    pub fn new2(pos: Vec2, size: Vec2) -> Self {
         Rectangle {
             top_left: pos,
             bottom_right: pos + size,
@@ -532,12 +393,12 @@ impl Rectangle {
     }
     pub fn new(x: impl AsPrimitive<f32>,y: impl AsPrimitive<f32>,w: impl AsPrimitive<f32>,h: impl AsPrimitive<f32>) -> Self {
         Self {
-            top_left: Point::new(x,y),
-            bottom_right: Point::new(x.as_()+w.as_(),y.as_()+h.as_()),
+            top_left: Vec2::new(x,y),
+            bottom_right: Vec2::new(x.as_()+w.as_(),y.as_()+h.as_()),
             test: false,
         }
     }
-    pub fn contains_point(&self, other: &Point) -> bool {
+    pub fn contains_point(&self, other: &Vec2) -> bool {
         if other.x < self.top_left.x {return false}
         if other.x > self.bottom_right.x {return false}
         if other.y < self.top_left.y {return false}
@@ -551,7 +412,7 @@ impl Rectangle {
         if other.top_left.y > self.bottom_right.y {return false}
         true
     }
-    pub fn overlapping_box(&self, other: &Self) -> Option<(Point,Point)> {
+    pub fn overlapping_box(&self, other: &Self) -> Option<(Vec2,Vec2)> {
         if !self.intersects_rect(other) {
             return None;
         }else{
@@ -559,10 +420,10 @@ impl Rectangle {
             let x2 = self.bottom_right.x.min(other.bottom_right.x);
             let y1 = self.top_left.y.max(other.top_left.y);
             let y2 = self.bottom_right.y.min(other.bottom_right.y);
-            Some((Point::new(x1,y1),Point::new(x2,y2)))
+            Some((Vec2::new(x1,y1),Vec2::new(x2,y2)))
         }
     }
-    pub fn intersect_vector(&self, other: &Self) -> Option<Point> {
+    pub fn intersect_vector(&self, other: &Self) -> Option<Vec2> {
         if !self.intersects_rect(other) {
             return None;
         }else{
@@ -571,18 +432,18 @@ impl Rectangle {
             let y1 = self.top_left.y.max(other.top_left.y);
             let y2 = self.bottom_right.y.min(other.bottom_right.y);
 
-            Some(Point::new(x2-x1,y2-y1))
+            Some(Vec2::new(x2-x1,y2-y1))
         }
     }
 }
-pub fn cubic_to_point(time: f32, begin: Point, control1: Point, control2: Point, end: Point) -> Point {
+pub fn cubic_to_point(time: f32, begin: Vec2, control1: Vec2, control2: Vec2, end: Vec2) -> Vec2 {
     let part1 = (1.0 - time).powf(3.0) * begin;
     let part2 = 3.0 * (1.0 - time).powf(2.0) * time * control1;
     let part3 = 3.0 * (1.0 - time) * time.powf(2.0) * control2;
     let part4 = time.powf(3.0) * end;
-    (part1 + part2 + part3 + part4)
+    part1 + part2 + part3 + part4
 }
-pub fn quadratic_to_point(time: f32, begin: Point, control: Point, end: Point) -> Point {
+pub fn quadratic_to_point(time: f32, begin: Vec2, control: Vec2, end: Vec2) -> Vec2 {
     control + (1.0 - time).powf(2.0) * (begin - control) + time.powf(2.0) * (end - control)
 }
 pub fn text_to_path<'a>(pb: &'a mut PathBuilder,font: &rusttype::Font, text: &str,scale: f32) -> &'a PathBuilder {
@@ -590,7 +451,7 @@ pub fn text_to_path<'a>(pb: &'a mut PathBuilder,font: &rusttype::Font, text: &st
     let glyphs: Vec<_> = font.layout(text,rusttype::Scale::uniform(scale),rusttype::point(0.0, 0.0 + v_metrics.ascent )).collect();
     for g in glyphs {
         if let Some(bb) = g.pixel_bounding_box(){
-            pb.set_offset(Point::new(bb.min.x,bb.min.y));
+            pb.set_offset(Vec2::new(bb.min.x,bb.min.y));
             g.build_outline(pb);
         }
     }
@@ -598,17 +459,17 @@ pub fn text_to_path<'a>(pb: &'a mut PathBuilder,font: &rusttype::Font, text: &st
 }
 /// Meant to represent a line that stretches to infinity in both directions.
 pub struct Line {
-    pub first: Point,
-    pub second: Point,
+    pub first: Vec2,
+    pub second: Vec2,
 }
 impl Line {
-    pub fn new(first: Point, second: Point) -> Self {
+    pub fn new(first: Vec2, second: Vec2) -> Self {
         Self {
             first,
             second,
         }
     }
-    pub fn intersections_line_segment(&self, other: &Vec<LineSegment>) -> Option<Vec<Point>> {
+    pub fn intersections_line_segment(&self, other: &Vec<LineSegment>) -> Option<Vec<Vec2>> {
         let mut intersections = vec![];
         for ls in other {
             if let Some(intersection) =  self.intersect_line_segment(ls) {
@@ -621,12 +482,12 @@ impl Line {
             Some(intersections)
         }
     }
-    pub fn intersect_line_segment(&self, other: &LineSegment) -> Option<Point> {
-        if let Some((t, u)) = intersect_t_u(&self.first, &self.second, &other.begin, &other.end) {
+    pub fn intersect_line_segment(&self, other: &LineSegment) -> Option<Vec2> {
+        if let Some((_, u)) = intersect_t_u(&self.first, &self.second, &other.begin, &other.end) {
             if u > 0.0 && u < 1.0 {
-                let x = (other.begin.x + u * (other.end.x - other.begin.x));
-                let y = (other.begin.y + u * (other.end.y - other.begin.y));
-                Some(Point::new(x, y))
+                let x = other.begin.x + u * (other.end.x - other.begin.x);
+                let y = other.begin.y + u * (other.end.y - other.begin.y);
+                Some(Vec2::new(x, y))
             } else {
                 None
             }
@@ -634,7 +495,7 @@ impl Line {
             None
         }
     }
-    pub fn intersections(&self, other: &Vec<Self>) -> Option<Vec<Point>> {
+    pub fn intersections(&self, other: &Vec<Self>) -> Option<Vec<Vec2>> {
         let mut intersections = vec![];
         for axis in other {
             if let Some(intersection) = self.intersect(axis) {
@@ -646,52 +507,52 @@ impl Line {
         }
         Some(intersections)
     }
-    pub fn intersect(&self, other: &Self) -> Option<Point> {
-        if let Some((t, u)) = intersect_t_u(&self.first, &self.second, &other.first, &other.second) {
-            let x = (other.first.x + u * (other.second.x - other.first.x));
-            let y = (other.first.y + u * (other.second.y - other.first.y));
-            Some(Point::new(x,y))
+    pub fn intersect(&self, other: &Self) -> Option<Vec2> {
+        if let Some((_, u)) = intersect_t_u(&self.first, &self.second, &other.first, &other.second) {
+            let x = other.first.x + u * (other.second.x - other.first.x);
+            let y = other.first.y + u * (other.second.y - other.first.y);
+            Some(Vec2::new(x,y))
         } else {
             None
         }
     }
 }
-/// Line intersection  formula. For re-use. None when parallel, otherwise Some(Point)
-pub fn intersect_t_u(p1: &Point, p2: &Point, p3: &Point, p4:  &Point) -> Option<(f32,f32)> {
+/// Line intersection  formula. For re-use. None when parallel, otherwise Some(Vec2)
+pub fn intersect_t_u(p1: &Vec2, p2: &Vec2, p3: &Vec2, p4:  &Vec2) -> Option<(f32,f32)> {
     let denom = (p1.x - p2.x) * (p3.y - p4.y) - (p1.y - p2.y) * (p3.x - p4.x);
     let t_num = (p1.x - p3.x) * (p3.y - p4.y) - (p1.y - p3.y) * (p3.x - p4.x);
     let u_num = (p1.x - p3.x) * (p1.y - p2.y) - (p1.y - p3.y) * (p1.x - p2.x);
     if denom == 0.0 {return None}
     Some((t_num / denom,u_num / denom))
 }
-/// LineSegment, has a start and end point.
+/// LineSegment, has a start and end Vec2.
 pub struct LineSegment {
-    pub begin: Point,
-    pub end: Point,
+    pub begin: Vec2,
+    pub end: Vec2,
 }
 impl LineSegment {
-    pub fn new(begin: Point, end: Point) -> Self {
+    pub fn new(begin: Vec2, end: Vec2) -> Self {
         Self {
             begin,
             end,
         }
     }
-    pub fn normal(&self) -> Point {
+    pub fn normal(&self) -> Vec2 {
         let d = self.end - self.begin;
         let a = d.angle() - PI/2.0;
-        Point::new(a.cos(),a.sin())
+        Vec2::new(a.cos(),a.sin())
     }
     pub fn length(&self) -> f32 {
         let d = self.end - self.begin;
         d.len()
     }
-    pub fn axis(&self) -> Point {
+    pub fn axis(&self) -> Vec2 {
         let d = self.end - self.begin;
         let a = d.angle();
-        Point::new(a.cos(),a.sin())
+        Vec2::new(a.cos(),a.sin())
     }
-    pub fn first_intersection(&self, others: &Vec<Self>) -> Option<Point> {
-        let mut hit: Option<Point> = None;
+    pub fn first_intersection(&self, others: &Vec<Self>) -> Option<Vec2> {
+        let mut hit: Option<Vec2> = None;
         let mut record = f32::MAX;
         for wall in others {
         if let Some(p) = self.intersection(wall) {
@@ -704,12 +565,12 @@ impl LineSegment {
         }
         hit
     }
-    pub fn intersection(&self, other: &Self) -> Option<Point> {
+    pub fn intersection(&self, other: &Self) -> Option<Vec2> {
         return if let Some((t, u)) = intersect_t_u(&self.begin, &self.end, &other.begin, &other.end) {
             if u > 0.0 && u < 1.0 && t > 0.0 && t < 1.0 {
-                let x = (other.begin.x + u * (other.end.x - other.begin.x));
-                let y = (other.begin.y + u * (other.end.y - other.begin.y));
-                Some(Point::new(x, y))
+                let x = other.begin.x + u * (other.end.x - other.begin.x);
+                let y = other.begin.y + u * (other.end.y - other.begin.y);
+                Some(Vec2::new(x, y))
             } else {
                 None
             }
@@ -728,17 +589,17 @@ pub struct PathSegment {
 }
 #[derive(Debug,Clone,Copy)]
 pub enum Contour {
-    MoveTo(Point), //basically new segment
-    LineTo(Point),
-    QuadTo(Point,Point), // control, end
-    CubicTo(Point,Point,Point), // control1, control2, end
+    MoveTo(Vec2), //basically new segment
+    LineTo(Vec2),
+    QuadTo(Vec2,Vec2), // control, end
+    CubicTo(Vec2,Vec2,Vec2), // control1, control2, end
     ClosePath(bool),   // basically end segment
 }
 
 pub struct PathBuilder {
     contours: Vec<Contour>,
     segments: Vec<PathSegment>,
-    offset: Point,
+    offset: Vec2,
     pub pathing: bool,
     pub built: bool,
 }
@@ -747,25 +608,25 @@ impl PathBuilder {
         Self {
             contours: vec![],
             segments: vec![],
-            offset: Point::ZERO,
+            offset: Vec2::ZERO,
             pathing: false,
             built: false,
         }
     }
-    pub fn move_to(&mut self, pos: Point) -> &mut Self {
+    pub fn move_to(&mut self, pos: Vec2) -> &mut Self {
         self.pathing = true;
         self.contours.push(Contour::MoveTo(pos + self.offset));
         self
     }
-    pub fn line_to(&mut self, end: Point) -> &mut Self {
+    pub fn line_to(&mut self, end: Vec2) -> &mut Self {
         self.contours.push(Contour::LineTo(end + self.offset));
         self
     }
-    pub fn quadratic_to(&mut self, control: Point, end: Point) -> &mut Self {
+    pub fn quadratic_to(&mut self, control: Vec2, end: Vec2) -> &mut Self {
         self.contours.push(Contour::QuadTo(control + self.offset,end + self.offset));
         self
     }
-    pub fn cubic_to(&mut self, control1: Point, control2: Point, end: Point) -> &mut Self {
+    pub fn cubic_to(&mut self, control1: Vec2, control2: Vec2, end: Vec2) -> &mut Self {
         self.contours.push(Contour::CubicTo(control1 + self.offset,control2 + self.offset,end + self.offset));
         self
     }
@@ -777,14 +638,14 @@ impl PathBuilder {
         self.contours.clear();
         self
     }
-    pub fn set_offset(&mut self, offset: Point) {
+    pub fn set_offset(&mut self, offset: Vec2) {
         self.offset = offset;
     }
-    pub fn translate_offset(&mut self, offset: Point) {
+    pub fn translate_offset(&mut self, offset: Vec2) {
         self.offset += offset;
     }
     pub fn clear_offset(&mut self)  {
-        self.offset = Point::ZERO;
+        self.offset = Vec2::ZERO;
     }
     pub fn build(&mut self) -> PathData {
         self.built = true;
@@ -796,19 +657,19 @@ impl PathBuilder {
 
 impl rusttype::OutlineBuilder for PathBuilder {
     fn move_to(&mut self, x: f32, y: f32) {
-        self.move_to(Point::new(x,y));
+        self.move_to(Vec2::new(x,y));
     }
 
     fn line_to(&mut self, x: f32, y: f32) {
-        self.line_to(Point::new(x,y));
+        self.line_to(Vec2::new(x,y));
     }
 
     fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
-        self.quadratic_to(Point::new(x1,y1),Point::new(x,y));
+        self.quadratic_to(Vec2::new(x1,y1),Vec2::new(x,y));
     }
 
     fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
-        self.cubic_to(Point::new(x1,y1),Point::new(x2,y2),Point::new(x,y));
+        self.cubic_to(Vec2::new(x1,y1),Vec2::new(x2,y2),Vec2::new(x,y));
     }
 
     fn close(&mut self) {
@@ -827,7 +688,7 @@ pub fn is_y_monotone(polygon: &Polygon, debug: Option<&mut MeshBuilder>) -> bool
     let mut hit_p = vec![];
     let segments = &polygon.edges.iter().map(|(s,e)|{LineSegment::new(polygon.points[*s],polygon.points[*e])}).collect::<Vec<_>>();
     for p in polygon.points.iter() {
-        let line = Line::new(*p,*p + Point::new(0,100));
+        let line = Line::new(*p,*p + Vec2::new(0,100));
         if let Some(intersections) = line.intersections_line_segment(segments) {
             hits = intersections.len().max(hits);
             hit_p.extend(intersections);
@@ -837,8 +698,8 @@ pub fn is_y_monotone(polygon: &Polygon, debug: Option<&mut MeshBuilder>) -> bool
         mb.push();
         mb.set_style(FillStyle::Solid(Color::RED));
         for h in hit_p {
-            mb.set_cursor(h - Point::new(2,2));
-            mb.rect(Point::new(4,4));
+            mb.set_cursor(h - Vec2::new(2,2));
+            mb.rect(Vec2::new(4,4));
         }
         mb.pop();
     }
@@ -852,8 +713,8 @@ pub fn is_convex_polygon2(polygon: &Polygon) -> bool {
 
         let testp = polygon.points[test];
 
-        let first = (testp - neighbors[0]);
-        let second = (testp - neighbors[1]);
+        let first = testp - neighbors[0];
+        let second = testp - neighbors[1];
 
 
             let mut total = (second.angle() - first.angle()).to_degrees();
@@ -902,7 +763,7 @@ pub fn is_x_monotone(polygon: &Polygon, debug: Option<&mut MeshBuilder>) -> bool
 
     let segments = &polygon.edges.iter().map(|(s,e)|{LineSegment::new(polygon.points[*s],polygon.points[*e])}).collect::<Vec<_>>();
     for p in polygon.points.iter() {
-        let line = Line::new(*p,*p + Point::new(100,0));
+        let line = Line::new(*p,*p + Vec2::new(100,0));
         if let Some(intersections) = line.intersections_line_segment(segments) {
             hits = intersections.len().max(hits);
             hit_p.extend(intersections);
@@ -912,97 +773,11 @@ pub fn is_x_monotone(polygon: &Polygon, debug: Option<&mut MeshBuilder>) -> bool
         mb.push();
         mb.set_style(FillStyle::Solid(Color::MAGENTA));
         for h in hit_p {
-            mb.set_cursor(h - Point::new(2,2));
-            mb.rect(Point::new(4,4));
+            mb.set_cursor(h - Vec2::new(2,2));
+            mb.rect(Vec2::new(4,4));
         }
         mb.pop();
     }
     return hits <= 2
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn test_add_points() {
-        let p1 = Point::new(1,2);
-        let p2 = Point::new(3,4);
-        assert_eq!(p1+p2,Point::new(4,6));
-    }
-    #[test]
-    fn test_subtract_points() {
-        let p1 = Point::new(1,2);
-        let p2 = Point::new(3,5);
-        assert_eq!(p1-p2,Point::new(-2,-3));
-    }
-    #[test]
-    fn test_multiply_points() {
-        let p1 = Point::new(2,3);
-        let p2 = Point::new(4,5);
-        assert_eq!(p1*p2,Point::new(8,15));
-    }
-    #[test]
-    fn test_divide_points() {
-        let p1 =  Point::new(3,1);
-        let p2 = Point::new(6,4);
-        assert_eq!(p1 / p2,Point::new(0.5,0.25));
-    }
-    #[test]
-    fn test_add_point_f32() {
-        let p1 = Point::new(1,2);
-        assert_eq!(p1 + 5.0,Point::new(6.0,7.0));
-    }
-    #[test]
-    fn test_subtract_point_f32() {
-        let p1 = Point::new(1,2);
-        assert_eq!(p1 - 5.0,Point::new(-4.0,-3.0));
-    }
-    #[test]
-    fn test_multiply_point_f32() {
-        let p1 =  Point::new(3,4);
-        assert_eq!(p1 * 5.0,Point::new(15,20));
-    }
-    #[test]
-    fn test_divide_point_f32() {
-        let p1 = Point::new(3,4);
-        assert_eq!(p1 / 4.0,Point::new(0.75, 1.0));
-    }
-    #[test]
-    fn test_negate_point() {
-        let p1 = Point::new(5.0, 6.0);
-        assert_eq!(-p1,Point::new(-5.0,-6.0));
-    }
-    #[test]
-    fn test_add_assign_point() {
-        let mut p1 = Point::new(1,2);
-        p1 += Point::new(3,4);
-        assert_eq!(p1,Point::new(4,6));
-    }
-    #[test]
-    fn test_sub_assign_point() {
-        let mut p1 = Point::new(1,2);
-        p1 -= Point::new(5,4);
-        assert_eq!(p1,Point::new(-4,-2));
-    }
-    #[test]
-    fn test_mul_assign_point() {
-        let mut p1 = Point::new(2,3);
-        p1 *= Point::new(6,5);
-        assert_eq!(p1,Point::new(12,15));
-    }
-    #[test]
-    fn test_div_assign_point() {
-        let mut p1 = Point::new(6,8);
-        p1 /= Point::new(2,4);
-        assert_eq!(p1,Point::new(3,2));
-    }
-    #[test]
-    fn test_dot_point() {
-        let mut p1 = Point::new(2,3);
-        let mut p2 = Point::new(4,5);
-        let p3 = p1.dot(&p2);
-        let p4 = p2.dot(&p1);
-        assert_eq!(p3, 23.0);
-        assert_eq!(p3,p4);
-    }
-}

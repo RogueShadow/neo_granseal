@@ -1,8 +1,9 @@
 use neo_granseal::shape_pipeline::{ShapeGfx};
 use neo_granseal::{core::{NGCore}, events::Event, start, GransealGameConfig, NeoGransealEventHandler};
 use rand::{Rng, SeedableRng};
+use neo_granseal::math::Vec2;
 use neo_granseal::mesh::{FillStyle, MeshBuilder};
-use neo_granseal::util::{Color, Point};
+use neo_granseal::util::{Color};
 
 fn main() {
     start(
@@ -14,14 +15,14 @@ fn main() {
     );
 }
 struct Entity {
-    pos: Point,
+    pos: Vec2,
     color: Color,
     rot: f32,
 }
 struct Game {
     rng: rand_xorshift::XorShiftRng,
     entities: Vec<Entity>,
-    size: Point,
+    size: Vec2,
     timer: std::time::Instant,
     toggle: bool,
 }
@@ -30,7 +31,7 @@ impl Game {
         Self {
             rng: rand_xorshift::XorShiftRng::from_rng(rand::thread_rng()).expect("Getting Rng."),
             entities: vec![],
-            size: Point::new(16.0, 16.0),
+            size: Vec2::new(16.0, 16.0),
             timer: std::time::Instant::now(),
             toggle: true,
         }
@@ -49,7 +50,7 @@ impl NeoGransealEventHandler for Game {
                     mb.rect(self.size);
                 });
                 let mut g = ShapeGfx::new(core);
-                g.draw_mesh(&mb.build(),Point::ZERO);
+                g.draw_mesh(&mb.build(),Vec2::ZERO);
                 g.finish();
             }
             Event::Update(d) => {
@@ -72,7 +73,7 @@ impl NeoGransealEventHandler for Game {
             Event::Load => {
                 for x in (0..core.config.width as usize).step_by(self.size.x.floor() as usize) {
                     for y in (0..core.config.height as usize).step_by(self.size.y.floor() as usize) {
-                        let pos = Point::new(x as f32, y as f32);
+                        let pos = Vec2::new(x as f32, y as f32);
                         let color = Color::rgb(self.rng.gen(),self.rng.gen(),self.rng.gen());
                         self.entities.push(Entity {
                             pos,
