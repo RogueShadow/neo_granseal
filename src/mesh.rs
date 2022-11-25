@@ -488,7 +488,7 @@ pub fn path_to_polygon(path: &PathData, resolution: f32) -> Polygon {
                 }
                 Contour::QuadTo(cp, end) => {
                     let d = *end - last;
-                    let count = (d.len()/resolution).ceil() as i32;
+                    let count = (d.magnitude()/resolution).ceil() as i32;
                     let mut lastp = last;
                     (0..=count).for_each(|i|{
                         let t =  i as f32 / count as f32;
@@ -503,7 +503,7 @@ pub fn path_to_polygon(path: &PathData, resolution: f32) -> Polygon {
                     let mut lastp = last;
                     let start = points.last().unwrap().clone();
                     let d = *end - start;
-                    let count = (d.len()/resolution).ceil() as i32;
+                    let count = (d.magnitude()/resolution).ceil() as i32;
                     (0..=count).for_each(|i|{
                         let t =  i as f32 / count as f32;
                         let p = cubic_to_point(t, start, *cp1, *cp2, *end);
@@ -588,7 +588,7 @@ pub fn oval_filled(center: Vec2, radius: Vec2, arc_begin: f32, arc_end: f32, res
     mesh.vertices = vec![Vertex::point(center).rgba(c1)];
     let start_angle = arc_begin;
     let end_angle = arc_end;
-    let arc_length = (end_angle - start_angle).abs() * radius.len();
+    let arc_length = (end_angle - start_angle).abs() * radius.magnitude();
     let vertex_count = arc_length / resolution;
     let angle_step = (end_angle - start_angle).abs() / vertex_count;
     let mut a = start_angle;
@@ -619,7 +619,7 @@ pub fn oval_outlined(center: Vec2, radius: Vec2, arc_begin: f32, arc_end: f32, r
     let mut mesh = Mesh::new();
     let start_angle = arc_begin;
     let end_angle = arc_end;
-    let arc_length = (end_angle - start_angle).abs() * radius.len();
+    let arc_length = (end_angle - start_angle).abs() * radius.magnitude();
     let vertex_count = arc_length / resolution;
     let angle_step = (end_angle - start_angle).abs() / vertex_count;
     let mut a = start_angle;
@@ -727,7 +727,7 @@ pub fn raw_quad_filled(p1: Vec2, p2: Vec2, p3: Vec2,p4: Vec2, style: FillStyle) 
 pub fn quadratic_curve(begin: Vec2, end: Vec2, control: Vec2,thickness: f32,line_style: LineStyle, style: FillStyle, resolution: f32) -> Mesh {
     let mut meshes: Vec<Mesh> = vec![];
     let mut points: Vec<Vec2> = vec![];
-    let distance = (end - begin).len();
+    let distance = (end - begin).magnitude();
     let count = (distance / resolution).ceil() as i32;
     (0..=count).for_each(|i|{
         let t = i as f32 / count as f32;
@@ -741,7 +741,7 @@ pub fn quadratic_curve(begin: Vec2, end: Vec2, control: Vec2,thickness: f32,line
 pub fn cubic_curve(begin: Vec2, control1: Vec2,control2: Vec2, end: Vec2,thickness: f32, line_style: LineStyle, style: FillStyle, resolution: f32) -> Mesh {
     let mut meshes: Vec<Mesh> = vec![];
     let mut points: Vec<Vec2> = vec![];
-    let distance = (end - begin).len();
+    let distance = (end - begin).magnitude();
     let count = (distance / resolution).ceil() as i32;
     (0..=count).for_each(|i|{
         let t = i as f32 / count as f32;

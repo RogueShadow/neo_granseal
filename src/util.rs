@@ -346,7 +346,7 @@ impl Ray {
         let mut hit: Option<RayHit> = None;
         for line in other.iter() {
             if let Some(h) = self.intersection(line) {
-                let distance = (h.hit - self.origin).len();
+                let distance = (h.hit - self.origin).magnitude();
                 if distance < closest {
                     hit = Some(h);
                     closest = distance;
@@ -544,7 +544,7 @@ impl LineSegment {
     }
     pub fn length(&self) -> f32 {
         let d = self.end - self.begin;
-        d.len()
+        d.magnitude()
     }
     pub fn axis(&self) -> Vec2 {
         let d = self.end - self.begin;
@@ -556,7 +556,7 @@ impl LineSegment {
         let mut record = f32::MAX;
         for wall in others {
         if let Some(p) = self.intersection(wall) {
-               let d = (p - self.begin).len();
+               let d = (p - self.begin).magnitude();
                if d < record {
                    record = d;
                    hit = Some(p);
