@@ -1,15 +1,15 @@
-use crate::shape_pipeline::{ SimpleShapeRenderPipeline};
+use crate::events::{map_events, map_keys};
+use crate::shape_pipeline::SimpleShapeRenderPipeline;
 use crate::{
     core::{NGCommand, NGCore},
     events, GlobalUniforms,
 };
-use log::{error};
+use log::error;
+use winit::event::{ElementState, KeyboardInput, MouseButton};
 use winit::{
     event::{Event, VirtualKeyCode, WindowEvent},
     event_loop,
 };
-use winit::event::{ElementState, KeyboardInput, MouseButton};
-use crate::events::{map_events, map_keys};
 
 pub(crate) fn main_loop(
     e_loop: event_loop::EventLoop<()>,
@@ -37,16 +37,13 @@ pub(crate) fn main_loop(
                 NGCommand::Render(index, data) => {
                     if index < pipelines.len() {
                         if !pipelines.is_empty() {
-                            pipelines
-                                .get_mut(index)
-                                .unwrap()
-                                .set_data(data);
+                            pipelines.get_mut(index).unwrap().set_data(data);
                         }
                     } else {
                         error!("Index out of bounds for pipeline.")
                     }
                 }
-                NGCommand::SetCursorVisibility(v) => {core.window.set_cursor_visible(v)}
+                NGCommand::SetCursorVisibility(v) => core.window.set_cursor_visible(v),
                 NGCommand::SetTitle(title) => {
                     core.config.title = title;
                     core.window.set_title(core.config.title.as_str());
@@ -54,48 +51,58 @@ pub(crate) fn main_loop(
             };
         }
         match event {
-            Event::WindowEvent { event, window_id}
-            if window_id == core.window.id() => {
+            Event::WindowEvent { event, window_id } if window_id == core.window.id() => {
                 if let Some(nge) = map_events(&event) {
-                    h.event(&mut core,nge);
+                    h.event(&mut core, nge);
                 }
                 match event {
-                    WindowEvent::CloseRequested => {*control_flow = event_loop::ControlFlow::Exit;}
-                    WindowEvent::KeyboardInput {input, ..} => {
-                        match input {
-                            KeyboardInput {virtual_keycode,state, ..} => {
-                                match virtual_keycode {
-                                    None => {}
-                                    Some(key) => {
-                                        let ng_key = map_keys(&key);
-                                        core.state.keys.insert(ng_key,if state == ElementState::Pressed {true} else {false});
-                                        match key {
-                                            VirtualKeyCode::Escape => {*control_flow = event_loop::ControlFlow::Exit}
-                                            _ => {}
-                                        }
-                                    }
+                    WindowEvent::CloseRequested => {
+                        *control_flow = event_loop::ControlFlow::Exit;
+                    }
+                    WindowEvent::KeyboardInput { input, .. } => match input {
+                        KeyboardInput {
+                            virtual_keycode,
+                            state,
+                            ..
+                        } => match virtual_keycode {
+                            None => {}
+                            Some(key) => {
+                                let ng_key = map_keys(&key);
+                                core.state.keys.insert(
+                                    ng_key,
+                                    state == ElementState::Pressed,
+                                );
+                                if key == VirtualKeyCode::Escape {
+                                    *control_flow = event_loop::ControlFlow::Exit;
                                 }
                             }
-                        }
-                    }
+                        },
+                    },
                     WindowEvent::CursorMoved { position, .. } => {
                         core.state.mouse.pos.x = position.x as f32;
                         core.state.mouse.pos.y = position.y as f32;
                     }
-                    WindowEvent::MouseInput {button,state, .. } => {
-                        match button {
-                            MouseButton::Left => {core.state.mouse.left = match state {
-                                ElementState::Pressed => {true},ElementState::Released => {false}}
+                    WindowEvent::MouseInput { button, state, .. } => match button {
+                        MouseButton::Left => {
+                            core.state.mouse.left = match state {
+                                ElementState::Pressed => true,
+                                ElementState::Released => false,
                             }
-                            MouseButton::Right => {core.state.mouse.right = match state {
-                                ElementState::Pressed => {true},ElementState::Released => {false}}
-                            }
-                            MouseButton::Middle => {core.state.mouse.middle = match state {
-                                ElementState::Pressed => {true},ElementState::Released => {false}}
-                            }
-                            MouseButton::Other(_) => {}
                         }
-                    }
+                        MouseButton::Right => {
+                            core.state.mouse.right = match state {
+                                ElementState::Pressed => true,
+                                ElementState::Released => false,
+                            }
+                        }
+                        MouseButton::Middle => {
+                            core.state.mouse.middle = match state {
+                                ElementState::Pressed => true,
+                                ElementState::Released => false,
+                            }
+                        }
+                        MouseButton::Other(_) => {}
+                    },
                     _ => {}
                 }
             }

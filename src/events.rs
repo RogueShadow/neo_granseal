@@ -1,7 +1,7 @@
-use std::time::Duration;
 use crate::math::Vec2;
+use std::time::Duration;
 
-#[derive(Copy, Clone, Debug,PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Event {
     KeyEvent {
         state: KeyState,
@@ -190,9 +190,9 @@ pub fn map_events(event: &winit::event::WindowEvent) -> Option<Event> {
             },
             button: map_mouse_buttons(button),
         }),
-        winit::event::WindowEvent::CursorMoved {position, ..} => {
-            Some(Event::MouseMoved {position: Vec2::new(position.x as f32,position.y as f32)})
-        }
+        winit::event::WindowEvent::CursorMoved { position, .. } => Some(Event::MouseMoved {
+            position: Vec2::new(position.x as f32, position.y as f32),
+        }),
         _ => None,
     }
 }
@@ -210,7 +210,7 @@ pub fn map_keys(key: &winit::event::VirtualKeyCode) -> Key {
     use winit::event::VirtualKeyCode as V;
     use Key as G;
 
-    let key = match key {
+    match key {
         V::Escape => G::Escape,
         V::F1 => G::F1,
         V::F2 => G::F2,
@@ -315,7 +315,5 @@ pub fn map_keys(key: &winit::event::VirtualKeyCode) -> Key {
         V::Numpad0 => G::Num0,
         V::NumpadDecimal => G::NumDecimal,
         _ => G::NotImplemented,
-    };
-
-    key
+    }
 }

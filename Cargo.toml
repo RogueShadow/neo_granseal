@@ -37,3 +37,6 @@ test = false
 [[example]]
 name = "simplest_box"
 test = false
+
+[profile.release]
+debug = true

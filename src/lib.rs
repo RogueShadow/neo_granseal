@@ -1,28 +1,28 @@
 pub mod core;
 pub mod events;
 pub mod main_loop;
+pub mod math;
+pub mod mesh;
 pub mod shape_pipeline;
 pub mod util;
-pub mod mesh;
-pub mod math;
 
 pub mod prelude {
     pub use {
-        crate::GransealGameConfig,
-        crate::NeoGransealEventHandler,
-        crate::start,
-        crate::core::{NGCore,NGError},
+        crate::core::{NGCore, NGError},
         crate::events::Event,
-        crate::shape_pipeline::ShapeGfx,
-        crate::util::{Color},
         crate::math::Vec2,
         crate::mesh::MeshBuilder,
+        crate::shape_pipeline::ShapeGfx,
+        crate::start,
+        crate::util::Color,
+        crate::GransealGameConfig,
+        crate::NeoGransealEventHandler,
     };
 }
-use prelude::*;
 use crate::main_loop::main_loop;
+use prelude::*;
 use wgpu::util::DeviceExt;
-use winit::event_loop::{ EventLoopBuilder};
+use winit::event_loop::EventLoopBuilder;
 
 #[derive(Clone, Debug)]
 pub struct GransealGameConfig {
@@ -34,8 +34,8 @@ pub struct GransealGameConfig {
     pub simple_pipeline: bool,
     pub msaa: MSAA,
 }
-impl GransealGameConfig {
-    pub fn new() -> Self {
+impl Default for GransealGameConfig {
+    fn default() -> Self {
         Self {
             title: "Neo Granseal Engine".to_string(),
             width: 800,
@@ -46,12 +46,20 @@ impl GransealGameConfig {
             msaa: MSAA::Enable4x,
         }
     }
+}
+impl GransealGameConfig {
+    pub fn new() -> Self {
+        Self::default()
+    }
     pub fn title(mut self, title: String) -> Self {
         self.title = title;
         self
     }
     pub fn vsync(mut self, mode: bool) -> Self {
-        self.vsync = match mode {true => VSyncMode::AutoVsync,false => VSyncMode::AutoNoVsync};
+        self.vsync = match mode {
+            true => VSyncMode::AutoVsync,
+            false => VSyncMode::AutoNoVsync,
+        };
         self
     }
     pub fn clear_color(mut self, color: Color) -> Self {
@@ -63,7 +71,7 @@ impl GransealGameConfig {
         self.height = height;
         self
     }
-    pub fn msaa(mut self,v: MSAA) -> Self {
+    pub fn msaa(mut self, v: MSAA) -> Self {
         self.msaa = v;
         self
     }
@@ -102,7 +110,7 @@ pub trait NeoGransealEventHandler {
 }
 
 pub trait NGRenderPipeline {
-    fn render(&mut self, core: &mut NGCore) -> Result<(),NGError>;
+    fn render(&mut self, core: &mut NGCore) -> Result<(), NGError>;
     fn set_data(&mut self, data: Box<dyn std::any::Any>);
     fn set_globals(&mut self, globals: GlobalUniforms);
 }
@@ -121,7 +129,8 @@ impl GlobalUniforms {
                         [
                             core.window.inner_size().width as f32,
                             core.window.inner_size().height as f32,
-                        ].as_slice(),
+                        ]
+                        .as_slice(),
                     ),
                     usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                 });
@@ -134,17 +143,21 @@ impl GlobalUniforms {
                     ),
                     usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                 });
-        let scale_uniform_buffer = core.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Global Scale Uniform Buffer"),
-            contents: &core.state.scale.to_ne_bytes(),
-            usage: wgpu::BufferUsages::UNIFORM
-        });
-        let rotation_uniform_buffer = core.device.create_buffer_init(&wgpu::util::BufferInitDescriptor{
-            label: Some("Global Rotation Uniform Buffer"),
-            contents: &core.state.rotation.to_ne_bytes(),
-            usage: wgpu::BufferUsages::UNIFORM
-        });
-        
+        let scale_uniform_buffer =
+            core.device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Global Scale Uniform Buffer"),
+                    contents: &core.state.scale.to_ne_bytes(),
+                    usage: wgpu::BufferUsages::UNIFORM,
+                });
+        let rotation_uniform_buffer =
+            core.device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Global Rotation Uniform Buffer"),
+                    contents: &core.state.rotation.to_ne_bytes(),
+                    usage: wgpu::BufferUsages::UNIFORM,
+                });
+
         let bind_group_layout =
             core.device
                 .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -176,9 +189,9 @@ impl GlobalUniforms {
                             ty: wgpu::BindingType::Buffer {
                                 ty: wgpu::BufferBindingType::Uniform,
                                 has_dynamic_offset: false,
-                                min_binding_size: None
+                                min_binding_size: None,
                             },
-                            count: None
+                            count: None,
                         },
                         wgpu::BindGroupLayoutEntry {
                             binding: 3,
@@ -186,10 +199,10 @@ impl GlobalUniforms {
                             ty: wgpu::BindingType::Buffer {
                                 ty: wgpu::BufferBindingType::Uniform,
                                 has_dynamic_offset: false,
-                                min_binding_size: None
+                                min_binding_size: None,
                             },
-                            count: None
-                        }
+                            count: None,
+                        },
                     ],
                 });
         let bind_group = core.device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -211,7 +224,7 @@ impl GlobalUniforms {
                 wgpu::BindGroupEntry {
                     binding: 3,
                     resource: rotation_uniform_buffer.as_entire_binding(),
-                }
+                },
             ],
         });
         Self {
