@@ -1,4 +1,4 @@
-use num_traits::{AsPrimitive, MulAddAssign};
+use num_traits::AsPrimitive;
 use std::fmt::{Display, Formatter};
 use std::ops::*;
 
@@ -747,16 +747,16 @@ impl <T>DivAssign<T> for Vec3 where T: AsPrimitive<f32> {
 
 //////////////////////////////
 
-impl <T>Mul<Vec2> for T where T: AsPrimitive<f32> {
-    type Output = Vec2;
-
-    fn mul(self, rhs: Vec2) -> Self::Output {
-        Vec2 {
-            x: self.as_() * rhs.x,
-            y: self.as_() * rhs.y,
-        }
-    }
-}
+// impl <T>Mul<Vec2> for T where T: AsPrimitive<f32> {
+//     type Output = Vec2;
+//
+//     fn mul(self, rhs: Vec2) -> Self::Output {
+//         Vec2 {
+//             x: self.as_() * rhs.x,
+//             y: self.as_() * rhs.y,
+//         }
+//     }
+// }
 
 impl Add for Vec2 {
     type Output = Vec2;
@@ -1014,7 +1014,6 @@ impl Display for Vec2 {
 
 #[cfg(test)]
 mod tests {
-    use cgmath::Matrix4;
     use super::*;
 
     #[test]
