@@ -68,10 +68,9 @@ pub(crate) fn main_loop(
                             None => {}
                             Some(key) => {
                                 let ng_key = map_keys(&key);
-                                core.state.keys.insert(
-                                    ng_key,
-                                    state == ElementState::Pressed,
-                                );
+                                core.state
+                                    .keys
+                                    .insert(ng_key, state == ElementState::Pressed);
                                 if key == VirtualKeyCode::Escape {
                                     *control_flow = event_loop::ControlFlow::Exit;
                                 }

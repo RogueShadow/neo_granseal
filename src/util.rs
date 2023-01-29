@@ -230,7 +230,7 @@ impl Mul<Color> for Color {
     type Output = Color;
 
     fn mul(self, rhs: Color) -> Self::Output {
-        Color::rgb(self.r * rhs.r,self.g * rhs.g, self.b * rhs.b)
+        Color::rgb(self.r * rhs.r, self.g * rhs.g, self.b * rhs.b)
     }
 }
 impl From<Color> for wgpu::Color {
@@ -622,8 +622,7 @@ impl LineSegment {
         hit
     }
     pub fn intersection(&self, other: &Self) -> Option<Vec2> {
-        if let Some((t, u)) = intersect_t_u(&self.begin, &self.end, &other.begin, &other.end)
-        {
+        if let Some((t, u)) = intersect_t_u(&self.begin, &self.end, &other.begin, &other.end) {
             if u > 0.0 && u < 1.0 && t > 0.0 && t < 1.0 {
                 let x = other.begin.x + u * (other.end.x - other.begin.x);
                 let y = other.begin.y + u * (other.end.y - other.begin.y);

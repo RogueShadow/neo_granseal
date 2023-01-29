@@ -11,9 +11,7 @@ pub const TILE_SCALE: u32 = 64;
 pub const WIDTH: u32 = TILE_SCALE * 14;
 pub const HEIGHT: u32 = TILE_SCALE * 12;
 
-
 fn main() {
-
     println!("{:?}",
              (1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,
                  (1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,
@@ -121,7 +119,7 @@ impl Level {
     pub fn is_blocking(&self, p: Vec2) -> bool {
         let x = (p.x / TILE_SCALE as f32) as u32;
         let y = (p.y / TILE_SCALE as f32) as u32;
-        matches!(self.get_tile(x,y),b'g' | b'x')
+        matches!(self.get_tile(x, y), b'g' | b'x')
     }
     pub fn intersects(&self, hitbox: &Rectangle) -> bool {
         for hb in self.hit_boxes.iter() {

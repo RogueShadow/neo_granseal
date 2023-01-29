@@ -2,8 +2,8 @@ use crate::math::Vec2;
 use crate::mesh::*;
 use crate::{Color, GlobalUniforms, NGCore, NGError, NGRenderPipeline, MSAA};
 use bytemuck::{Pod, Zeroable};
-use wgpu::BufferAddress;
 use wgpu::util::DeviceExt;
+use wgpu::BufferAddress;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
@@ -167,8 +167,10 @@ impl SimpleShapeRenderPipeline {
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        let pixels = core.window.inner_size().width * core.window.inner_size().height * std::mem::size_of::<Color>() as u32;
-        let pixel_buffer = core.device.create_buffer( &wgpu::BufferDescriptor {
+        let pixels = core.window.inner_size().width
+            * core.window.inner_size().height
+            * std::mem::size_of::<Color>() as u32;
+        let pixel_buffer = core.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("SSR Pixel Buffer"),
             size: BufferAddress::from(pixels),
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
@@ -214,7 +216,7 @@ impl SimpleShapeRenderPipeline {
                             min_binding_size: None,
                         },
                         count: None,
-                    }
+                    },
                 ],
             });
         let data_bind_group = core.device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -232,7 +234,7 @@ impl SimpleShapeRenderPipeline {
                 wgpu::BindGroupEntry {
                     binding: 2,
                     resource: pixel_buffer.as_entire_binding(),
-                }
+                },
             ],
         });
         let globals = GlobalUniforms::new(core);

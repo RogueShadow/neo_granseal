@@ -1,4 +1,4 @@
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, Zero};
 use std::fmt::{Display, Formatter};
 use std::ops::*;
 
@@ -20,19 +20,67 @@ impl Matrix4x4 {
             row1: [1.0, 0.0, 0.0, 0.0],
             row2: [0.0, 1.0, 0.0, 0.0],
             row3: [0.0, 0.0, 1.0, 0.0],
-            row4: [0.0, 0.0, 0.0, 1.0]
+            row4: [0.0, 0.0, 0.0, 1.0],
         }
     }
-    pub fn proj(ar: f32, fov: f32, zfar: f32, znear: f32) -> Self {
+    pub fn projection(ar: f32, fov: f32, zfar: f32, znear: f32) -> Self {
         let fov = fov.to_radians();
         let f = 1.0 / f32::tan(fov * 0.5);
         let q = zfar / (zfar - znear);
 
         Self {
             row1: [ar * f, 0.0, 0.0, 0.0],
-            row2: [0.0, f, 0.0, 0.0 ],
+            row2: [0.0, f, 0.0, 0.0],
             row3: [0.0, 0.0, q, 1.0],
             row4: [0.0, 0.0, -(znear * q), 0.0],
+        }
+    }
+    pub fn translation<T>(x: T, y: T, z: T) -> Self
+    where
+        T: AsPrimitive<f32>,
+    {
+        Self {
+            row1: [1.0, 0.0, 0.0, x.as_()],
+            row2: [0.0, 1.0, 0.0, y.as_()],
+            row3: [0.0, 0.0, 1.0, z.as_()],
+            row4: [0.0, 0.0, 0.0, 1.0],
+        }
+    }
+    pub fn rotation_x(theta: f32) -> Self {
+        Self {
+            row1: [1.0, 0.0, 0.0, 0.0],
+            row2: [0.0, theta.cos(), -theta.sin(), 0.0],
+            row3: [0.0, theta.sin(), theta.cos(), 0.0],
+            row4: [0.0, 0.0, 0.0, 1.0],
+        }
+    }
+    pub fn rotation_y(theta: f32) -> Self {
+        Self {
+            row1: [theta.cos(), 0.0, theta.sin(), 0.0],
+            row2: [0.0, 1.0, 0.0, 0.0],
+            row3: [-theta.sin(), 0.0, theta.cos(), 0.0],
+            row4: [0.0, 0.0, 0.0, 1.0],
+        }
+    }
+    pub fn rotation_z(theta: f32) -> Self {
+        Self {
+            row1: [theta.cos(), -theta.sin(), 0.0, 0.0],
+            row2: [theta.sin(), theta.cos(), 0.0, 0.0],
+            row3: [0.0, 0.0, 1.0, 0.0],
+            row4: [0.0, 0.0, 0.0, 1.0],
+        }
+    }
+    pub fn point_at(position: &Vec3, target: &Vec3, up: &Vec3) -> Matrix4x4 {
+        let forward = (*target - *position).normalize();
+
+        let a = forward * (up.dot(&forward));
+        let up = (*up - a).normalize();
+        let right = up.cross(&forward);
+        Matrix4x4 {
+            row1: [right.x, right.y, right.z, 0.0],
+            row2: [up.x, up.y, up.z, 0.0],
+            row3: [forward.x, forward.y, forward.z, 0.0],
+            row4: [position.x, position.y, position.z, 1.0],
         }
     }
     /// Column's indexes are 1,2,3,4 to follow standard math notation.
@@ -47,10 +95,10 @@ impl Matrix4x4 {
     /// Row's indexes are 1,2,3,4 to follow standard math notation.
     pub fn row(&self, index: usize) -> Vec4 {
         return match index {
-            1 => Vec4::new(self.row1[0], self.row1[1], self.row1[2],self.row1[3]),
-            2 => Vec4::new(self.row2[0], self.row2[1], self.row2[2],self.row2[3]),
-            3 => Vec4::new(self.row3[0], self.row3[1], self.row3[2],self.row3[3]),
-            4 => Vec4::new(self.row4[0], self.row4[1], self.row4[2],self.row4[3]),
+            1 => Vec4::new(self.row1[0], self.row1[1], self.row1[2], self.row1[3]),
+            2 => Vec4::new(self.row2[0], self.row2[1], self.row2[2], self.row2[3]),
+            3 => Vec4::new(self.row3[0], self.row3[1], self.row3[2], self.row3[3]),
+            4 => Vec4::new(self.row4[0], self.row4[1], self.row4[2], self.row4[3]),
             _ => {
                 panic!("Index out of bounds.")
             }
@@ -61,7 +109,7 @@ impl Matrix4x4 {
             row1: [self.row1[0], self.row2[0], self.row3[0], self.row4[0]],
             row2: [self.row1[1], self.row2[1], self.row3[1], self.row4[1]],
             row3: [self.row1[2], self.row2[2], self.row3[2], self.row4[2]],
-            row4: [self.row1[3], self.row2[3], self.row3[3], self.row4[3]]
+            row4: [self.row1[3], self.row2[3], self.row3[3], self.row4[3]],
         }
     }
     pub fn coefficient(&self, row: usize, column: usize) -> f32 {
@@ -89,16 +137,28 @@ impl Matrix4x4 {
         let row = (1..=4).filter(|r| *r != row).collect::<Vec<usize>>();
         let column = (1..=4).filter(|c| *c != column).collect::<Vec<usize>>();
         Matrix3x3 {
-            row1: [self.coefficient(row[0],column[0]),self.coefficient(row[0],column[1]),self.coefficient(row[0],column[2])],
-            row2: [self.coefficient(row[1],column[0]),self.coefficient(row[1],column[1]),self.coefficient(row[1],column[2])],
-            row3: [self.coefficient(row[2],column[0]),self.coefficient(row[2],column[1]),self.coefficient(row[2],column[2])],
+            row1: [
+                self.coefficient(row[0], column[0]),
+                self.coefficient(row[0], column[1]),
+                self.coefficient(row[0], column[2]),
+            ],
+            row2: [
+                self.coefficient(row[1], column[0]),
+                self.coefficient(row[1], column[1]),
+                self.coefficient(row[1], column[2]),
+            ],
+            row3: [
+                self.coefficient(row[2], column[0]),
+                self.coefficient(row[2], column[1]),
+                self.coefficient(row[2], column[2]),
+            ],
         }
     }
     pub fn determinant(&self) -> f32 {
-        self.coefficient(1,1) * self.minor(1,1).determinant()
-            - self.coefficient(1,2) * self.minor(1,2).determinant()
-            + self.coefficient(1,3) * self.minor(1,3).determinant()
-            - self.coefficient(1,4) * self.minor(1,4).determinant()
+        self.coefficient(1, 1) * self.minor(1, 1).determinant()
+            - self.coefficient(1, 2) * self.minor(1, 2).determinant()
+            + self.coefficient(1, 3) * self.minor(1, 3).determinant()
+            - self.coefficient(1, 4) * self.minor(1, 4).determinant()
     }
     pub fn cofactor(&self, row: usize, column: usize) -> f32 {
         f32::powf(-1.0, (row + column) as f32) * self.minor(row, column).determinant()
@@ -128,13 +188,18 @@ impl Matrix4x4 {
                 self.cofactor(4, 2),
                 self.cofactor(4, 3),
                 self.cofactor(4, 4),
-            ]
+            ],
         };
         cofactor_matrix.transpose()
     }
-    pub fn inverse(&self) -> Self {
-        let scalar = 1.0 / self.determinant();
-        scalar * self.adjugate()
+    pub fn inverse(&self) -> Option<Self> {
+        let det = self.determinant();
+        if det > f32::EPSILON || det < -f32::EPSILON {
+            let scalar = 1.0 / det;
+            Some(scalar * self.adjugate())
+        } else {
+            None
+        }
     }
 }
 
@@ -171,7 +236,7 @@ impl Matrix3x3 {
         Self {
             row1: [theta.cos(), -theta.sin(), 0.0],
             row2: [theta.sin(), theta.cos(), 0.0],
-            row3: [0.0,0.0,1.0],
+            row3: [0.0, 0.0, 1.0],
         }
     }
     /// Column's indexes are 1,2,3 to follow standard math notation.
@@ -180,6 +245,7 @@ impl Matrix3x3 {
             x: self.row1[index - 1],
             y: self.row2[index - 1],
             z: self.row3[index - 1],
+            w: 1.0,
         }
     }
     /// Row's indexes are 1,2,3 to follow standard math notation.
@@ -193,13 +259,10 @@ impl Matrix3x3 {
             }
         };
     }
-    pub fn is_invertible(&self) -> bool {
-        self.determinant() != 0.0
-    }
     pub fn determinant(&self) -> f32 {
-        self.coefficient(1,1) * self.minor(1,1).determinant()
-        - self.coefficient(1,2) * self.minor(1,2).determinant()
-        + self.coefficient(1,3) * self.minor(1,3).determinant()
+        self.coefficient(1, 1) * self.minor(1, 1).determinant()
+            - self.coefficient(1, 2) * self.minor(1, 2).determinant()
+            + self.coefficient(1, 3) * self.minor(1, 3).determinant()
     }
     pub fn transpose(&self) -> Self {
         Self {
@@ -212,8 +275,14 @@ impl Matrix3x3 {
         let row = (1..=3).filter(|r| *r != row).collect::<Vec<usize>>();
         let column = (1..=3).filter(|c| *c != column).collect::<Vec<usize>>();
         Matrix2x2 {
-            row1: [self.coefficient(row[0],column[0]),self.coefficient(row[0],column[1])],
-            row2: [self.coefficient(row[1],column[0]),self.coefficient(row[1],column[1])],
+            row1: [
+                self.coefficient(row[0], column[0]),
+                self.coefficient(row[0], column[1]),
+            ],
+            row2: [
+                self.coefficient(row[1], column[0]),
+                self.coefficient(row[1], column[1]),
+            ],
         }
     }
     pub fn coefficient(&self, row: usize, column: usize) -> f32 {
@@ -253,9 +322,14 @@ impl Matrix3x3 {
         };
         cofactor_matrix.transpose()
     }
-    pub fn inverse(&self) -> Self {
-        let scalar = 1.0 / self.determinant();
-        scalar * self.adjugate()
+    pub fn inverse(&self) -> Option<Self> {
+        let det = self.determinant();
+        if det > f32::EPSILON || det < -f32::EPSILON {
+            let scalar = 1.0 / det;
+            Some(scalar * self.adjugate())
+        } else {
+            None
+        }
     }
 }
 
@@ -306,19 +380,24 @@ impl Matrix2x2 {
             _ => panic!("Index out of bounds, row/col"),
         }
     }
-    pub fn inverse(&self) -> Self {
-        let scalar = 1.0 / self.determinant();
-        let step1 = Self {
-            row1: [self.row2[1], -self.row1[1]],
-            row2: [-self.row2[0], self.row1[0]],
-        };
-        scalar * step1
+    pub fn inverse(&self) -> Option<Self> {
+        let det = self.determinant();
+        if det > f32::EPSILON || det < -f32::EPSILON {
+            let scalar = 1.0 / det;
+            let step1 = Self {
+                row1: [self.row2[1], -self.row1[1]],
+                row2: [-self.row2[0], self.row1[0]],
+            };
+            Some(scalar * step1)
+        } else {
+            None
+        }
     }
 }
 
 /**
-        Vector Structs
- **/
+       Vector Structs
+**/
 
 /// 4 component Vector x y z w
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -345,14 +424,32 @@ impl Vec4 {
     pub fn dot(&self, rhs: &Self) -> f32 {
         self.x * rhs.x + self.y * rhs.y + self.z * rhs.z + self.w * rhs.w
     }
+    pub fn to_vec3(&self) -> Vec3 {
+        Vec3 {
+            x: self.x,
+            y: self.y,
+            z: self.z,
+            w: 1.0,
+        }
+    }
+    pub fn to_vec2(&self) -> Vec2 {
+        Vec2 {
+            x: self.x,
+            y: self.y,
+        }
+    }
+    pub fn cross(&self, rhs: &Self) -> Self {
+        (self.to_vec3().cross(&rhs.to_vec3())).to_vec4()
+    }
 }
 
-/// 3 component Vector x y z
+/// 3 component Vector x y z. Also w, so you can treat it like a 3d vector, and still use the transformation matrices.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Vec3 {
     pub x: f32,
     pub y: f32,
     pub z: f32,
+    pub w: f32,
 }
 impl Vec3 {
     pub fn new(
@@ -364,6 +461,7 @@ impl Vec3 {
             x: x.as_(),
             y: y.as_(),
             z: z.as_(),
+            w: 1.0,
         }
     }
     pub fn dot(&self, rhs: &Self) -> f32 {
@@ -374,6 +472,7 @@ impl Vec3 {
             x: self.y * rhs.z - self.z * rhs.y,
             y: self.z * rhs.x - self.x * rhs.z,
             z: self.x * rhs.y - self.y * rhs.x,
+            w: self.w,
         }
     }
     pub fn angle(&self) -> (f32, f32) {
@@ -382,11 +481,25 @@ impl Vec3 {
         (phi, theta)
     }
     pub fn magnitude(&self) -> f32 {
-        (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
+        (self.dot(&self)).sqrt()
     }
     pub fn normalize(&self) -> Self {
         let len = self.magnitude();
         Self::new(self.x / len, self.y / len, self.z / len)
+    }
+    pub fn to_vec4(&self) -> Vec4 {
+        Vec4 {
+            x: self.x,
+            y: self.y,
+            z: self.z,
+            w: self.w,
+        }
+    }
+    pub fn to_vec2(&self) -> Vec2 {
+        Vec2 {
+            x: self.x,
+            y: self.y,
+        }
     }
 }
 
@@ -423,11 +536,27 @@ impl Vec2 {
     pub fn project(&self, rhs: &Self) -> f32 {
         self.dot(rhs) / rhs.magnitude()
     }
+    pub fn to_vec4(&self) -> Vec4 {
+        Vec4 {
+            x: self.x,
+            y: self.y,
+            z: 0.0,
+            w: 1.0,
+        }
+    }
+    pub fn to_vec3(&self) -> Vec3 {
+        Vec3 {
+            x: self.x,
+            y: self.y,
+            z: 0.0,
+            w: 1.0,
+        }
+    }
 }
 
 /**
-        Operator Overrides
- **/
+       Operator Overrides
+**/
 
 impl Add for Vec4 {
     type Output = Vec4;
@@ -509,7 +638,22 @@ impl DivAssign for Vec4 {
         self.w /= rhs.w;
     }
 }
-impl <T>Add<T> for Vec4 where T: AsPrimitive<f32> {
+impl Neg for Vec4 {
+    type Output = Vec4;
+
+    fn neg(self) -> Self::Output {
+        Self {
+            x: -self.x,
+            y: -self.y,
+            z: -self.z,
+            w: -self.w,
+        }
+    }
+}
+impl<T> Add<T> for Vec4
+where
+    T: AsPrimitive<f32>,
+{
     type Output = Vec4;
 
     fn add(self, rhs: T) -> Self::Output {
@@ -522,7 +666,10 @@ impl <T>Add<T> for Vec4 where T: AsPrimitive<f32> {
         }
     }
 }
-impl <T>Sub<T> for Vec4 where T: AsPrimitive<f32> {
+impl<T> Sub<T> for Vec4
+where
+    T: AsPrimitive<f32>,
+{
     type Output = Vec4;
 
     fn sub(self, rhs: T) -> Self::Output {
@@ -535,7 +682,10 @@ impl <T>Sub<T> for Vec4 where T: AsPrimitive<f32> {
         }
     }
 }
-impl <T>Mul<T> for Vec4 where T: AsPrimitive<f32> {
+impl<T> Mul<T> for Vec4
+where
+    T: AsPrimitive<f32>,
+{
     type Output = Vec4;
 
     fn mul(self, rhs: T) -> Self::Output {
@@ -548,7 +698,10 @@ impl <T>Mul<T> for Vec4 where T: AsPrimitive<f32> {
         }
     }
 }
-impl <T>Div<T> for Vec4 where T: AsPrimitive<f32> {
+impl<T> Div<T> for Vec4
+where
+    T: AsPrimitive<f32>,
+{
     type Output = Vec4;
 
     fn div(self, rhs: T) -> Self::Output {
@@ -561,7 +714,10 @@ impl <T>Div<T> for Vec4 where T: AsPrimitive<f32> {
         }
     }
 }
-impl <T>AddAssign<T> for Vec4 where T: AsPrimitive<f32> {
+impl<T> AddAssign<T> for Vec4
+where
+    T: AsPrimitive<f32>,
+{
     fn add_assign(&mut self, rhs: T) {
         let rhs = rhs.as_();
         self.x += rhs;
@@ -570,7 +726,10 @@ impl <T>AddAssign<T> for Vec4 where T: AsPrimitive<f32> {
         self.w += rhs;
     }
 }
-impl <T>SubAssign<T> for Vec4 where T: AsPrimitive<f32> {
+impl<T> SubAssign<T> for Vec4
+where
+    T: AsPrimitive<f32>,
+{
     fn sub_assign(&mut self, rhs: T) {
         let rhs = rhs.as_();
         self.x -= rhs;
@@ -579,7 +738,10 @@ impl <T>SubAssign<T> for Vec4 where T: AsPrimitive<f32> {
         self.w -= rhs;
     }
 }
-impl <T>MulAssign<T> for Vec4 where T: AsPrimitive<f32> {
+impl<T> MulAssign<T> for Vec4
+where
+    T: AsPrimitive<f32>,
+{
     fn mul_assign(&mut self, rhs: T) {
         let rhs = rhs.as_();
         self.x *= rhs;
@@ -588,8 +750,9 @@ impl <T>MulAssign<T> for Vec4 where T: AsPrimitive<f32> {
         self.w *= rhs;
     }
 }
-impl <T>DivAssign<T> for Vec4
-    where T: AsPrimitive<f32>
+impl<T> DivAssign<T> for Vec4
+where
+    T: AsPrimitive<f32>,
 {
     fn div_assign(&mut self, rhs: T) {
         let d = rhs.as_();
@@ -611,7 +774,7 @@ impl Sub for Vec3 {
     type Output = Vec3;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        Vec3::new(self.x - rhs.x, self.y - rhs.y,self.z - rhs.z)
+        Vec3::new(self.x - rhs.x, self.y - rhs.y, self.z - rhs.z)
     }
 }
 impl Mul for Vec3 {
@@ -622,6 +785,7 @@ impl Mul for Vec3 {
             x: self.x * rhs.x,
             y: self.y * rhs.y,
             z: self.z * rhs.z,
+            w: self.w,
         }
     }
 }
@@ -633,6 +797,7 @@ impl Div for Vec3 {
             x: self.x / rhs.x,
             y: self.y / rhs.y,
             z: self.z / rhs.z,
+            w: self.w,
         }
     }
 }
@@ -664,7 +829,22 @@ impl DivAssign for Vec3 {
         self.z /= rhs.z;
     }
 }
-impl <T>Add<T> for Vec3 where T: AsPrimitive<f32> {
+impl Neg for Vec3 {
+    type Output = Vec3;
+
+    fn neg(self) -> Self::Output {
+        Self {
+            x: -self.x,
+            y: -self.y,
+            z: -self.z,
+            w: self.w,
+        }
+    }
+}
+impl<T> Add<T> for Vec3
+where
+    T: AsPrimitive<f32>,
+{
     type Output = Vec3;
 
     fn add(self, rhs: T) -> Self::Output {
@@ -673,10 +853,14 @@ impl <T>Add<T> for Vec3 where T: AsPrimitive<f32> {
             x: self.x + rhs,
             y: self.y + rhs,
             z: self.z + rhs,
+            w: self.w,
         }
     }
 }
-impl <T>Sub<T> for Vec3 where T: AsPrimitive<f32> {
+impl<T> Sub<T> for Vec3
+where
+    T: AsPrimitive<f32>,
+{
     type Output = Vec3;
 
     fn sub(self, rhs: T) -> Self::Output {
@@ -685,10 +869,14 @@ impl <T>Sub<T> for Vec3 where T: AsPrimitive<f32> {
             x: self.x - rhs,
             y: self.y - rhs,
             z: self.z - rhs,
+            w: self.w,
         }
     }
 }
-impl <T>Mul<T> for Vec3 where T: AsPrimitive<f32> {
+impl<T> Mul<T> for Vec3
+where
+    T: AsPrimitive<f32>,
+{
     type Output = Vec3;
 
     fn mul(self, rhs: T) -> Self::Output {
@@ -697,10 +885,14 @@ impl <T>Mul<T> for Vec3 where T: AsPrimitive<f32> {
             x: self.x * rhs,
             y: self.y * rhs,
             z: self.z * rhs,
+            w: self.w,
         }
     }
 }
-impl <T>Div<T> for Vec3 where T: AsPrimitive<f32> {
+impl<T> Div<T> for Vec3
+where
+    T: AsPrimitive<f32>,
+{
     type Output = Vec3;
 
     fn div(self, rhs: T) -> Self::Output {
@@ -709,10 +901,14 @@ impl <T>Div<T> for Vec3 where T: AsPrimitive<f32> {
             x: self.x / rhs,
             y: self.y / rhs,
             z: self.z / rhs,
+            w: self.w,
         }
     }
 }
-impl <T>AddAssign<T> for Vec3 where T: AsPrimitive<f32> {
+impl<T> AddAssign<T> for Vec3
+where
+    T: AsPrimitive<f32>,
+{
     fn add_assign(&mut self, rhs: T) {
         let rhs = rhs.as_();
         self.x += rhs;
@@ -720,7 +916,10 @@ impl <T>AddAssign<T> for Vec3 where T: AsPrimitive<f32> {
         self.z += rhs;
     }
 }
-impl <T>SubAssign<T> for Vec3 where T: AsPrimitive<f32> {
+impl<T> SubAssign<T> for Vec3
+where
+    T: AsPrimitive<f32>,
+{
     fn sub_assign(&mut self, rhs: T) {
         let rhs = rhs.as_();
         self.x -= rhs;
@@ -728,7 +927,10 @@ impl <T>SubAssign<T> for Vec3 where T: AsPrimitive<f32> {
         self.z -= rhs;
     }
 }
-impl <T>MulAssign<T> for Vec3 where T: AsPrimitive<f32> {
+impl<T> MulAssign<T> for Vec3
+where
+    T: AsPrimitive<f32>,
+{
     fn mul_assign(&mut self, rhs: T) {
         let rhs = rhs.as_();
         self.x *= rhs;
@@ -736,7 +938,10 @@ impl <T>MulAssign<T> for Vec3 where T: AsPrimitive<f32> {
         self.z *= rhs;
     }
 }
-impl <T>DivAssign<T> for Vec3 where T: AsPrimitive<f32> {
+impl<T> DivAssign<T> for Vec3
+where
+    T: AsPrimitive<f32>,
+{
     fn div_assign(&mut self, rhs: T) {
         let rhs = rhs.as_();
         self.x /= rhs;
@@ -817,7 +1022,10 @@ impl Neg for Vec2 {
         Vec2::new(-self.x, -self.y)
     }
 }
-impl <T>Add<T> for Vec2 where T: AsPrimitive<f32> {
+impl<T> Add<T> for Vec2
+where
+    T: AsPrimitive<f32>,
+{
     type Output = Vec2;
 
     fn add(self, rhs: T) -> Self::Output {
@@ -828,7 +1036,10 @@ impl <T>Add<T> for Vec2 where T: AsPrimitive<f32> {
         }
     }
 }
-impl <T>Sub<T> for Vec2 where T: AsPrimitive<f32> {
+impl<T> Sub<T> for Vec2
+where
+    T: AsPrimitive<f32>,
+{
     type Output = Vec2;
 
     fn sub(self, rhs: T) -> Self::Output {
@@ -839,7 +1050,10 @@ impl <T>Sub<T> for Vec2 where T: AsPrimitive<f32> {
         }
     }
 }
-impl <T>Mul<T> for Vec2 where T: AsPrimitive<f32> {
+impl<T> Mul<T> for Vec2
+where
+    T: AsPrimitive<f32>,
+{
     type Output = Vec2;
 
     fn mul(self, rhs: T) -> Self::Output {
@@ -850,7 +1064,10 @@ impl <T>Mul<T> for Vec2 where T: AsPrimitive<f32> {
         }
     }
 }
-impl <T>Div<T> for Vec2 where T: AsPrimitive<f32> {
+impl<T> Div<T> for Vec2
+where
+    T: AsPrimitive<f32>,
+{
     type Output = Vec2;
 
     fn div(self, rhs: T) -> Self::Output {
@@ -861,28 +1078,40 @@ impl <T>Div<T> for Vec2 where T: AsPrimitive<f32> {
         }
     }
 }
-impl <T>AddAssign<T> for Vec2 where T: AsPrimitive<f32> {
+impl<T> AddAssign<T> for Vec2
+where
+    T: AsPrimitive<f32>,
+{
     fn add_assign(&mut self, rhs: T) {
         let rhs = rhs.as_();
         self.x += rhs;
         self.y += rhs;
     }
 }
-impl <T>SubAssign<T> for Vec2 where T: AsPrimitive<f32> {
+impl<T> SubAssign<T> for Vec2
+where
+    T: AsPrimitive<f32>,
+{
     fn sub_assign(&mut self, rhs: T) {
         let rhs = rhs.as_();
         self.x -= rhs;
         self.y -= rhs;
     }
 }
-impl <T>MulAssign<T> for Vec2 where T: AsPrimitive<f32> {
+impl<T> MulAssign<T> for Vec2
+where
+    T: AsPrimitive<f32>,
+{
     fn mul_assign(&mut self, rhs: T) {
         let rhs = rhs.as_();
         self.x *= rhs;
         self.y *= rhs;
     }
 }
-impl <T>DivAssign<T> for Vec2 where T: AsPrimitive<f32> {
+impl<T> DivAssign<T> for Vec2
+where
+    T: AsPrimitive<f32>,
+{
     fn div_assign(&mut self, rhs: T) {
         let rhs = rhs.as_();
         self.x /= rhs;
@@ -975,10 +1204,17 @@ impl Display for Matrix3x3 {
         f.write_str(
             format!(
                 "{:5} {:5} {:5}\n{:5} {:5} {:5}\n{:5} {:5} {:5}\n",
-                self.row1[0], self.row1[1], self.row1[2],
-                self.row2[0], self.row2[1], self.row2[2],
-                self.row3[0], self.row3[1], self.row3[2]
-            ).as_str(),
+                self.row1[0],
+                self.row1[1],
+                self.row1[2],
+                self.row2[0],
+                self.row2[1],
+                self.row2[2],
+                self.row3[0],
+                self.row3[1],
+                self.row3[2]
+            )
+            .as_str(),
         )
     }
 }
@@ -996,21 +1232,247 @@ impl Display for Matrix2x2 {
 
 impl Display for Vec4 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str(format!("[{} {} {} {}]",self.x,self.y,self.z,self.w).as_str())
+        f.write_str(format!("[{} {} {} {}]", self.x, self.y, self.z, self.w).as_str())
     }
 }
 impl Display for Vec3 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str(format!("[{} {} {}]",self.x,self.y,self.z).as_str())
+        f.write_str(format!("[{} {} {}]", self.x, self.y, self.z).as_str())
     }
 }
 impl Display for Vec2 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str(format!("[{} {}]",self.x,self.y).as_str())
+        f.write_str(format!("[{} {}]", self.x, self.y).as_str())
     }
 }
 
+impl Mul<Matrix2x2> for Matrix2x2 {
+    type Output = Matrix2x2;
 
+    fn mul(self, rhs: Matrix2x2) -> Self::Output {
+        Self {
+            row1: [
+                self.row(1).dot(&rhs.column(1)),
+                self.row(1).dot(&rhs.column(2)),
+            ],
+            row2: [
+                self.row(2).dot(&rhs.column(1)),
+                self.row(2).dot(&rhs.column(2)),
+            ],
+        }
+    }
+}
+impl Mul<Matrix3x3> for Matrix3x3 {
+    type Output = Matrix3x3;
+
+    fn mul(self, rhs: Matrix3x3) -> Self::Output {
+        Self {
+            row1: [
+                self.row(1).dot(&rhs.column(1)),
+                self.row(1).dot(&rhs.column(2)),
+                self.row(1).dot(&rhs.column(3)),
+            ],
+            row2: [
+                self.row(2).dot(&rhs.column(1)),
+                self.row(2).dot(&rhs.column(2)),
+                self.row(2).dot(&rhs.column(3)),
+            ],
+            row3: [
+                self.row(3).dot(&rhs.column(1)),
+                self.row(3).dot(&rhs.column(2)),
+                self.row(3).dot(&rhs.column(3)),
+            ],
+        }
+    }
+}
+impl Mul<Matrix4x4> for Matrix4x4 {
+    type Output = Matrix4x4;
+
+    fn mul(self, rhs: Matrix4x4) -> Self::Output {
+        Self {
+            row1: [
+                self.row(1).dot(&rhs.column(1)),
+                self.row(1).dot(&rhs.column(2)),
+                self.row(1).dot(&rhs.column(3)),
+                self.row(1).dot(&rhs.column(4)),
+            ],
+            row2: [
+                self.row(2).dot(&rhs.column(1)),
+                self.row(2).dot(&rhs.column(2)),
+                self.row(2).dot(&rhs.column(3)),
+                self.row(2).dot(&rhs.column(4)),
+            ],
+            row3: [
+                self.row(3).dot(&rhs.column(1)),
+                self.row(3).dot(&rhs.column(2)),
+                self.row(3).dot(&rhs.column(3)),
+                self.row(3).dot(&rhs.column(4)),
+            ],
+            row4: [
+                self.row(4).dot(&rhs.column(1)),
+                self.row(4).dot(&rhs.column(2)),
+                self.row(4).dot(&rhs.column(3)),
+                self.row(4).dot(&rhs.column(4)),
+            ],
+        }
+    }
+}
+impl Mul<Vec2> for Matrix2x2 {
+    type Output = Vec2;
+
+    fn mul(self, rhs: Vec2) -> Self::Output {
+        Vec2::new(self.row(1).dot(&rhs), self.row(2).dot(&rhs))
+    }
+}
+impl Mul<Vec3> for Matrix3x3 {
+    type Output = Vec3;
+
+    fn mul(self, rhs: Vec3) -> Self::Output {
+        Vec3::new(
+            self.row(1).dot(&rhs),
+            self.row(2).dot(&rhs),
+            self.row(3).dot(&rhs),
+        )
+    }
+}
+impl Mul<Vec4> for Matrix4x4 {
+    type Output = Vec4;
+
+    fn mul(self, rhs: Vec4) -> Self::Output {
+        Vec4::new(
+            self.row(1).dot(&rhs),
+            self.row(2).dot(&rhs),
+            self.row(3).dot(&rhs),
+            self.row(4).dot(&rhs),
+        )
+    }
+}
+impl Mul<Vec3> for Matrix4x4 {
+    type Output = Vec3;
+
+    fn mul(self, rhs: Vec3) -> Self::Output {
+        Vec3 {
+            x: self.row(1).dot(&rhs.to_vec4()),
+            y: self.row(2).dot(&rhs.to_vec4()),
+            z: self.row(3).dot(&rhs.to_vec4()),
+            w: self.row(4).dot(&rhs.to_vec4()),
+        }
+    }
+}
+impl Mul<f32> for Matrix2x2 {
+    type Output = Matrix2x2;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Matrix2x2 {
+            row1: [self.row1[0] * rhs, self.row1[1] * rhs],
+            row2: [self.row2[0] * rhs, self.row2[1] * rhs],
+        }
+    }
+}
+impl Mul<Matrix2x2> for f32 {
+    type Output = Matrix2x2;
+
+    fn mul(self, rhs: Matrix2x2) -> Self::Output {
+        rhs * self
+    }
+}
+
+impl Mul<Matrix3x3> for f32 {
+    type Output = Matrix3x3;
+
+    fn mul(self, rhs: Matrix3x3) -> Self::Output {
+        rhs * self
+    }
+}
+impl Mul<Matrix4x4> for f32 {
+    type Output = Matrix4x4;
+
+    fn mul(self, rhs: Matrix4x4) -> Self::Output {
+        rhs * self
+    }
+}
+impl<T> Mul<T> for Matrix4x4
+where
+    T: AsPrimitive<f32>,
+{
+    type Output = Matrix4x4;
+
+    fn mul(self, rhs: T) -> Self::Output {
+        let rhs = rhs.as_();
+        Matrix4x4 {
+            row1: [
+                self.row1[0] * rhs,
+                self.row1[1] * rhs,
+                self.row1[2] * rhs,
+                self.row1[3] * rhs,
+            ],
+            row2: [
+                self.row2[0] * rhs,
+                self.row2[1] * rhs,
+                self.row2[2] * rhs,
+                self.row2[3] * rhs,
+            ],
+            row3: [
+                self.row3[0] * rhs,
+                self.row3[1] * rhs,
+                self.row3[2] * rhs,
+                self.row3[3] * rhs,
+            ],
+            row4: [
+                self.row4[0] * rhs,
+                self.row4[1] * rhs,
+                self.row4[2] * rhs,
+                self.row4[3] * rhs,
+            ],
+        }
+    }
+}
+impl Mul<f32> for Matrix3x3 {
+    type Output = Matrix3x3;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Matrix3x3 {
+            row1: [self.row1[0] * rhs, self.row1[1] * rhs, self.row1[2] * rhs],
+            row2: [self.row2[0] * rhs, self.row2[1] * rhs, self.row2[2] * rhs],
+            row3: [self.row3[0] * rhs, self.row3[1] * rhs, self.row3[2] * rhs],
+        }
+    }
+}
+
+impl Sub for Matrix2x2 {
+    type Output = Matrix2x2;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Matrix2x2 {
+            row1: [self.row1[0] - rhs.row1[0], self.row1[1] - rhs.row1[1]],
+            row2: [self.row2[0] - rhs.row2[0], self.row2[1] - rhs.row2[1]],
+        }
+    }
+}
+
+impl Sub for Matrix3x3 {
+    type Output = Matrix3x3;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Matrix3x3 {
+            row1: [
+                self.row1[0] - rhs.row1[0],
+                self.row1[1] - rhs.row1[1],
+                self.row1[2] - rhs.row1[2],
+            ],
+            row2: [
+                self.row2[0] - rhs.row2[0],
+                self.row2[1] - rhs.row2[1],
+                self.row2[2] - rhs.row2[2],
+            ],
+            row3: [
+                self.row3[0] - rhs.row3[0],
+                self.row3[1] - rhs.row3[1],
+                self.row3[2] - rhs.row3[2],
+            ],
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -1184,13 +1646,13 @@ mod tests {
             row2: [2.0, 4.0, 8.0],
             row3: [2.0, 4.0, 8.0],
         };
-        assert!(!matrix.is_invertible());
+        assert!(matrix.inverse().is_none());
         let matrix2 = Matrix3x3 {
             row1: [1.0, 2.0, 3.0],
             row2: [2.0, 4.0, 3.0],
             row3: [2.0, 8.0, 2.0],
         };
-        assert!(matrix2.is_invertible());
+        assert!(matrix2.inverse().is_some());
     }
     #[test]
     fn test_matrix2x2_determinant() {
@@ -1293,7 +1755,7 @@ mod tests {
             row1: [3.0, 5.0],
             row2: [-2.0, -4.0],
         };
-        let m_i = m.inverse();
+        let m_i = m.inverse().unwrap();
         assert_eq!(
             m_i,
             Matrix2x2 {
@@ -1307,7 +1769,7 @@ mod tests {
             row3: [4.0, 2.0, 0.0],
         };
         assert_eq!(
-            m3.inverse(),
+            m3.inverse().unwrap(),
             Matrix3x3 {
                 row1: [1.0, -1.0, 0.0],
                 row2: [-2.0, 2.0, 0.5],
@@ -1324,9 +1786,9 @@ mod tests {
             row4: [0.0, 2.0, 1.0, 1.0],
         };
         assert_eq!(
-            m.inverse(),
+            m.inverse().unwrap(),
             Matrix4x4 {
-                row1: [0.25, -0.0, -0.0,-0.5],
+                row1: [0.25, -0.0, -0.0, -0.5],
                 row2: [0.0, -0.0, -0.2, 0.4],
                 row3: [0.0, -0.25, 0.25, 0.25],
                 row4: [0.0, 0.25, 0.15, -0.05],
@@ -1403,201 +1865,5 @@ mod tests {
                 row2: [4.0, 5.0]
             }
         );
-    }
-}
-
-impl Mul<Matrix2x2> for Matrix2x2 {
-    type Output = Matrix2x2;
-
-    fn mul(self, rhs: Matrix2x2) -> Self::Output {
-        Self {
-            row1: [
-                self.row(1).dot(&rhs.column(1)),
-                self.row(1).dot(&rhs.column(2)),
-            ],
-            row2: [
-                self.row(2).dot(&rhs.column(1)),
-                self.row(2).dot(&rhs.column(2)),
-            ],
-        }
-    }
-}
-impl Mul<Matrix3x3> for Matrix3x3 {
-    type Output = Matrix3x3;
-
-    fn mul(self, rhs: Matrix3x3) -> Self::Output {
-        Self {
-            row1: [
-                self.row(1).dot(&rhs.column(1)),
-                self.row(1).dot(&rhs.column(2)),
-                self.row(1).dot(&rhs.column(3)),
-            ],
-            row2: [
-                self.row(2).dot(&rhs.column(1)),
-                self.row(2).dot(&rhs.column(2)),
-                self.row(2).dot(&rhs.column(3)),
-            ],
-            row3: [
-                self.row(3).dot(&rhs.column(1)),
-                self.row(3).dot(&rhs.column(2)),
-                self.row(3).dot(&rhs.column(3)),
-            ],
-        }
-    }
-}
-impl Mul<Matrix4x4> for Matrix4x4 {
-    type Output = Matrix4x4;
-
-    fn mul(self, rhs: Matrix4x4) -> Self::Output {
-        Self {
-            row1: [
-                self.row(1).dot(&rhs.column(1)),
-                self.row(1).dot(&rhs.column(2)),
-                self.row(1).dot(&rhs.column(3)),
-                self.row(1).dot(&rhs.column(4)),
-            ],
-            row2: [
-                self.row(2).dot(&rhs.column(1)),
-                self.row(2).dot(&rhs.column(2)),
-                self.row(2).dot(&rhs.column(3)),
-                self.row(2).dot(&rhs.column(4)),
-            ],
-            row3: [
-                self.row(3).dot(&rhs.column(1)),
-                self.row(3).dot(&rhs.column(2)),
-                self.row(3).dot(&rhs.column(3)),
-                self.row(3).dot(&rhs.column(4)),
-            ],
-            row4: [
-                self.row(4).dot(&rhs.column(1)),
-                self.row(4).dot(&rhs.column(2)),
-                self.row(4).dot(&rhs.column(3)),
-                self.row(4).dot(&rhs.column(4)),
-            ]
-        }
-    }
-}
-impl Mul<Vec2> for Matrix2x2 {
-    type Output = Vec2;
-
-    fn mul(self, rhs: Vec2) -> Self::Output {
-        Vec2::new(
-            self.row(1).dot(&rhs),
-            self.row(2).dot(&rhs),
-        )
-    }
-}
-impl Mul<Vec3> for Matrix3x3 {
-    type Output = Vec3;
-
-    fn mul(self, rhs: Vec3) -> Self::Output {
-        Vec3::new(
-            self.row(1).dot(&rhs),
-            self.row(2).dot(&rhs),
-            self.row(3).dot(&rhs),
-        )
-    }
-}
-impl Mul<Vec4> for Matrix4x4 {
-    type Output = Vec4;
-
-    fn mul(self, rhs: Vec4) -> Self::Output {
-        Vec4::new(
-            self.row(1).dot(&rhs),
-            self.row(2).dot(&rhs),
-            self.row(3).dot(&rhs),
-            self.row(4).dot(&rhs),
-        )
-    }
-}
-impl Mul<f32> for Matrix2x2 {
-    type Output = Matrix2x2;
-
-    fn mul(self, rhs: f32) -> Self::Output {
-        Matrix2x2 {
-            row1: [self.row1[0] * rhs, self.row1[1] * rhs],
-            row2: [self.row2[0] * rhs, self.row2[1] * rhs],
-        }
-    }
-}
-impl Mul<Matrix2x2> for f32 {
-    type Output = Matrix2x2;
-
-    fn mul(self, rhs: Matrix2x2) -> Self::Output {
-        rhs * self
-    }
-}
-
-impl Mul<Matrix3x3> for f32 {
-    type Output = Matrix3x3;
-
-    fn mul(self, rhs: Matrix3x3) -> Self::Output {
-        rhs * self
-    }
-}
-impl Mul<Matrix4x4> for f32 {
-    type Output = Matrix4x4;
-
-    fn mul(self, rhs: Matrix4x4) -> Self::Output {
-        rhs * self
-    }
-}
-impl <T>Mul<T> for Matrix4x4 where T: AsPrimitive<f32> {
-    type Output = Matrix4x4;
-
-    fn mul(self, rhs: T) -> Self::Output {
-        let rhs = rhs.as_();
-        Matrix4x4 {
-            row1: [self.row1[0] * rhs, self.row1[1] * rhs, self.row1[2] * rhs, self.row1[3] * rhs],
-            row2: [self.row2[0] * rhs, self.row2[1] * rhs, self.row2[2] * rhs, self.row2[3] * rhs],
-            row3: [self.row3[0] * rhs, self.row3[1] * rhs, self.row3[2] * rhs, self.row3[3] * rhs],
-            row4: [self.row4[0] * rhs, self.row4[1] * rhs, self.row4[2] * rhs, self.row4[3] * rhs],
-        }
-    }
-}
-impl Mul<f32> for Matrix3x3 {
-    type Output = Matrix3x3;
-
-    fn mul(self, rhs: f32) -> Self::Output {
-        Matrix3x3 {
-            row1: [self.row1[0] * rhs, self.row1[1] * rhs, self.row1[2] * rhs],
-            row2: [self.row2[0] * rhs, self.row2[1] * rhs, self.row2[2] * rhs],
-            row3: [self.row3[0] * rhs, self.row3[1] * rhs, self.row3[2] * rhs],
-        }
-    }
-}
-
-impl Sub for Matrix2x2 {
-    type Output = Matrix2x2;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        Matrix2x2 {
-            row1: [self.row1[0] - rhs.row1[0], self.row1[1] - rhs.row1[1]],
-            row2: [self.row2[0] - rhs.row2[0], self.row2[1] - rhs.row2[1]],
-        }
-    }
-}
-
-impl Sub for Matrix3x3 {
-    type Output = Matrix3x3;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        Matrix3x3 {
-            row1: [
-                self.row1[0] - rhs.row1[0],
-                self.row1[1] - rhs.row1[1],
-                self.row1[2] - rhs.row1[2],
-            ],
-            row2: [
-                self.row2[0] - rhs.row2[0],
-                self.row2[1] - rhs.row2[1],
-                self.row2[2] - rhs.row2[2],
-            ],
-            row3: [
-                self.row3[0] - rhs.row3[0],
-                self.row3[1] - rhs.row3[1],
-                self.row3[2] - rhs.row3[2],
-            ],
-        }
     }
 }
