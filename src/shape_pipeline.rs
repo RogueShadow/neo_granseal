@@ -2,6 +2,7 @@ use crate::math::Vec2;
 use crate::mesh::*;
 use crate::{Color, GlobalUniforms, NGCore, NGError, NGRenderPipeline, MSAA};
 use bytemuck::{Pod, Zeroable};
+use wgpu::BufferAddress;
 use wgpu::util::DeviceExt;
 
 #[repr(C)]
@@ -116,6 +117,7 @@ pub struct SimpleShapeRenderPipeline {
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     trans_buffer: wgpu::Buffer,
+    pixel_buffer: wgpu::Buffer,
     mats_buffer: wgpu::Buffer,
     data_bind_group: wgpu::BindGroup,
     globals: GlobalUniforms,
@@ -165,6 +167,13 @@ impl SimpleShapeRenderPipeline {
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
+        let pixels = core.window.inner_size().width * core.window.inner_size().height * std::mem::size_of::<Color>() as u32;
+        let pixel_buffer = core.device.create_buffer( &wgpu::BufferDescriptor {
+            label: Some("SSR Pixel Buffer"),
+            size: BufferAddress::from(pixels),
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
         let mats_buffer = core.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("SSR Materials Buffer"),
             size: (max * std::mem::size_of::<SSRMaterial>()) as wgpu::BufferAddress,
@@ -196,6 +205,16 @@ impl SimpleShapeRenderPipeline {
                         },
                         count: None,
                     },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: false },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    }
                 ],
             });
         let data_bind_group = core.device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -210,6 +229,10 @@ impl SimpleShapeRenderPipeline {
                     binding: 1,
                     resource: mats_buffer.as_entire_binding(),
                 },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: pixel_buffer.as_entire_binding(),
+                }
             ],
         });
         let globals = GlobalUniforms::new(core);
@@ -278,6 +301,7 @@ impl SimpleShapeRenderPipeline {
             vertex_buffer,
             index_buffer,
             trans_buffer,
+            pixel_buffer,
             mats_buffer,
             data_bind_group,
             globals,

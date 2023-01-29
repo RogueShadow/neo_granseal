@@ -3,6 +3,7 @@ use crate::mesh::{FillStyle, MeshBuilder, Polygon};
 use num_traits::AsPrimitive;
 use rand::{Rng, SeedableRng};
 use std::f32::consts::PI;
+use std::ops::Mul;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Color {
@@ -223,6 +224,13 @@ impl Color {
         self.g = g;
         self.b = b;
         self
+    }
+}
+impl Mul<Color> for Color {
+    type Output = Color;
+
+    fn mul(self, rhs: Color) -> Self::Output {
+        Color::rgb(self.r * rhs.r,self.g * rhs.g, self.b * rhs.b)
     }
 }
 impl From<Color> for wgpu::Color {
@@ -476,14 +484,14 @@ impl Rectangle {
     }
 }
 pub fn cubic_to_point(time: f32, begin: Vec2, control1: Vec2, control2: Vec2, end: Vec2) -> Vec2 {
-    let part1 = (1.0 - time).powf(3.0) * begin;
-    let part2 = 3.0 * (1.0 - time).powf(2.0) * time * control1;
-    let part3 = 3.0 * (1.0 - time) * time.powf(2.0) * control2;
-    let part4 = time.powf(3.0) * end;
+    let part1 = begin * (1.0 - time).powf(3.0);
+    let part2 = control2 * control1 * time * 3.0 * (1.0 - time).powf(2.0);
+    let part3 = control2 * 3.0 * (1.0 - time) * time.powf(2.0);
+    let part4 = end * time.powf(3.0);
     part1 + part2 + part3 + part4
 }
 pub fn quadratic_to_point(time: f32, begin: Vec2, control: Vec2, end: Vec2) -> Vec2 {
-    control + (1.0 - time).powf(2.0) * (begin - control) + time.powf(2.0) * (end - control)
+    control + (begin - control) * (1.0 - time).powf(2.0) + (end - control) * time.powf(2.0)
 }
 pub fn text_to_path<'a>(
     pb: &'a mut PathBuilder,

@@ -44,11 +44,20 @@ struct Transform {
 struct Material {
     kind: i32,
 }
+struct Color {
+    r: f32,
+    g: f32,
+    b: f32,
+    a: f32,
+}
 @group(1) @binding(0)
 var<storage,read> transforms: array<Transform>;
 
 @group(1) @binding(1)
 var<storage,read> materials: array<Material>;
+
+@group(1) @binding(2)
+var<storage,read_write> pixels: array<Color>;
 
 @vertex
 fn vs_main(@builtin(vertex_index) index: u32, in: VertexInput, @builtin(instance_index) inst: u32) -> VertexOutput {
@@ -70,10 +79,26 @@ fn vs_main(@builtin(vertex_index) index: u32, in: VertexInput, @builtin(instance
     return out;
 }
 
+fn as_vec(c: Color) -> vec4<f32> {
+    return vec4<f32>(c.r,c.g,c.b,c.a);
+}
+fn as_col(c: vec4<f32>) -> Color {
+    var col: Color;
+    col.r = c.r;
+    col.g = c.g;
+    col.b = c.b;
+    col.a = c.a;
+    return col;
+}
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    var index = u32(in.clip_position.x + in.clip_position.y * screen.x);
+    var test = as_vec(pixels[index]);
     var color = in.color;
+    if (test.r > 0.0) {
+        color = vec4<f32>(color.rgb * test.rgb,color.a);
+    }
     var ndcPos = in.tex * 2.0 - 0.5; // convert to -1,1 range for some functions
     if (in.kind == 0) {
         return color;
@@ -81,6 +106,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     if (in.kind == 1) {
         return color * oval2(ndcPos);
     }
+    pixels[index] = as_col(color);
     return color;
 }
 

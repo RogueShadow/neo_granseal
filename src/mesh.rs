@@ -721,16 +721,38 @@ pub fn rounded_rect_filled(top_left: Vec2, bottom_right: Vec2,radius: f32, style
     combine(vec![inner_rect,top,bottom,left,right,tl,tr,br,bl])
 }
 pub fn rounded_rect_outlined(top_left: Vec2, bottom_right: Vec2,radius: f32,thickness: f32, style: FillStyle) -> Mesh {
-    let (c1, c2, c3, c4) = style_colors(style);
     let inner_tl = top_left + radius;
     let inner_br = bottom_right - radius;
-    let inner_rect = rect_filled(inner_tl,inner_br,style);
-    let top = rect_filled(Vec2::new(inner_tl.x,top_left.y),Vec2::new(inner_br.x,inner_tl.y),Solid(Color::GREEN));
-    let bottom = rect_filled(Vec2::new(inner_tl.x,inner_br.y),Vec2::new(inner_br.x,bottom_right.y),Solid(Color::RED));
-    let left = rect_filled(Vec2::new(top_left.x,inner_tl.y),Vec2::new(inner_tl.x,inner_br.y),Solid(Color::BLUE));
-    let right = rect_filled(Vec2::new(inner_br.x,inner_tl.y),Vec2::new(bottom_right.x,inner_br.y),Solid(Color::YELLOW));
+    let top = line(Vec2::new(inner_tl.x,top_left.y),Vec2::new(inner_br.x,top_left.y),thickness,LineStyle::Right,style);
+    let new_style = match style {
+        Solid(_) => style,
+        FadeDown(c1, c2) => FadeDown(c2,c1),
+        FadeLeft(c1,c2) => FadeLeft(c2,c1),
+        Corners(c1,c2,c3,c4) => Corners(c4,c3,c2,c1),
+        Radial(c1,c2) => Radial(c2,c1),
+    };
+    let bottom = line(Vec2::new(inner_tl.x,bottom_right.y),Vec2::new(inner_br.x,bottom_right.y),thickness, LineStyle::Left, new_style);
+    let left = line(Vec2::new(top_left.x,inner_br.y),Vec2::new(top_left.x,inner_tl.y), thickness, LineStyle::Right, style);
+    let new_style = match style {
+        Solid(_) => style,
+        FadeDown(c1, c2) => FadeDown(c2,c1),
+        FadeLeft(c1,c2) => FadeLeft(c2,c1),
+        Corners(c1,c2,c3,c4) => Corners(c4,c3,c2,c1),
+        Radial(c1,c2) => Radial(c2,c1),
+    };
+    let right = line(Vec2::new(bottom_right.x,inner_br.y),Vec2::new(bottom_right.x,inner_tl.y),thickness, LineStyle::Left, new_style);
 
-    combine(vec![inner_rect,top,bottom,left,right])
+    let arcstart = PI;
+    let arclen = PI / 2.0;
+    let tl = oval_outlined(inner_tl,Vec2::new(radius,radius),arcstart,arcstart + arclen,1.0,thickness, style);
+    let arcstart = PI + arclen;
+    let tr = oval_outlined(Vec2::new(inner_br.x,inner_tl.y),Vec2::new(radius,radius),arcstart,arcstart + arclen,1.0,thickness, style);
+    let arcstart = TAU;
+    let br = oval_outlined(inner_br,Vec2::new(radius,radius),arcstart,arcstart + arclen,1.0,thickness, style);
+    let arcstart = TAU + arclen;
+    let bl = oval_outlined(Vec2::new(inner_tl.x,inner_br.y),Vec2::new(radius,radius),arcstart,arcstart + arclen,1.0, thickness, style);
+
+    combine(vec![top,bottom,left,right,tl,tr,br,bl])
 }
 pub fn rect_filled(top_left: Vec2, bottom_right: Vec2, style: FillStyle) -> Mesh {
     let (c1, c2, c3, c4) = style_colors(style);
@@ -951,7 +973,7 @@ pub fn raw_triangle_filled(p1: Vec2, p2: Vec2, p3: Vec2, c1: Color, c2: Color, c
     m.vertices.push(Vertex::new(p1.x, p1.y).rgba(c1));
     m.vertices.push(Vertex::new(p2.x, p2.y).rgba(c2));
     m.vertices.push(Vertex::new(p3.x, p3.y).rgba(c3));
-    m.indices = vec![2, 1, 0];
+    m.indices = vec![0, 1, 2];
     m
 }
 pub fn raw_quad_filled(p1: Vec2, p2: Vec2, p3: Vec2, p4: Vec2, style: FillStyle) -> Mesh {

@@ -6,7 +6,7 @@ use neo_granseal::util::Color;
 use std::f32::consts::{PI, TAU};
 
 fn main() {
-    start(Shapes {}, GransealGameConfig::new())
+    start(Shapes {}, GransealGameConfig::new().vsync(false).size(1024,400))
 }
 
 struct Shapes {}
@@ -26,12 +26,16 @@ impl NeoGransealEventHandler for Shapes {
             mb.move_cursor(size);
             mb.rect(size);
             mb.move_cursor(step);
+            mb.rounded_rect(size,16.0);
+            mb.move_cursor(step);
             mb.oval(size / 2.0);
             mb.move_cursor(step);
             mb.arc(Vec2::new(32.0, 32.0), angle / 2.0 - TAU / 4.0, angle);
             mb.move_cursor(step);
             mb.set_filled(false);
             mb.rect(size);
+            mb.move_cursor(step);
+            mb.rounded_rect(size,16.0);
             mb.move_cursor(step);
             mb.oval(size / 2.0);
             mb.move_cursor(step);
@@ -46,7 +50,9 @@ impl NeoGransealEventHandler for Shapes {
             mb.move_cursor(zero + size + Vec2::new(0, 96));
             mb.set_rotation(PI / 4.0, size / 2.0);
             mb.set_thickness(8.0);
-            mb.rounded_rect(Vec2::new(64,32),12.0);
+            mb.rect(size);
+            mb.move_cursor(step);
+            mb.rounded_rect(size,16.0);
             mb.move_cursor(step);
             mb.oval(size / 2.0);
             mb.move_cursor(step);
@@ -54,6 +60,8 @@ impl NeoGransealEventHandler for Shapes {
             mb.move_cursor(step);
             mb.set_filled(false);
             mb.rect(size);
+            mb.move_cursor(step);
+            mb.rounded_rect(size,16.0);
             mb.move_cursor(step);
             mb.oval(size / 2.0);
             mb.move_cursor(step);
