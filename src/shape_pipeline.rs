@@ -1,7 +1,7 @@
 use crate::math::Vec2;
 use crate::mesh::*;
 use crate::{Color, GlobalUniforms, NGCore, NGError, NGRenderPipeline, MSAA};
-use bytemuck::{Pod, Zeroable};
+use bytemuck_derive::{Pod, Zeroable};
 use wgpu::util::DeviceExt;
 use wgpu::BufferAddress;
 
@@ -66,7 +66,7 @@ impl Vertex {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug, Zeroable, Pod)]
+#[derive(Copy, Clone, Debug, Pod, Zeroable)]
 pub struct SSRTransform {
     x: f32,
     y: f32,
@@ -86,7 +86,7 @@ impl SSRTransform {
     }
 }
 #[repr(C)]
-#[derive(Copy, Clone, Debug, Zeroable, Pod)]
+#[derive(Copy, Clone, Debug, Pod, Zeroable)]
 pub struct SSRMaterial {
     pub kind: i32,
 }
@@ -136,6 +136,7 @@ impl SimpleShapeRenderPipeline {
                     height: core.surface_configuration.height,
                     depth_or_array_layers: 1,
                 },
+                view_formats: &core.surface.get_capabilities(&core.adapter).formats,
                 mip_level_count: 1,
                 sample_count,
                 dimension: wgpu::TextureDimension::D2,
@@ -145,7 +146,8 @@ impl SimpleShapeRenderPipeline {
         };
         let multisample = match &core.config.msaa {
             MSAA::Disabled => None,
-            MSAA::Enable4x => Some(get_msaa_tex(4)), //MSAA::Enable8x => {Some(get_msaa_tex(8))}
+            MSAA::Enable4x => Some(get_msaa_tex(4)),
+            MSAA::Enable8x => {Some(get_msaa_tex(8))},
                                                      //MSAA::Enable16x => {Some(get_msaa_tex(16))}
         };
 
@@ -257,7 +259,8 @@ impl SimpleShapeRenderPipeline {
                 count: 4,
                 mask: !0,
                 alpha_to_coverage_enabled: false,
-            }, //MSAA::Enable8x => {wgpu::MultisampleState { count: 8, mask: !0, alpha_to_coverage_enabled: true }}
+            },
+            MSAA::Enable8x => {wgpu::MultisampleState { count: 8, mask: !0, alpha_to_coverage_enabled: true }},
                //MSAA::Enable16x => {wgpu::MultisampleState { count: 16, mask: !0, alpha_to_coverage_enabled: true }}
         };
         let pipeline = core

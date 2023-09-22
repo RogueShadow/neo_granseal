@@ -4,11 +4,12 @@ use neo_granseal::prelude::*;
 use neo_granseal::shape_pipeline::ShapeGfx;
 use neo_granseal::util::Color;
 use std::f32::consts::{PI, TAU};
+use neo_granseal::MSAA;
 
 fn main() {
     start(
         Shapes {},
-        GransealGameConfig::new().vsync(false).size(1024, 400),
+        GransealGameConfig::new().vsync(false).size(1024, 400).msaa(MSAA::Enable8x),
     )
 }
 

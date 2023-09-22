@@ -80,7 +80,7 @@ impl GransealGameConfig {
 pub enum MSAA {
     Disabled,
     Enable4x,
-    // Enable8x,
+    Enable8x,
     // Enable16x,
 }
 

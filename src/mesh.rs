@@ -560,7 +560,7 @@ impl Polygon {
             edges: vec![],
         }
     }
-    pub fn get_vertex_and_neighbors(&self, index: usize) -> Vec<Vec2> {
+    pub fn get_vertex_neighbors(&self, index: usize) -> Vec<Vec2> {
         let mut result: Vec<Vec2> = vec![];
         let edges = self
             .edges
@@ -574,10 +574,8 @@ impl Polygon {
             1 => {
                 let (s, e) = edges[0];
                 if *s == index {
-                    result.push(self.points[*s]);
                     result.push(self.points[*e]);
                 } else {
-                    result.push(self.points[*e]);
                     result.push(self.points[*s]);
                 }
             }
@@ -1175,24 +1173,20 @@ pub fn polygon_trapezoid_map(polygon: &Polygon) -> Mesh {
             polygon.points[*start],
             polygon.points[*end],
         ));
-        mb.push();
-        mb.set_style(Solid(Color::RED));
-        mb.set_cursor(polygon.points[*start] - Vec2::new(2, 2));
-        mb.rect(Vec2::new(4, 4));
-        mb.pop()
+
     }
     let mut rays: Vec<Ray> = vec![];
     for (i, p) in polygon.points.iter().enumerate() {
-        let neighbors = polygon.get_vertex_and_neighbors(i);
+        let neighbors = polygon.get_vertex_neighbors(i);
         if neighbors.len() == 2 {
             match (neighbors[0].x >= p.x, neighbors[1].x >= p.x) {
                 (true, true) => {}
                 (false, false) => {
-                    rays.push(Ray::new(*p, *p + Vec2::new(0, -1)));
+                    rays.push(Ray::new(*p, *p + Vec2::new(0,-1)));
                     rays.push(Ray::new(*p, *p + Vec2::new(0, 1)));
                 }
                 (true, false) => {
-                    rays.push(Ray::new(*p, *p + Vec2::new(0, -1)));
+                    rays.push(Ray::new(*p, *p + Vec2::new(0,-1)));
                 }
                 (false, true) => {
                     rays.push(Ray::new(*p, *p + Vec2::new(0, 1)));
@@ -1200,12 +1194,37 @@ pub fn polygon_trapezoid_map(polygon: &Polygon) -> Mesh {
             }
         }
     }
-    mb.set_style(Solid(Color::GREEN));
+    mb.set_style(FadeLeft(Color::GREEN,Color::RED));
+    //rays.sort_by(|r1,r2| r1.origin.x.total_cmp(&r2.origin.x));
+    let mut verticals: Vec<LineSegment> = vec![];
     for r in rays.iter() {
         if let Some(hit) = r.cast(&line_segments) {
-            mb.line(r.origin, hit.hit);
+            if r.origin.y > hit.hit.y {
+                verticals.push(LineSegment::new(r.origin, hit.hit));
+            } else {
+                verticals.push(LineSegment::new(hit.hit,r.origin));
+            }
         }
     }
+
+    for l in verticals.iter() {
+        //mb.line(l.begin,l.end);
+    }
+    mb.set_style(FillStyle::FadeLeft(Color::RED,Color::GREEN));
+    for ls in verticals.windows(2) {
+        mb.line(ls[0].begin,ls[0].end);
+        let mut p1 = ls[0].begin;
+        let mut p2 = ls[0].end;
+        let mut p3 = ls[1].begin;
+        let mut p4 = ls[1].end;
+        if p1.y > p2.y {std::mem::swap(&mut p1,&mut p2)};
+        if p3.y > p4.y {std::mem::swap(&mut p3,&mut p4)};
+
+        //mb.quad_raw(ls[0].begin,ls[0].end,ls[1].end,ls[1].begin);
+
+    }
+
+
     mb.build()
 }
 

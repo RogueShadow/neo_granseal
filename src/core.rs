@@ -7,6 +7,7 @@ use std::any::Any;
 use std::collections::HashMap;
 use wgpu::util::DeviceExt;
 use wgpu::{BufferUsages, Features};
+use wgpu::TextureFormat::Rgba8UnormSrgb;
 use winit::dpi::PhysicalSize;
 use winit::event_loop::EventLoop;
 
@@ -192,8 +193,14 @@ impl NGCore {
             .with_resizable(false)
             .with_inner_size(PhysicalSize::new(config.width, config.height))
             .build(event_loop)?;
-        let instance = wgpu::Instance::new(wgpu::Backends::all());
-        let surface = unsafe { instance.create_surface(&window) };
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+            backends: wgpu::Backends::VULKAN,
+            dx12_shader_compiler: Default::default(),
+        });
+        let surface = unsafe {
+            instance.create_surface(&window)
+            .expect("Surface Unsupported by Adapter.")
+        };
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::HighPerformance,
@@ -202,23 +209,23 @@ impl NGCore {
             })
             .block_on()
             .ok_or(NGError::NoAdapterFound)?;
+        let caps = surface.get_capabilities(&adapter);
         let surface_configuration = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: surface
-                .get_supported_formats(&adapter)
-                .pop()
-                .ok_or(NGError::NoFormatFound)?,
+            format: caps.formats[0],
             width: window.inner_size().width,
             height: window.inner_size().height,
             present_mode: map_present_modes(config.vsync),
             alpha_mode: wgpu::CompositeAlphaMode::Auto,
+            view_formats: caps.formats,
         };
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
                     features: Features::STORAGE_RESOURCE_BINDING_ARRAY
-                        | Features::BUFFER_BINDING_ARRAY,
+                        | Features::BUFFER_BINDING_ARRAY
+                    | Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES,
                     limits: Default::default(),
                 },
                 None,

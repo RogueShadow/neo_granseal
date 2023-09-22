@@ -734,7 +734,7 @@ impl rusttype::OutlineBuilder for PathBuilder {
     }
 
     fn close(&mut self) {
-        self.close_path(true);
+        self.close_path(false);
     }
 }
 
@@ -780,7 +780,7 @@ pub fn is_convex_polygon2(polygon: &Polygon) -> bool {
     let mut result = true;
 
     for test in 0..polygon.points.len() {
-        let neighbors = polygon.get_vertex_and_neighbors(test);
+        let neighbors = polygon.get_vertex_neighbors(test);
 
         let testp = polygon.points[test];
 
