@@ -3,7 +3,7 @@ use crate::mesh::*;
 use crate::{Color, GlobalUniforms, NGCore, NGError, NGRenderPipeline, MSAA};
 use bytemuck_derive::{Pod, Zeroable};
 use wgpu::util::DeviceExt;
-use wgpu::BufferAddress;
+use wgpu::{BufferAddress, TextureViewDescriptor};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
@@ -349,13 +349,23 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
         );
 
         let output = core.surface.get_current_texture()?;
+        let texture_view_descriptor = TextureViewDescriptor {
+            label: None,
+            format: Some(core.surface_configuration.format),
+            dimension: Some(wgpu::TextureViewDimension::D2),
+            aspect: wgpu::TextureAspect::All,
+            base_mip_level: 0,
+            mip_level_count: None,
+            base_array_layer: 0,
+            array_layer_count: None,
+        };
         let output_view = output
             .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
+            .create_view(&texture_view_descriptor);
         let (view, resolve_target) = match &self.multisample {
             None => (output_view, None),
             Some(t) => (
-                t.create_view(&wgpu::TextureViewDescriptor::default()),
+                t.create_view(&texture_view_descriptor),
                 Some(&output_view),
             ),
         };

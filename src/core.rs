@@ -7,7 +7,6 @@ use std::any::Any;
 use std::collections::HashMap;
 use wgpu::util::DeviceExt;
 use wgpu::{BufferUsages, Features};
-use wgpu::TextureFormat::Rgba8UnormSrgb;
 use winit::dpi::PhysicalSize;
 use winit::event_loop::EventLoop;
 
@@ -194,7 +193,7 @@ impl NGCore {
             .with_inner_size(PhysicalSize::new(config.width, config.height))
             .build(event_loop)?;
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::VULKAN,
+            backends: wgpu::Backends::PRIMARY,
             dx12_shader_compiler: Default::default(),
         });
         let surface = unsafe {
@@ -205,7 +204,7 @@ impl NGCore {
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::HighPerformance,
                 force_fallback_adapter: false,
-                compatible_surface: None,
+                compatible_surface: Some(&surface),
             })
             .block_on()
             .ok_or(NGError::NoAdapterFound)?;
