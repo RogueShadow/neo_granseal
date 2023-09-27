@@ -44,7 +44,7 @@ impl NeoGransealEventHandler for Game {
     fn event(&mut self, core: &mut NGCore, e: Event) {
         match e {
             Event::Draw => {
-                let mut mb = MeshBuilder::new();
+                let mut mb = MeshBuilder::default();
                 self.entities.iter().enumerate().for_each(|(i, e)| {
                     mb.solid(e.color);
                     mb.set_cursor(e.pos);

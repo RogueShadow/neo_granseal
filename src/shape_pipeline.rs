@@ -3,7 +3,7 @@ use crate::mesh::*;
 use crate::{Color, GlobalUniforms, NGCore, NGError, NGRenderPipeline, MSAA};
 use bytemuck_derive::{Pod, Zeroable};
 use wgpu::util::DeviceExt;
-use wgpu::{BufferAddress, TextureViewDescriptor};
+use wgpu::{TextureViewDescriptor};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
@@ -117,7 +117,7 @@ pub struct SimpleShapeRenderPipeline {
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     trans_buffer: wgpu::Buffer,
-    pixel_buffer: wgpu::Buffer,
+    //pixel_buffer: wgpu::Buffer,
     mats_buffer: wgpu::Buffer,
     data_bind_group: wgpu::BindGroup,
     globals: GlobalUniforms,
@@ -136,7 +136,7 @@ impl SimpleShapeRenderPipeline {
                     height: core.surface_configuration.height,
                     depth_or_array_layers: 1,
                 },
-                view_formats: &core.surface.get_capabilities(&core.adapter).formats,
+                view_formats: &[core.surface.get_capabilities(&core.adapter).formats[0]],
                 mip_level_count: 1,
                 sample_count,
                 dimension: wgpu::TextureDimension::D2,
@@ -174,7 +174,7 @@ impl SimpleShapeRenderPipeline {
             * std::mem::size_of::<Color>() as u32;
         let pixel_buffer = core.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("SSR Pixel Buffer"),
-            size: BufferAddress::from(pixels),
+            size: wgpu::BufferAddress::from(pixels),
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -260,7 +260,7 @@ impl SimpleShapeRenderPipeline {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            MSAA::Enable8x => {wgpu::MultisampleState { count: 8, mask: !0, alpha_to_coverage_enabled: true }},
+            MSAA::Enable8x => {wgpu::MultisampleState { count: 8, mask: !0, alpha_to_coverage_enabled: false }},
                //MSAA::Enable16x => {wgpu::MultisampleState { count: 16, mask: !0, alpha_to_coverage_enabled: true }}
         };
         let pipeline = core
@@ -306,7 +306,7 @@ impl SimpleShapeRenderPipeline {
             vertex_buffer,
             index_buffer,
             trans_buffer,
-            pixel_buffer,
+            //pixel_buffer,
             mats_buffer,
             data_bind_group,
             globals,

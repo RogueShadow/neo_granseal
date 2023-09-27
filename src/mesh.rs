@@ -90,14 +90,16 @@ impl FillStyleShorthand for MeshBuilder {
         self.set_style(Corners(c1, c2, c3, c4))
     }
 }
-impl MeshBuilder {
-    pub fn new() -> Self {
-        MeshBuilder {
+impl Default for MeshBuilder {
+    fn default() -> Self {
+        Self {
             state: MBState::new(),
             meshes: vec![],
             states: vec![],
         }
     }
+}
+impl MeshBuilder {
     pub fn set_cursor(&mut self, cursor: Vec2) {
         self.state.cursor = cursor;
     }
@@ -203,7 +205,7 @@ impl MeshBuilder {
             }
             self.pop();
         } else {
-            let mut pb = PathBuilder::new();
+            let mut pb = PathBuilder::default();
             pb.set_offset(self.state.cursor);
             text_to_path(&mut pb, font, text, scale);
             self.stroke_path(&pb.build());
@@ -411,19 +413,13 @@ impl MeshBuilder {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Mesh {
     pub vertices: Vec<Vertex>,
     pub indices: Vec<u32>,
 }
 
 impl Mesh {
-    pub fn new() -> Self {
-        Self {
-            vertices: vec![],
-            indices: vec![],
-        }
-    }
     pub fn add(mut self, other: &Mesh) -> Mesh {
         let start = self.vertices.len() as u32;
         self.vertices.extend(&other.vertices);
@@ -460,7 +456,7 @@ impl Mesh {
         self.max_y() - dy / 2.0
     }
     pub fn translate(&mut self, pos: Vec2) {
-        for mut v in self.vertices.iter_mut() {
+        for v in self.vertices.iter_mut() {
             v.x += pos.x;
             v.y += pos.y;
         }
@@ -549,17 +545,13 @@ impl Mesh {
         self
     }
 }
+#[derive(Default)]
 pub struct Polygon {
     pub points: Vec<Vec2>,
     pub edges: Vec<(usize, usize)>,
 }
+
 impl Polygon {
-    pub fn new() -> Self {
-        Self {
-            points: vec![],
-            edges: vec![],
-        }
-    }
     pub fn get_vertex_neighbors(&self, index: usize) -> Vec<Vec2> {
         let mut result: Vec<Vec2> = vec![];
         let edges = self
@@ -867,19 +859,19 @@ pub fn rounded_rect_outlined(
 }
 pub fn rect_filled(top_left: Vec2, bottom_right: Vec2, style: FillStyle) -> Mesh {
     let (c1, c2, c3, c4) = style_colors(style);
-    let mut mesh = Mesh::new();
-    mesh.vertices = vec![
-        Vertex::point(top_left).rgba(c2),
-        Vertex::new(bottom_right.x, top_left.y).rgba(c3),
-        Vertex::point(bottom_right).rgba(c4),
-        Vertex::new(top_left.x, bottom_right.y).rgba(c1),
-    ];
-    mesh.indices = vec![2, 1, 0, 3, 2, 0];
-    mesh
+    Mesh {
+        vertices: vec![
+            Vertex::point(top_left).rgba(c2),
+            Vertex::new(bottom_right.x, top_left.y).rgba(c3),
+            Vertex::point(bottom_right).rgba(c4),
+            Vertex::new(top_left.x, bottom_right.y).rgba(c1),
+        ],
+        indices: vec![2, 1, 0, 3, 2, 0]
+    }
 }
 pub fn rect_outlined(top_left: Vec2, bottom_right: Vec2, thickness: f32, style: FillStyle) -> Mesh {
     let (c1, c2, c3, c4) = style_colors(style);
-    let mut mesh = Mesh::new();
+    let mut mesh = Mesh::default();
     match style {
         Radial(c1, c3) => {
             mesh.vertices = vec![
@@ -920,41 +912,43 @@ pub fn oval_filled(
     style: FillStyle,
 ) -> Mesh {
     let (c1, _, c3, _) = style_colors(style);
-    let mut mesh = Mesh::new();
-    mesh.vertices = vec![Vertex::point(center).rgba(c1)];
+    let mut vertices = vec![Vertex::point(center).rgba(c1)];
     let start_angle = arc_begin;
     let end_angle = arc_end;
     let arc_length = (end_angle - start_angle).abs() * radius.magnitude();
     let vertex_count = arc_length / resolution;
-    mesh.vertices.reserve((vertex_count + 2.0) as usize);
-    mesh.indices.reserve((vertex_count * 3.0) as usize);
+    vertices.reserve((vertex_count + 2.0) as usize);
+    let mut indices = Vec::with_capacity((vertex_count * 3.0) as usize);
     let angle_step = (end_angle - start_angle).abs() / vertex_count;
     let mut a = start_angle;
     (0..=(vertex_count as u32 + 1)).for_each(|i| {
         if i <= vertex_count.floor() as u32 {
-            mesh.vertices.push(
+            vertices.push(
                 Vertex::new(center.x + radius.x * a.cos(), center.y + radius.y * a.sin()).rgba(c3),
             );
         } else {
-            mesh.vertices.push(
+            vertices.push(
                 Vertex::new(
                     center.x + radius.x * end_angle.cos(),
                     center.y + radius.y * end_angle.sin(),
                 )
                 .rgba(c3),
             );
-            mesh.indices.push(0);
-            mesh.indices.push(i + 1);
-            mesh.indices.push(i);
+            indices.push(0);
+            indices.push(i + 1);
+            indices.push(i);
         }
         if i > 0 {
-            mesh.indices.push(0);
-            mesh.indices.push(i);
-            mesh.indices.push(i - 1);
+            indices.push(0);
+            indices.push(i);
+            indices.push(i - 1);
         }
         a += angle_step;
     });
-    mesh
+    Mesh {
+        vertices,
+        indices,
+    }
 }
 pub fn oval_outlined(
     center: Vec2,
@@ -966,7 +960,7 @@ pub fn oval_outlined(
     style: FillStyle,
 ) -> Mesh {
     let (c1, _, c3, _) = style_colors(style);
-    let mut mesh = Mesh::new();
+    let mut mesh = Mesh::default();
     let start_angle = arc_begin;
     let end_angle = arc_end;
     let arc_length = (end_angle - start_angle).abs() * radius.magnitude();
@@ -1023,7 +1017,7 @@ pub fn oval_outlined(
 
 pub fn line(begin: Vec2, end: Vec2, thickness: f32, style: LineStyle, fill: FillStyle) -> Mesh {
     let (c1, c2, c3, c4) = style_colors(fill);
-    let mut m = Mesh::new();
+    let mut m = Mesh::default();
     let width = thickness / 2.0;
     let swap = if begin.y < end.y { -1.0 } else { 1.0 };
     let dx = (begin.x - end.x) * 2.0;
@@ -1080,7 +1074,7 @@ pub fn line(begin: Vec2, end: Vec2, thickness: f32, style: LineStyle, fill: Fill
     m
 }
 pub fn raw_triangle_filled(p1: Vec2, p2: Vec2, p3: Vec2, c1: Color, c2: Color, c3: Color) -> Mesh {
-    let mut m = Mesh::new();
+    let mut m = Mesh::default();
     m.vertices.push(Vertex::new(p1.x, p1.y).rgba(c1));
     m.vertices.push(Vertex::new(p2.x, p2.y).rgba(c2));
     m.vertices.push(Vertex::new(p3.x, p3.y).rgba(c3));
@@ -1089,7 +1083,7 @@ pub fn raw_triangle_filled(p1: Vec2, p2: Vec2, p3: Vec2, c1: Color, c2: Color, c
 }
 pub fn raw_quad_filled(p1: Vec2, p2: Vec2, p3: Vec2, p4: Vec2, style: FillStyle) -> Mesh {
     let (c1, c2, c3, c4) = style_colors(style);
-    let mut m = Mesh::new();
+    let mut m = Mesh::default();
     m.vertices.push(Vertex::new(p1.x, p1.y).rgba(c1));
     m.vertices.push(Vertex::new(p2.x, p2.y).rgba(c2));
     m.vertices.push(Vertex::new(p3.x, p3.y).rgba(c3));
@@ -1119,6 +1113,7 @@ pub fn quadratic_curve(
     });
     combine(meshes)
 }
+
 pub fn cubic_curve(
     begin: Vec2,
     control1: Vec2,
@@ -1143,7 +1138,7 @@ pub fn cubic_curve(
     combine(meshes)
 }
 pub fn fill_path_fan(center: &Vec2, path: &PathData) -> Mesh {
-    let mut mb = Mesh::new();
+    let mut mb = Mesh::default();
     mb.vertices.push(Vertex::new(center.x, center.y));
     mb.vertices.extend::<Vec<Vertex>>(
         path_to_polygon(path, 1.0)
@@ -1166,7 +1161,7 @@ pub fn fill_path_fan(center: &Vec2, path: &PathData) -> Mesh {
 }
 
 pub fn polygon_trapezoid_map(polygon: &Polygon) -> Mesh {
-    let mut mb = MeshBuilder::new();
+    let mut mb = MeshBuilder::default();
     let mut line_segments: Vec<LineSegment> = vec![];
     for (start, end) in polygon.edges.iter() {
         line_segments.push(LineSegment::new(
@@ -1207,9 +1202,9 @@ pub fn polygon_trapezoid_map(polygon: &Polygon) -> Mesh {
         }
     }
 
-    for l in verticals.iter() {
-        //mb.line(l.begin,l.end);
-    }
+    // for l in verticals.iter() {
+    //     //mb.line(l.begin,l.end);
+    // }
     mb.set_style(FillStyle::FadeLeft(Color::RED,Color::GREEN));
     for ls in verticals.windows(2) {
         mb.line(ls[0].begin,ls[0].end);
@@ -1229,5 +1224,5 @@ pub fn polygon_trapezoid_map(polygon: &Polygon) -> Mesh {
 }
 
 pub fn combine(mut meshes: Vec<Mesh>) -> Mesh {
-    meshes.iter_mut().fold(Mesh::new(), |acc, m| acc.add(m))
+    meshes.iter_mut().fold(Mesh::default(), |acc, m| acc.add(m))
 }

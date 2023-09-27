@@ -1,4 +1,4 @@
-use num_traits::{AsPrimitive, Zero};
+use num_traits::{AsPrimitive};
 use std::fmt::{Display, Formatter};
 use std::ops::*;
 
@@ -94,7 +94,7 @@ impl Matrix4x4 {
     }
     /// Row's indexes are 1,2,3,4 to follow standard math notation.
     pub fn row(&self, index: usize) -> Vec4 {
-        return match index {
+        match index {
             1 => Vec4::new(self.row1[0], self.row1[1], self.row1[2], self.row1[3]),
             2 => Vec4::new(self.row2[0], self.row2[1], self.row2[2], self.row2[3]),
             3 => Vec4::new(self.row3[0], self.row3[1], self.row3[2], self.row3[3]),
@@ -102,7 +102,7 @@ impl Matrix4x4 {
             _ => {
                 panic!("Index out of bounds.")
             }
-        };
+        }
     }
     pub fn transpose(&self) -> Self {
         Self {
@@ -194,7 +194,7 @@ impl Matrix4x4 {
     }
     pub fn inverse(&self) -> Option<Self> {
         let det = self.determinant();
-        if det > f32::EPSILON || det < -f32::EPSILON {
+        if (-f32::EPSILON..=f32::EPSILON).contains(&det) {
             let scalar = 1.0 / det;
             Some(scalar * self.adjugate())
         } else {
@@ -250,14 +250,14 @@ impl Matrix3x3 {
     }
     /// Row's indexes are 1,2,3 to follow standard math notation.
     pub fn row(&self, index: usize) -> Vec3 {
-        return match index {
+        match index {
             1 => Vec3::new(self.row1[0], self.row1[1], self.row1[2]),
             2 => Vec3::new(self.row2[0], self.row2[1], self.row2[2]),
             3 => Vec3::new(self.row3[0], self.row3[1], self.row3[2]),
             _ => {
                 panic!("Index out of bounds.")
             }
-        };
+        }
     }
     pub fn determinant(&self) -> f32 {
         self.coefficient(1, 1) * self.minor(1, 1).determinant()
@@ -324,7 +324,7 @@ impl Matrix3x3 {
     }
     pub fn inverse(&self) -> Option<Self> {
         let det = self.determinant();
-        if det > f32::EPSILON || det < -f32::EPSILON {
+        if (-f32::EPSILON..=f32::EPSILON).contains(&det) {
             let scalar = 1.0 / det;
             Some(scalar * self.adjugate())
         } else {
@@ -382,7 +382,7 @@ impl Matrix2x2 {
     }
     pub fn inverse(&self) -> Option<Self> {
         let det = self.determinant();
-        if det > f32::EPSILON || det < -f32::EPSILON {
+        if (-f32::EPSILON..=f32::EPSILON).contains(&det) {
             let scalar = 1.0 / det;
             let step1 = Self {
                 row1: [self.row2[1], -self.row1[1]],
@@ -481,7 +481,7 @@ impl Vec3 {
         (phi, theta)
     }
     pub fn magnitude(&self) -> f32 {
-        (self.dot(&self)).sqrt()
+        (self.dot(self)).sqrt()
     }
     pub fn normalize(&self) -> Self {
         let len = self.magnitude();

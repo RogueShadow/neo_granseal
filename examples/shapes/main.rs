@@ -23,7 +23,7 @@ impl NeoGransealEventHandler for Shapes {
             let zero = Vec2::new(0, 0);
             let size = Vec2::new(64, 64);
             let step = Vec2::new(96, 0);
-            let mut mb = MeshBuilder::new();
+            let mut mb = MeshBuilder::default();
             mb.set_style(FillStyle::Solid(Color::TEAL));
 
             mb.push();

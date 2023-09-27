@@ -58,8 +58,8 @@ pub struct EngineState {
     pub xpos: f32,
     pub ypos: f32,
 }
-impl EngineState {
-    pub fn new() -> Self {
+impl Default for EngineState {
+    fn default() -> Self {
         Self {
             mouse: MouseState {
                 pos: crate::math::Vec2::new(0, 0),
@@ -96,7 +96,7 @@ pub struct NGCore {
 impl NGCore {
     pub fn buffer_object(&mut self, slot: usize, mesh: Mesh) -> BufferedObjectID {
         if self.mesh_buffers.get(slot).is_some() {
-            let mut bo = &mut self.mesh_buffers[slot];
+            let bo = &mut self.mesh_buffers[slot];
             let mut vert_data: Vec<Vertex> = vec![];
             let mut i_data: Vec<u32> = vec![];
             bo.meshes.iter().for_each(|m| {
@@ -216,7 +216,7 @@ impl NGCore {
             height: window.inner_size().height,
             present_mode: map_present_modes(config.vsync),
             alpha_mode: wgpu::CompositeAlphaMode::Auto,
-            view_formats: caps.formats,
+            view_formats: vec![caps.formats[0]],
         };
         let (device, queue) = adapter
             .request_device(
@@ -231,7 +231,7 @@ impl NGCore {
             )
             .block_on()?;
         surface.configure(&device, &surface_configuration);
-        let state = EngineState::new();
+        let state = EngineState::default();
         Ok(Self {
             config,
             timer,

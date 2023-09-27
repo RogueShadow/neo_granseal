@@ -659,8 +659,8 @@ pub struct PathBuilder {
     pub pathing: bool,
     pub built: bool,
 }
-impl PathBuilder {
-    pub fn new() -> Self {
+impl Default for PathBuilder {
+    fn default() -> Self {
         Self {
             contours: vec![],
             segments: vec![],
@@ -669,6 +669,8 @@ impl PathBuilder {
             built: false,
         }
     }
+}
+impl PathBuilder {
     pub fn move_to(&mut self, pos: Vec2) -> &mut Self {
         self.pathing = true;
         self.contours.push(Contour::MoveTo(pos + self.offset));

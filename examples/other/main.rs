@@ -12,24 +12,6 @@ pub const WIDTH: u32 = TILE_SCALE * 14;
 pub const HEIGHT: u32 = TILE_SCALE * 12;
 
 fn main() {
-    println!("{:?}",
-             (1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,
-                 (1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,
-                     (1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,
-                         (1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,
-                             (1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,2,3,4,5
-             ))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
-                 ))))))))))))))))))))))))))))))))))))))
-                 <
-                 (1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,
-                     (1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,
-                         (1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,
-                             (1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,
-                                 (1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,(1,2,3,4,7
-                 ))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
-                     ))))))))))))))))))))))))))))))))))))))))))))
-    );
-
     start(
         Game::new(),
         GransealGameConfig::new()
@@ -140,7 +122,7 @@ impl Level {
         let width = self.width();
         let height = self.height();
         let tile_size = Vec2::new(self.tile_scale, self.tile_scale);
-        let mut mb = MeshBuilder::new();
+        let mut mb = MeshBuilder::default();
         for x in 0..width {
             for y in 0..height {
                 let tx = x * self.tile_scale;
@@ -191,7 +173,7 @@ impl Player {
             vel: Vec2::ZERO,
             size,
             mesh: {
-                let mut mb = MeshBuilder::new();
+                let mut mb = MeshBuilder::default();
                 mb.set_cursor(Vec2::ZERO);
                 mb.set_style(Corners(
                     Color::random(),
@@ -276,7 +258,7 @@ impl NeoGransealEventHandler for Game {
                 g.draw_buffered_mesh(0, Vec2::ZERO);
                 g.draw_mesh(self.player.mesh(), self.player.pos);
 
-                let mut mb = MeshBuilder::new();
+                let mut mb = MeshBuilder::default();
 
                 self.debug.iter().for_each(|s| {
                     mb.shape(*s);
@@ -332,7 +314,7 @@ impl NeoGransealEventHandler for Game {
                         self.level.height() * TILE_SCALE,
                     ),
                 );
-                let mut mb = MeshBuilder::new();
+                let mut mb = MeshBuilder::default();
                 mb.set_style(Solid(Color::FIRE_BRICK));
                 mb.draw_text(&self.font, "Hello Text.", 22.0);
                 mb.set_filled(false);
@@ -342,7 +324,7 @@ impl NeoGransealEventHandler for Game {
                 let text = mb.build();
                 core.buffer_object(0, text);
 
-                let mut pb = PathBuilder::new();
+                let mut pb = PathBuilder::default();
                 pb.move_to(Vec2::new(50, 0));
                 let radius = 50.0;
                 let count = 100;
@@ -354,7 +336,7 @@ impl NeoGransealEventHandler for Game {
 
                 let path = pb.build();
                 let polygon = path_to_polygon(&path, 4.0);
-                let mut mb = MeshBuilder::new();
+                let mut mb = MeshBuilder::default();
                 for (start, end) in polygon.edges {
                     mb.line(polygon.points[start], polygon.points[end]);
                 }
