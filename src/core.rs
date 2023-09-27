@@ -197,8 +197,9 @@ impl NGCore {
             dx12_shader_compiler: Default::default(),
         });
         let surface = unsafe {
-            instance.create_surface(&window)
-            .expect("Surface Unsupported by Adapter.")
+            instance
+                .create_surface(&window)
+                .expect("Surface Unsupported by Adapter.")
         };
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
@@ -224,7 +225,7 @@ impl NGCore {
                     label: None,
                     features: Features::STORAGE_RESOURCE_BINDING_ARRAY
                         | Features::BUFFER_BINDING_ARRAY
-                    | Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES,
+                        | Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES,
                     limits: Default::default(),
                 },
                 None,

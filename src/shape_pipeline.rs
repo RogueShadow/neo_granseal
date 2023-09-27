@@ -3,7 +3,7 @@ use crate::mesh::*;
 use crate::{Color, GlobalUniforms, NGCore, NGError, NGRenderPipeline, MSAA};
 use bytemuck_derive::{Pod, Zeroable};
 use wgpu::util::DeviceExt;
-use wgpu::{TextureViewDescriptor};
+use wgpu::TextureViewDescriptor;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
@@ -147,8 +147,8 @@ impl SimpleShapeRenderPipeline {
         let multisample = match &core.config.msaa {
             MSAA::Disabled => None,
             MSAA::Enable4x => Some(get_msaa_tex(4)),
-            MSAA::Enable8x => {Some(get_msaa_tex(8))},
-                                                     //MSAA::Enable16x => {Some(get_msaa_tex(16))}
+            MSAA::Enable8x => Some(get_msaa_tex(8)),
+            //MSAA::Enable16x => {Some(get_msaa_tex(16))}
         };
 
         let vertex_buffer = core.device.create_buffer(&wgpu::BufferDescriptor {
@@ -260,8 +260,12 @@ impl SimpleShapeRenderPipeline {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            MSAA::Enable8x => {wgpu::MultisampleState { count: 8, mask: !0, alpha_to_coverage_enabled: false }},
-               //MSAA::Enable16x => {wgpu::MultisampleState { count: 16, mask: !0, alpha_to_coverage_enabled: true }}
+            MSAA::Enable8x => wgpu::MultisampleState {
+                count: 8,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            //MSAA::Enable16x => {wgpu::MultisampleState { count: 16, mask: !0, alpha_to_coverage_enabled: true }}
         };
         let pipeline = core
             .device
@@ -359,15 +363,10 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
             base_array_layer: 0,
             array_layer_count: None,
         };
-        let output_view = output
-            .texture
-            .create_view(&texture_view_descriptor);
+        let output_view = output.texture.create_view(&texture_view_descriptor);
         let (view, resolve_target) = match &self.multisample {
             None => (output_view, None),
-            Some(t) => (
-                t.create_view(&texture_view_descriptor),
-                Some(&output_view),
-            ),
+            Some(t) => (t.create_view(&texture_view_descriptor), Some(&output_view)),
         };
         let mut encoder = core
             .device

@@ -11,6 +11,7 @@ use winit::{
     event_loop,
 };
 
+
 pub(crate) fn main_loop(
     e_loop: event_loop::EventLoop<()>,
     mut core: NGCore,
@@ -64,20 +65,18 @@ pub(crate) fn main_loop(
                             virtual_keycode,
                             state,
                             ..
-                        } => {
-                            match virtual_keycode {
-                                None => {}
-                                Some(key) => {
-                                    let ng_key = map_keys(&key);
-                                    core.state
-                                        .keys
-                                        .insert(ng_key, state == ElementState::Pressed);
-                                    if key == VirtualKeyCode::Escape {
-                                        *control_flow = event_loop::ControlFlow::Exit;
-                                    }
+                        } => match virtual_keycode {
+                            None => {}
+                            Some(key) => {
+                                let ng_key = map_keys(&key);
+                                core.state
+                                    .keys
+                                    .insert(ng_key, state == ElementState::Pressed);
+                                if key == VirtualKeyCode::Escape {
+                                    *control_flow = event_loop::ControlFlow::Exit;
                                 }
                             }
-                        }
+                        },
                     },
                     WindowEvent::CursorMoved { position, .. } => {
                         core.state.mouse.pos.x = position.x as f32;

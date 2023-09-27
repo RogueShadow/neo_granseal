@@ -1,4 +1,4 @@
-use num_traits::{AsPrimitive};
+use num_traits::AsPrimitive;
 use std::fmt::{Display, Formatter};
 use std::ops::*;
 

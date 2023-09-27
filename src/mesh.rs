@@ -866,7 +866,7 @@ pub fn rect_filled(top_left: Vec2, bottom_right: Vec2, style: FillStyle) -> Mesh
             Vertex::point(bottom_right).rgba(c4),
             Vertex::new(top_left.x, bottom_right.y).rgba(c1),
         ],
-        indices: vec![2, 1, 0, 3, 2, 0]
+        indices: vec![2, 1, 0, 3, 2, 0],
     }
 }
 pub fn rect_outlined(top_left: Vec2, bottom_right: Vec2, thickness: f32, style: FillStyle) -> Mesh {
@@ -945,10 +945,7 @@ pub fn oval_filled(
         }
         a += angle_step;
     });
-    Mesh {
-        vertices,
-        indices,
-    }
+    Mesh { vertices, indices }
 }
 pub fn oval_outlined(
     center: Vec2,
@@ -1168,7 +1165,6 @@ pub fn polygon_trapezoid_map(polygon: &Polygon) -> Mesh {
             polygon.points[*start],
             polygon.points[*end],
         ));
-
     }
     let mut rays: Vec<Ray> = vec![];
     for (i, p) in polygon.points.iter().enumerate() {
@@ -1177,11 +1173,11 @@ pub fn polygon_trapezoid_map(polygon: &Polygon) -> Mesh {
             match (neighbors[0].x >= p.x, neighbors[1].x >= p.x) {
                 (true, true) => {}
                 (false, false) => {
-                    rays.push(Ray::new(*p, *p + Vec2::new(0,-1)));
+                    rays.push(Ray::new(*p, *p + Vec2::new(0, -1)));
                     rays.push(Ray::new(*p, *p + Vec2::new(0, 1)));
                 }
                 (true, false) => {
-                    rays.push(Ray::new(*p, *p + Vec2::new(0,-1)));
+                    rays.push(Ray::new(*p, *p + Vec2::new(0, -1)));
                 }
                 (false, true) => {
                     rays.push(Ray::new(*p, *p + Vec2::new(0, 1)));
@@ -1189,7 +1185,7 @@ pub fn polygon_trapezoid_map(polygon: &Polygon) -> Mesh {
             }
         }
     }
-    mb.set_style(FadeLeft(Color::GREEN,Color::RED));
+    mb.set_style(FadeLeft(Color::GREEN, Color::RED));
     //rays.sort_by(|r1,r2| r1.origin.x.total_cmp(&r2.origin.x));
     let mut verticals: Vec<LineSegment> = vec![];
     for r in rays.iter() {
@@ -1197,7 +1193,7 @@ pub fn polygon_trapezoid_map(polygon: &Polygon) -> Mesh {
             if r.origin.y > hit.hit.y {
                 verticals.push(LineSegment::new(r.origin, hit.hit));
             } else {
-                verticals.push(LineSegment::new(hit.hit,r.origin));
+                verticals.push(LineSegment::new(hit.hit, r.origin));
             }
         }
     }
@@ -1205,20 +1201,22 @@ pub fn polygon_trapezoid_map(polygon: &Polygon) -> Mesh {
     // for l in verticals.iter() {
     //     //mb.line(l.begin,l.end);
     // }
-    mb.set_style(FillStyle::FadeLeft(Color::RED,Color::GREEN));
+    mb.set_style(FillStyle::FadeLeft(Color::RED, Color::GREEN));
     for ls in verticals.windows(2) {
-        mb.line(ls[0].begin,ls[0].end);
+        mb.line(ls[0].begin, ls[0].end);
         let mut p1 = ls[0].begin;
         let mut p2 = ls[0].end;
         let mut p3 = ls[1].begin;
         let mut p4 = ls[1].end;
-        if p1.y > p2.y {std::mem::swap(&mut p1,&mut p2)};
-        if p3.y > p4.y {std::mem::swap(&mut p3,&mut p4)};
+        if p1.y > p2.y {
+            std::mem::swap(&mut p1, &mut p2)
+        };
+        if p3.y > p4.y {
+            std::mem::swap(&mut p3, &mut p4)
+        };
 
         //mb.quad_raw(ls[0].begin,ls[0].end,ls[1].end,ls[1].begin);
-
     }
-
 
     mb.build()
 }
