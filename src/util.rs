@@ -411,7 +411,7 @@ pub struct Rectangle {
 }
 impl Rectangle {
     pub fn new2(pos: Vec2, size: Vec2) -> Self {
-        Rectangle {
+        Self {
             top_left: pos,
             bottom_right: pos + size,
             test: false,

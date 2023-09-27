@@ -14,8 +14,8 @@ pub struct Matrix4x4 {
     pub row3: [f32; 4],
     pub row4: [f32; 4],
 }
-impl Matrix4x4 {
-    pub fn new() -> Self {
+impl Default for Matrix4x4 {
+    fn default() -> Self {
         Self {
             row1: [1.0, 0.0, 0.0, 0.0],
             row2: [0.0, 1.0, 0.0, 0.0],
@@ -23,6 +23,8 @@ impl Matrix4x4 {
             row4: [0.0, 0.0, 0.0, 1.0],
         }
     }
+}
+impl Matrix4x4 {
     pub fn projection(ar: f32, fov: f32, zfar: f32, znear: f32) -> Self {
         let fov = fov.to_radians();
         let f = 1.0 / f32::tan(fov * 0.5);
@@ -210,14 +212,16 @@ pub struct Matrix3x3 {
     pub row2: [f32; 3],
     pub row3: [f32; 3],
 }
-impl Matrix3x3 {
-    pub fn new() -> Self {
+impl Default for Matrix3x3 {
+    fn default() -> Self {
         Self {
             row1: [1.0, 0.0, 0.0],
             row2: [0.0, 1.0, 0.0],
             row3: [0.0, 0.0, 1.0],
         }
     }
+}
+impl Matrix3x3 {
     pub fn rotation_x(theta: f32) -> Self {
         Self {
             row1: [1.0, 0.0, 0.0],
@@ -338,6 +342,14 @@ impl Matrix3x3 {
 pub struct Matrix2x2 {
     pub row1: [f32; 2],
     pub row2: [f32; 2],
+}
+impl Default for Matrix2x2 {
+    fn default() -> Self {
+        Self {
+            row1: [1.0, 0.0],
+            row2: [0.0, 1.0],
+        }
+    }
 }
 impl Matrix2x2 {
     pub fn new() -> Self {
@@ -1562,9 +1574,10 @@ mod tests {
     }
     #[test]
     fn test_matrix2_rows_cols() {
-        let mut matrix = Matrix2x2::new();
-        matrix.row1 = [1.0, 2.0];
-        matrix.row2 = [3.0, 4.0];
+        let mut matrix = Matrix2x2 {
+            row1: [1.0, 2.0],
+            row2: [3.0, 4.0],
+        };
         assert_eq!(matrix.row(1), Vec2::new(1.0, 2.0));
         assert_eq!(matrix.row(2), Vec2::new(3.0, 4.0));
         assert_eq!(matrix.column(1), Vec2::new(1.0, 3.0));
