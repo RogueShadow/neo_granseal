@@ -194,7 +194,7 @@ impl Matrix4x4 {
     }
     pub fn inverse(&self) -> Option<Self> {
         let det = self.determinant();
-        if (-f32::EPSILON..=f32::EPSILON).contains(&det) {
+        if !(-f32::EPSILON..=f32::EPSILON).contains(&det) {
             let scalar = 1.0 / det;
             Some(scalar * self.adjugate())
         } else {
@@ -324,7 +324,7 @@ impl Matrix3x3 {
     }
     pub fn inverse(&self) -> Option<Self> {
         let det = self.determinant();
-        if (-f32::EPSILON..=f32::EPSILON).contains(&det) {
+        if !(-f32::EPSILON..=f32::EPSILON).contains(&det) {
             let scalar = 1.0 / det;
             Some(scalar * self.adjugate())
         } else {
@@ -382,7 +382,7 @@ impl Matrix2x2 {
     }
     pub fn inverse(&self) -> Option<Self> {
         let det = self.determinant();
-        if (-f32::EPSILON..=f32::EPSILON).contains(&det) {
+        if !(-f32::EPSILON..=f32::EPSILON).contains(&det) {
             let scalar = 1.0 / det;
             let step1 = Self {
                 row1: [self.row2[1], -self.row1[1]],
