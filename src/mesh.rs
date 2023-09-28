@@ -1224,3 +1224,34 @@ pub fn polygon_trapezoid_map(polygon: &Polygon) -> Mesh {
 pub fn combine(mut meshes: Vec<Mesh>) -> Mesh {
     meshes.iter_mut().fold(Mesh::default(), |acc, m| acc.add(m))
 }
+
+pub fn load_meshes(data: &str, scale: f32) -> Mesh {
+    let vertices = data
+        .lines()
+        .filter(|l| l.starts_with("v "))
+        .map(|v| v[2..].split_whitespace().collect::<Vec<_>>())
+        .map(|n| Vertex {
+            x: n[0].parse::<f32>().unwrap() * scale,
+            y: n[2].parse::<f32>().unwrap() * scale,
+            z: n[1].parse::<f32>().unwrap() * scale,
+            u: 0.0,
+            v: 0.0,
+            r: n[3].parse::<f32>().unwrap(),
+            g: n[4].parse::<f32>().unwrap(),
+            b: n[5].parse::<f32>().unwrap(),
+            a: 1.0,
+        })
+        .collect::<Vec<_>>();
+    let indices = data
+        .lines()
+        .filter(|l| l.starts_with("f "))
+        .flat_map(|f| {
+            f[2..]
+                .split_whitespace()
+                .map(|t| t.parse::<u32>().unwrap() - 1)
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+
+    Mesh { vertices, indices }
+}
