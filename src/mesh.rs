@@ -6,6 +6,7 @@ use crate::util::{
     Ray,
 };
 use crate::Color;
+use std::collections::HashMap;
 use std::f32::consts::{PI, TAU};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -1225,21 +1226,55 @@ pub fn combine(mut meshes: Vec<Mesh>) -> Mesh {
     meshes.iter_mut().fold(Mesh::default(), |acc, m| acc.add(m))
 }
 
-pub fn load_meshes(data: &str, scale: f32) -> Mesh {
+pub fn load_meshes(data: &str, scale: f32) -> HashMap<&str, Mesh> {
+    let mut meshes_loaded: HashMap<&str, Mesh> = HashMap::new();
+    let mut offset = 0u32;
+    data.split("g ")
+        .filter(|g| !g.starts_with('#') || g.is_empty())
+        .map(|m| m.split_once("\n"))
+        .filter(|m| m.is_some())
+        .map(|m| m.unwrap())
+        .for_each(|(n, d)| {
+            let verts = d.lines().filter(|l| l.starts_with("v ")).count() as u32;
+            offset += verts;
+            meshes_loaded.insert(
+                n.strip_suffix("_Mesh").unwrap(),
+                load_mesh(d, scale, offset),
+            );
+        });
+    meshes_loaded
+}
+pub fn load_mesh(data: &str, scale: f32, offset: u32) -> Mesh {
     let vertices = data
         .lines()
         .filter(|l| l.starts_with("v "))
         .map(|v| v[2..].split_whitespace().collect::<Vec<_>>())
-        .map(|n| Vertex {
-            x: n[0].parse::<f32>().unwrap() * scale,
-            y: n[2].parse::<f32>().unwrap() * scale,
-            z: n[1].parse::<f32>().unwrap() * scale,
-            u: 0.0,
-            v: 0.0,
-            r: n[3].parse::<f32>().unwrap(),
-            g: n[4].parse::<f32>().unwrap(),
-            b: n[5].parse::<f32>().unwrap(),
-            a: 1.0,
+        .map(|n| {
+            if n.len() == 6 {
+                Vertex {
+                    x: n[0].parse::<f32>().unwrap() * scale,
+                    y: n[2].parse::<f32>().unwrap() * scale,
+                    z: n[1].parse::<f32>().unwrap() * scale,
+                    u: 0.0,
+                    v: 0.0,
+                    r: n[3].parse::<f32>().unwrap(),
+                    g: n[4].parse::<f32>().unwrap(),
+                    b: n[5].parse::<f32>().unwrap(),
+                    a: 1.0,
+                }
+            } else {
+                Vertex {
+                    x: n[0].parse::<f32>().unwrap() * scale,
+                    y: n[2].parse::<f32>().unwrap() * scale,
+                    z: n[1].parse::<f32>().unwrap() * scale,
+                    u: 0.0,
+                    v: 0.0,
+                    r: 0.0,
+                    g: 0.0,
+                    b: 0.0,
+                    a: 1.0,
+                }
+            }
         })
         .collect::<Vec<_>>();
     let indices = data
@@ -1248,7 +1283,7 @@ pub fn load_meshes(data: &str, scale: f32) -> Mesh {
         .flat_map(|f| {
             f[2..]
                 .split_whitespace()
-                .map(|t| t.parse::<u32>().unwrap() - 1)
+                .map(|t| t.parse::<u32>().unwrap() - offset - 1)
                 .collect::<Vec<_>>()
         })
         .collect::<Vec<_>>();
