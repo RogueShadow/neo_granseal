@@ -1226,67 +1226,75 @@ pub fn combine(mut meshes: Vec<Mesh>) -> Mesh {
     meshes.iter_mut().fold(Mesh::default(), |acc, m| acc.add(m))
 }
 
-pub fn load_meshes(data: &str, scale: f32) -> HashMap<&str, Mesh> {
+pub fn load_meshes2(data: &str, scale: f32) -> HashMap<&str, Mesh> {
     let mut meshes_loaded: HashMap<&str, Mesh> = HashMap::new();
     let mut offset = 0u32;
-    data.split("g ")
-        .filter(|g| !g.starts_with('#') || g.is_empty())
-        .map(|m| m.split_once("\n"))
-        .filter(|m| m.is_some())
-        .map(|m| m.unwrap())
-        .for_each(|(n, d)| {
-            let verts = d.lines().filter(|l| l.starts_with("v ")).count() as u32;
-            offset += verts;
-            meshes_loaded.insert(
-                n.strip_suffix("_Mesh").unwrap(),
-                load_mesh(d, scale, offset),
+    let mesh_data = data
+        .split("g ")
+        .skip(1)
+        .map(|mesh_data| {
+            let mut mesh_name = "";
+            let mut vertices = vec![];
+            let mut faces = vec![];
+            mesh_data
+                .lines()
+                .enumerate()
+                .for_each(|(i, l)| match (i, l) {
+                    (0, name) => mesh_name = name.strip_suffix("_Mesh").unwrap_or("Default"),
+                    (_, vertex) if vertex.starts_with("v ") => {
+                        let n = vertex[2..]
+                            .split_whitespace()
+                            .map(|f| f.parse::<f32>().unwrap() * scale)
+                            .collect::<Vec<_>>();
+                        vertices.push(if n.len() == 3 {
+                            Vertex {
+                                x: n[0],
+                                y: n[2],
+                                z: n[1],
+                                u: 0.0,
+                                v: 0.0,
+                                r: 1.0,
+                                g: 1.0,
+                                b: 1.0,
+                                a: 1.0,
+                            }
+                        } else {
+                            Vertex {
+                                x: n[0],
+                                y: n[2],
+                                z: n[1],
+                                u: 0.0,
+                                v: 0.0,
+                                r: n[3],
+                                g: n[4],
+                                b: n[5],
+                                a: 1.0,
+                            }
+                        });
+                    }
+                    (_, face) if face.starts_with("f ") => {
+                        let f = face[2..]
+                            .split_whitespace()
+                            .map(|f| f.parse::<u32>().unwrap())
+                            .collect::<Vec<_>>();
+                        faces.extend_from_slice(f.as_slice());
+                    }
+                    (_, _) => {}
+                });
+            println!(
+                "Loaded {:?} Vertices and {:?} Faces for '{:?}'",
+                vertices.len(),
+                faces.len(),
+                mesh_name
             );
-        });
-    meshes_loaded
-}
-pub fn load_mesh(data: &str, scale: f32, offset: u32) -> Mesh {
-    let vertices = data
-        .lines()
-        .filter(|l| l.starts_with("v "))
-        .map(|v| v[2..].split_whitespace().collect::<Vec<_>>())
-        .map(|n| {
-            if n.len() == 6 {
-                Vertex {
-                    x: n[0].parse::<f32>().unwrap() * scale,
-                    y: n[2].parse::<f32>().unwrap() * scale,
-                    z: n[1].parse::<f32>().unwrap() * scale,
-                    u: 0.0,
-                    v: 0.0,
-                    r: n[3].parse::<f32>().unwrap(),
-                    g: n[4].parse::<f32>().unwrap(),
-                    b: n[5].parse::<f32>().unwrap(),
-                    a: 1.0,
-                }
-            } else {
-                Vertex {
-                    x: n[0].parse::<f32>().unwrap() * scale,
-                    y: n[2].parse::<f32>().unwrap() * scale,
-                    z: n[1].parse::<f32>().unwrap() * scale,
-                    u: 0.0,
-                    v: 0.0,
-                    r: 1.0,
-                    g: 1.0,
-                    b: 1.0,
-                    a: 1.0,
-                }
-            }
-        })
-        .collect::<Vec<_>>();
-    let indices = data
-        .lines()
-        .filter(|l| l.starts_with("f "))
-        .flat_map(|f| {
-            f[2..]
-                .split_whitespace()
-                .map(|t| t.parse::<u32>().unwrap() - offset - 1)
-                .collect::<Vec<_>>()
+            faces = faces.iter().map(|f| f - 1 - offset).collect::<Vec<_>>();
+            offset += vertices.len() as u32;
+            (mesh_name, vertices, faces)
         })
         .collect::<Vec<_>>();
 
-    Mesh { vertices, indices }
+    for (n, vertices, indices) in mesh_data {
+        meshes_loaded.insert(n, Mesh { vertices, indices });
+    }
+    meshes_loaded
 }
