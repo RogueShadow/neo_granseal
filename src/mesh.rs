@@ -456,6 +456,12 @@ impl Mesh {
         let dy = self.max_y() - self.min_y();
         self.max_y() - dy / 2.0
     }
+    pub fn width(&self) -> f32 {
+        self.max_x() - self.min_x()
+    }
+    pub fn height(&self) -> f32 {
+        self.max_y() - self.min_y()
+    }
     pub fn translate(&mut self, pos: Vec2) {
         for v in self.vertices.iter_mut() {
             v.x += pos.x;
