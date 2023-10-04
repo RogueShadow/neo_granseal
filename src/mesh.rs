@@ -135,6 +135,12 @@ impl MeshBuilder {
         }
     }
 
+    pub fn text(&mut self, font: &Font, text: &str) {
+        let mut mesh = font.text(text);
+        mesh.translate(self.state.cursor);
+        mesh.style(self.state.fill_style);
+        self.meshes.push(mesh);
+    }
     pub fn shape(&mut self, shape: MBShapes) {
         match shape {
             MBShapes::Line(begin, end, state) => {
@@ -179,39 +185,39 @@ impl MeshBuilder {
             self.line(polygon.points[*start], polygon.points[*end]);
         }
     }
-    pub fn draw_text(&mut self, font: &rusttype::Font, text: &str, scale: f32) {
-        if self.state.filled {
-            let v_metrics = font.v_metrics(rusttype::Scale::uniform(scale));
-            let glyphs: Vec<_> = font
-                .layout(
-                    text,
-                    rusttype::Scale::uniform(scale),
-                    rusttype::point(0.0, 0.0 + v_metrics.ascent),
-                )
-                .collect();
-            self.push();
-            let offset = self.state.cursor;
-            for g in glyphs {
-                if let Some(bb) = g.pixel_bounding_box() {
-                    g.draw(|x, y, v| {
-                        if v > 0.001 {
-                            self.set_cursor(Vec2::new(
-                                offset.x + bb.min.x as f32 + x as f32,
-                                offset.y + bb.min.y as f32 + y as f32,
-                            ));
-                            self.rect(Vec2::new(1, 1));
-                        }
-                    });
-                }
-            }
-            self.pop();
-        } else {
-            let mut pb = PathBuilder::default();
-            pb.set_offset(self.state.cursor);
-            text_to_path(&mut pb, font, text, scale);
-            self.stroke_path(&pb.build());
-        }
-    }
+    // pub fn draw_text(&mut self, font: &rusttype::Font, text: &str, scale: f32) {
+    //     if self.state.filled {
+    //         let v_metrics = font.v_metrics(rusttype::Scale::uniform(scale));
+    //         let glyphs: Vec<_> = font
+    //             .layout(
+    //                 text,
+    //                 rusttype::Scale::uniform(scale),
+    //                 rusttype::point(0.0, 0.0 + v_metrics.ascent),
+    //             )
+    //             .collect();
+    //         self.push();
+    //         let offset = self.state.cursor;
+    //         for g in glyphs {
+    //             if let Some(bb) = g.pixel_bounding_box() {
+    //                 g.draw(|x, y, v| {
+    //                     if v > 0.001 {
+    //                         self.set_cursor(Vec2::new(
+    //                             offset.x + bb.min.x as f32 + x as f32,
+    //                             offset.y + bb.min.y as f32 + y as f32,
+    //                         ));
+    //                         self.rect(Vec2::new(1, 1));
+    //                     }
+    //                 });
+    //             }
+    //         }
+    //         self.pop();
+    //     } else {
+    //         let mut pb = PathBuilder::default();
+    //         pb.set_offset(self.state.cursor);
+    //         text_to_path(&mut pb, font, text, scale);
+    //         self.stroke_path(&pb.build());
+    //     }
+    // }
     pub fn rect(&mut self, size: Vec2) {
         let mut m = if self.state.filled {
             rect_filled(
@@ -1287,12 +1293,6 @@ pub fn load_meshes2(data: &str, scale: f32) -> HashMap<&str, Mesh> {
                     }
                     (_, _) => {}
                 });
-            println!(
-                "Loaded {:?} Vertices and {:?} Faces for '{:?}'",
-                vertices.len(),
-                faces.len(),
-                mesh_name
-            );
             faces = faces.iter().map(|f| f - 1 - offset).collect::<Vec<_>>();
             offset += vertices.len() as u32;
             (mesh_name, vertices, faces)
@@ -1303,4 +1303,37 @@ pub fn load_meshes2(data: &str, scale: f32) -> HashMap<&str, Mesh> {
         meshes_loaded.insert(n, Mesh { vertices, indices });
     }
     meshes_loaded
+}
+
+pub struct Font {
+    font: HashMap<&'static str, Mesh>,
+}
+impl Default for Font {
+    fn default() -> Self {
+        let font = load_meshes2(include_str!("../liberation_mono_mesh.obj"), 16.0);
+        Self { font }
+    }
+}
+impl Font {
+    pub fn new(scale: f32) -> Self {
+        let font = load_meshes2(include_str!("../liberation_mono_mesh.obj"), scale);
+        Self { font }
+    }
+    pub fn text(&self, text: &str) -> Mesh {
+        let mut mesh = Mesh::default();
+        let mut chars = text.chars().map(|c| String::from(c)).collect::<Vec<_>>();
+        let mut pos = Vec2::ZERO;
+        let space = self.font["A"].width();
+        for c in chars {
+            if let Some(char) = self.font.get(c.as_str()) {
+                let mut c = char.to_owned();
+                c.translate(pos);
+                pos.x += space;
+                mesh = mesh.add(&c);
+            } else {
+                pos.x += space;
+            }
+        }
+        mesh
+    }
 }
