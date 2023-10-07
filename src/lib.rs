@@ -238,7 +238,9 @@ pub fn start<T>(handler: T, config: GransealGameConfig)
 where
     T: 'static + NeoGransealEventHandler,
 {
-    let event_loop = EventLoopBuilder::new().build();
+    let event_loop = EventLoopBuilder::new()
+        .build()
+        .expect("Built Successfully.");
     let core = NGCore::new(&event_loop, config).expect("Initializing Core");
     main_loop(event_loop, core, Box::new(handler));
 }

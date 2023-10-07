@@ -94,7 +94,7 @@ pub struct NGCore {
 }
 
 impl NGCore {
-    pub fn buffer_object(&mut self, slot: usize, mesh: Mesh) -> BufferedObjectID {
+    pub fn update_buffer_object(&mut self, slot: usize, mesh: &Mesh) -> bool {
         if self.mesh_buffers.get(slot).is_some() {
             let bo = &mut self.mesh_buffers[slot];
             let mut vert_data: Vec<Vertex> = vec![];
@@ -108,7 +108,7 @@ impl NGCore {
             let end_index = start_index + mesh.indices.len() as u32;
             vert_data.extend(&mesh.vertices);
             i_data.extend(&mesh.indices);
-            bo.meshes.push(mesh);
+            bo.meshes.push(mesh.to_owned());
             let vertex_buffer = self
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -135,39 +135,42 @@ impl NGCore {
                 end_index,
             };
             self.buffered_objects.push(object_info);
-            self.buffered_objects.len() - 1
+            true
         } else {
-            let vertex_buffer = self
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: None,
-                    contents: bytemuck::cast_slice(mesh.vertices.as_slice()),
-                    usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
-                });
-            let index_buffer = self
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: None,
-                    contents: bytemuck::cast_slice(mesh.indices.as_slice()),
-                    usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
-                });
-            let end_index = mesh.indices.len() as u32;
-            let meshes = vec![mesh];
-            let bo_slot = self.mesh_buffers.len();
-            let object_info = SSRObjectInfo {
-                bo_slot: Some(bo_slot),
-                start_vertice: 0,
-                start_index: 0,
-                end_index,
-            };
-            self.mesh_buffers.push(MeshBuffer {
-                vertex_buffer,
-                index_buffer,
-                meshes,
-            });
-            self.buffered_objects.push(object_info);
-            self.buffered_objects.len() - 1
+            false
         }
+    }
+    pub fn buffer_object(&mut self, mesh: &Mesh) -> BufferedObjectID {
+        let vertex_buffer = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: None,
+                contents: bytemuck::cast_slice(mesh.vertices.as_slice()),
+                usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
+            });
+        let index_buffer = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: None,
+                contents: bytemuck::cast_slice(mesh.indices.as_slice()),
+                usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
+            });
+        let end_index = mesh.indices.len() as u32;
+        let meshes = vec![mesh.to_owned()];
+        let bo_slot = self.mesh_buffers.len();
+        let object_info = SSRObjectInfo {
+            bo_slot: Some(bo_slot),
+            start_vertice: 0,
+            start_index: 0,
+            end_index,
+        };
+        self.mesh_buffers.push(MeshBuffer {
+            vertex_buffer,
+            index_buffer,
+            meshes,
+        });
+        self.buffered_objects.push(object_info);
+        self.buffered_objects.len() - 1
     }
     pub fn key_held(&self, key: Key) -> bool {
         if !self.state.keys.contains_key(&key) {

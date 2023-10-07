@@ -1,10 +1,7 @@
 use crate::math::Vec2;
 use crate::mesh::FillStyle::*;
 use crate::shape_pipeline::Vertex;
-use crate::util::{
-    cubic_to_point, quadratic_to_point, text_to_path, Contour, LineSegment, PathBuilder, PathData,
-    Ray,
-};
+use crate::util::{cubic_to_point, quadratic_to_point, Contour, LineSegment, PathData, Ray};
 use crate::Color;
 use std::collections::HashMap;
 use std::f32::consts::{PI, TAU};
@@ -424,14 +421,22 @@ impl MeshBuilder {
 pub struct Mesh {
     pub vertices: Vec<Vertex>,
     pub indices: Vec<u32>,
+    pub(crate) buffer_id: std::cell::Cell<Option<usize>>,
+    pub(crate) buffer: std::cell::Cell<bool>,
+    pub(crate) dirty: std::cell::Cell<bool>,
 }
 
 impl Mesh {
+    pub fn buffer(&self) -> &Self {
+        self.buffer.set(true);
+        &self
+    }
     pub fn add(mut self, other: &Mesh) -> Mesh {
         let start = self.vertices.len() as u32;
         self.vertices.extend(&other.vertices);
         let indices: Vec<u32> = other.indices.iter().map(|i| i + start).collect();
         self.indices.extend(indices);
+        self.dirty = true.into();
         self
     }
     pub fn min_x(&self) -> f32 {
@@ -473,12 +478,14 @@ impl Mesh {
             v.x += pos.x;
             v.y += pos.y;
         }
+        self.dirty = true.into();
     }
     pub fn scale(&mut self, scale: f32) {
         self.vertices.iter_mut().for_each(|v| {
             v.x *= scale;
             v.y *= scale;
-        })
+        });
+        self.dirty = true.into();
     }
     pub fn rotate(&mut self, rotation: f32) {
         let rot = cgmath::Matrix2::new(
@@ -491,9 +498,11 @@ impl Mesh {
             let p = rot * cgmath::vec2(v.x, v.y);
             v.x = p.x;
             v.y = p.y;
-        })
+        });
+        self.dirty = true.into();
     }
     pub fn style(&mut self, style: FillStyle) -> &Self {
+        self.dirty = true.into();
         let minx = self.min_x();
         let maxx = self.max_x();
         let miny = self.min_y();
@@ -880,6 +889,9 @@ pub fn rect_filled(top_left: Vec2, bottom_right: Vec2, style: FillStyle) -> Mesh
             Vertex::new(top_left.x, bottom_right.y).rgba(c1),
         ],
         indices: vec![2, 1, 0, 3, 2, 0],
+        buffer_id: None.into(),
+        buffer: false.into(),
+        dirty: false.into(),
     }
 }
 pub fn rect_outlined(top_left: Vec2, bottom_right: Vec2, thickness: f32, style: FillStyle) -> Mesh {
@@ -958,7 +970,13 @@ pub fn oval_filled(
         }
         a += angle_step;
     });
-    Mesh { vertices, indices }
+    Mesh {
+        vertices,
+        indices,
+        buffer_id: None.into(),
+        buffer: false.into(),
+        dirty: false.into(),
+    }
 }
 pub fn oval_outlined(
     center: Vec2,
@@ -1300,7 +1318,16 @@ pub fn load_meshes2(data: &str, scale: f32) -> HashMap<&str, Mesh> {
         .collect::<Vec<_>>();
 
     for (n, vertices, indices) in mesh_data {
-        meshes_loaded.insert(n, Mesh { vertices, indices });
+        meshes_loaded.insert(
+            n,
+            Mesh {
+                vertices,
+                indices,
+                buffer_id: None.into(),
+                buffer: false.into(),
+                dirty: false.into(),
+            },
+        );
     }
     meshes_loaded
 }
@@ -1321,7 +1348,7 @@ impl Font {
     }
     pub fn text(&self, text: &str) -> Mesh {
         let mut mesh = Mesh::default();
-        let mut chars = text.chars().map(|c| String::from(c)).collect::<Vec<_>>();
+        let chars = text.chars().map(|c| String::from(c)).collect::<Vec<_>>();
         let mut pos = Vec2::ZERO;
         let space = self.font["A"].width();
         for c in chars {

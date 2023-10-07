@@ -497,30 +497,47 @@ impl<'draw> ShapeGfx<'draw> {
         }
     }
     pub fn draw_mesh(&mut self, mesh: &Mesh, pos: Vec2) {
-        let start_vertex = self.data.vertices.len();
-        let start_index = self.data.indices.len();
-        self.data.vertices.extend(mesh.vertices.as_slice());
-        self.data.indices.extend(mesh.indices.as_slice());
-        let end_index = self.data.indices.len();
-        let info = SSRObjectInfo {
-            bo_slot: None,
-            start_vertice: start_vertex as u32,
-            start_index: start_index as u32,
-            end_index: end_index as u32,
-        };
-        let transform = SSRTransform {
-            x: self.offset.x + pos.x,
-            y: self.offset.y + pos.y,
-            r: self.rotation,
-            rx: self.rotation_origin.x,
-            ry: self.rotation_origin.y,
-        };
-        let material = SSRMaterial { kind: 0 };
-        self.data.transforms.push(transform);
-        self.data.materials.push(material);
-        self.data.object_info.push(info);
+        match (mesh.buffer.get(), mesh.dirty.get(), mesh.buffer_id.get()) {
+            (true, _, None) => {
+                mesh.buffer_id.set(Some(self.core.buffer_object(mesh)));
+                mesh.buffer.set(true);
+                mesh.dirty.set(false);
+                self.draw_buffered_mesh(mesh.buffer_id.get().unwrap(), pos);
+            }
+            (true, false, Some(bid)) => {
+                self.draw_buffered_mesh(bid, pos);
+            }
+            (true, true, Some(bid)) => {
+                self.core.update_buffer_object(bid, mesh);
+                self.draw_buffered_mesh(bid, pos);
+            }
+            (false, _, _) => {
+                let start_vertex = self.data.vertices.len();
+                let start_index = self.data.indices.len();
+                self.data.vertices.extend(mesh.vertices.as_slice());
+                self.data.indices.extend(mesh.indices.as_slice());
+                let end_index = self.data.indices.len();
+                let info = SSRObjectInfo {
+                    bo_slot: None,
+                    start_vertice: start_vertex as u32,
+                    start_index: start_index as u32,
+                    end_index: end_index as u32,
+                };
+                let transform = SSRTransform {
+                    x: self.offset.x + pos.x,
+                    y: self.offset.y + pos.y,
+                    r: self.rotation,
+                    rx: self.rotation_origin.x,
+                    ry: self.rotation_origin.y,
+                };
+                let material = SSRMaterial { kind: 0 };
+                self.data.transforms.push(transform);
+                self.data.materials.push(material);
+                self.data.object_info.push(info);
+            }
+        }
     }
-    pub fn draw_buffered_mesh(&mut self, obj: BufferedObjectID, pos: Vec2) {
+    fn draw_buffered_mesh(&mut self, obj: BufferedObjectID, pos: Vec2) {
         let info = self.core.buffered_objects.get(obj).unwrap();
         let transform = SSRTransform {
             x: self.offset.x + pos.x,
