@@ -893,8 +893,7 @@ pub fn oval_filled(
     resolution: f32,
     style: FillStyle,
 ) -> Mesh {
-    let (c1, _, c3, _) = style_colors(style);
-    let mut vertices = vec![Vertex::point(center).rgba(c1)];
+    let mut vertices = vec![Vertex::point(center)];
     let start_angle = arc_begin;
     let end_angle = arc_end;
     let arc_length = (end_angle - start_angle).abs() * radius.magnitude();
@@ -905,17 +904,15 @@ pub fn oval_filled(
     let mut a = start_angle;
     (0..=(vertex_count as u32 + 1)).for_each(|i| {
         if i <= vertex_count.floor() as u32 {
-            vertices.push(
-                Vertex::new(center.x + radius.x * a.cos(), center.y + radius.y * a.sin()).rgba(c3),
-            );
+            vertices.push(Vertex::new(
+                center.x + radius.x * a.cos(),
+                center.y + radius.y * a.sin(),
+            ));
         } else {
-            vertices.push(
-                Vertex::new(
-                    center.x + radius.x * end_angle.cos(),
-                    center.y + radius.y * end_angle.sin(),
-                )
-                .rgba(c3),
-            );
+            vertices.push(Vertex::new(
+                center.x + radius.x * end_angle.cos(),
+                center.y + radius.y * end_angle.sin(),
+            ));
             indices.push(0);
             indices.push(i + 1);
             indices.push(i);
@@ -927,13 +924,15 @@ pub fn oval_filled(
         }
         a += angle_step;
     });
-    Mesh {
+    let mut m = Mesh {
         vertices,
         indices,
         buffer_id: None.into(),
         buffer: false.into(),
         dirty: false.into(),
-    }
+    };
+    m.style(style);
+    m
 }
 pub fn oval_outlined(
     center: Vec2,
