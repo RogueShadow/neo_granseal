@@ -3,6 +3,7 @@ use crate::mesh::FillStyle::*;
 use crate::shape_pipeline::Vertex;
 use crate::util::{cubic_to_point, quadratic_to_point, Contour, LineSegment, PathData, Ray};
 use crate::Color;
+use log::error;
 use std::collections::HashMap;
 use std::f32::consts::{PI, TAU};
 
@@ -132,10 +133,13 @@ impl MeshBuilder {
         }
     }
 
-    pub fn text(&mut self, font: &Font, text: &str) {
-        let mut mesh = font.text(text);
+    pub fn mesh(&mut self, mesh: &Mesh, style: bool) {
+        let mut mesh = mesh.to_owned();
+        if style {
+            mesh.style(self.state.fill_style);
+        };
+        mesh.rotate(self.state.rotation);
         mesh.translate(self.state.cursor);
-        mesh.style(self.state.fill_style);
         self.meshes.push(mesh);
     }
     pub fn shape(&mut self, shape: MBShapes) {
@@ -467,21 +471,23 @@ impl Mesh {
             self.min_y() + self.height() / 2f32,
         )
     }
-    pub fn translate(&mut self, pos: Vec2) {
+    pub fn translate(&mut self, pos: Vec2) -> &Self {
         for v in self.vertices.iter_mut() {
             v.x += pos.x;
             v.y += pos.y;
         }
         self.dirty = true.into();
+        self
     }
-    pub fn scale(&mut self, scale: f32) {
+    pub fn scale(&mut self, scale: f32) -> &Self {
         self.vertices.iter_mut().for_each(|v| {
             v.x *= scale;
             v.y *= scale;
         });
         self.dirty = true.into();
+        self
     }
-    pub fn rotate(&mut self, rotation: f32) {
+    pub fn rotate(&mut self, rotation: f32) -> &Self {
         let rot = cgmath::Matrix2::new(
             rotation.cos(),
             -rotation.sin(),
@@ -494,6 +500,7 @@ impl Mesh {
             v.y = p.y;
         });
         self.dirty = true.into();
+        self
     }
     pub fn style(&mut self, style: FillStyle) -> &Self {
         self.dirty = true.into();
@@ -681,52 +688,29 @@ pub fn rounded_rect_filled(
     radius: f32,
     style: FillStyle,
 ) -> Mesh {
-    let (c1, _, _, _) = style_colors(style);
     let inner_tl = top_left + radius;
     let inner_br = bottom_right - radius;
-    let inner_rect = rect_filled(inner_tl, inner_br, Solid(c1));
+    let inner_rect = rect_filled(inner_tl, inner_br, style);
     let top = rect_filled(
         Vec2::new(inner_tl.x, top_left.y),
         Vec2::new(inner_br.x, inner_tl.y),
         style,
     );
-    let new_style = match style {
-        Solid(_) => style,
-        FadeDown(c1, c2) => FadeDown(c2, c1),
-        FadeLeft(c1, c2) => FadeLeft(c2, c1),
-        Corners(c1, c2, c3, c4) => Corners(c4, c3, c2, c1),
-        Radial(c1, c2) => Radial(c2, c1),
-    };
     let bottom = rect_filled(
         Vec2::new(inner_tl.x, inner_br.y),
         Vec2::new(inner_br.x, bottom_right.y),
-        new_style,
+        style,
     );
-    let new_style = match style {
-        Solid(_) => style,
-        FadeDown(c1, c2) => FadeLeft(c1, c2),
-        FadeLeft(c1, c2) => FadeDown(c1, c2),
-        Corners(c1, c2, c3, c4) => Corners(c2, c1, c4, c3),
-        Radial(c1, c2) => Radial(c2, c1),
-    };
     let left = rect_filled(
         Vec2::new(top_left.x, inner_tl.y),
         Vec2::new(inner_tl.x, inner_br.y),
-        new_style,
+        style,
     );
-    let new_style = match new_style {
-        Solid(_) => style,
-        FadeDown(c1, c2) => FadeDown(c2, c1),
-        FadeLeft(c1, c2) => FadeLeft(c2, c1),
-        Corners(c1, c2, c3, c4) => Corners(c4, c3, c2, c1),
-        Radial(c1, c2) => Radial(c2, c1),
-    };
     let right = rect_filled(
         Vec2::new(inner_br.x, inner_tl.y),
         Vec2::new(bottom_right.x, inner_br.y),
-        new_style,
+        style,
     );
-
     let arcstart = PI;
     let arclen = PI / 2.0;
     let tl = oval_filled(
@@ -764,8 +748,9 @@ pub fn rounded_rect_filled(
         1.0,
         style,
     );
-
-    combine(vec![inner_rect, top, bottom, left, right, tl, tr, br, bl])
+    let mut rr = combine(vec![inner_rect, top, bottom, left, right, tl, tr, br, bl]);
+    rr.style(style);
+    rr
 }
 pub fn rounded_rect_outlined(
     top_left: Vec2,
@@ -783,19 +768,12 @@ pub fn rounded_rect_outlined(
         LineStyle::Right,
         style,
     );
-    let new_style = match style {
-        Solid(_) => style,
-        FadeDown(c1, c2) => FadeDown(c2, c1),
-        FadeLeft(c1, c2) => FadeLeft(c2, c1),
-        Corners(c1, c2, c3, c4) => Corners(c4, c3, c2, c1),
-        Radial(c1, c2) => Radial(c2, c1),
-    };
     let bottom = line(
         Vec2::new(inner_tl.x, bottom_right.y),
         Vec2::new(inner_br.x, bottom_right.y),
         thickness,
         LineStyle::Left,
-        new_style,
+        style,
     );
     let left = line(
         Vec2::new(top_left.x, inner_br.y),
@@ -804,19 +782,12 @@ pub fn rounded_rect_outlined(
         LineStyle::Right,
         style,
     );
-    let new_style = match style {
-        Solid(_) => style,
-        FadeDown(c1, c2) => FadeDown(c2, c1),
-        FadeLeft(c1, c2) => FadeLeft(c2, c1),
-        Corners(c1, c2, c3, c4) => Corners(c4, c3, c2, c1),
-        Radial(c1, c2) => Radial(c2, c1),
-    };
     let right = line(
         Vec2::new(bottom_right.x, inner_br.y),
         Vec2::new(bottom_right.x, inner_tl.y),
         thickness,
         LineStyle::Left,
-        new_style,
+        style,
     );
 
     let arcstart = PI;
@@ -861,7 +832,9 @@ pub fn rounded_rect_outlined(
         style,
     );
 
-    combine(vec![top, bottom, left, right, tl, tr, br, bl])
+    let mut rr = combine(vec![top, bottom, left, right, tl, tr, br, bl]);
+    rr.style(style);
+    rr
 }
 pub fn rect_filled(top_left: Vec2, bottom_right: Vec2, style: FillStyle) -> Mesh {
     let (c1, c2, c3, c4) = style_colors(style);
@@ -1316,6 +1289,7 @@ pub fn load_meshes2(data: &str, scale: f32) -> HashMap<&str, Mesh> {
     meshes_loaded
 }
 
+#[derive(Debug)]
 pub struct Font {
     font: HashMap<&'static str, Mesh>,
 }
