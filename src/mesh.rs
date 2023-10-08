@@ -397,7 +397,23 @@ pub struct Mesh {
     pub(crate) buffer: std::cell::Cell<bool>,
     pub(crate) dirty: std::cell::Cell<bool>,
 }
-
+impl FillStyleShorthand for Mesh {
+    fn solid(&mut self, c: Color) {
+        self.style(Solid(c));
+    }
+    fn fade_down(&mut self, c1: Color, c2: Color) {
+        self.style(FadeDown(c1, c2));
+    }
+    fn fade_left(&mut self, c1: Color, c2: Color) {
+        self.style(FadeLeft(c1, c2));
+    }
+    fn radial(&mut self, c1: Color, c2: Color) {
+        self.style(Radial(c1, c2));
+    }
+    fn corners(&mut self, c1: Color, c2: Color, c3: Color, c4: Color) {
+        self.style(Corners(c1, c2, c3, c4));
+    }
+}
 impl Mesh {
     pub fn buffer(&self) -> &Self {
         self.buffer.set(true);
