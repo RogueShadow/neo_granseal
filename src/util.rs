@@ -203,6 +203,14 @@ impl Color {
             a: 1.0,
         }
     }
+    pub fn interpolate(&self, other: &Self, pct: f32) -> Self {
+        Self::new(
+            lerp(self.r, other.r, pct),
+            lerp(self.g, other.g, pct),
+            lerp(self.b, other.b, pct),
+            lerp(self.a, other.a, pct),
+        )
+    }
     pub fn hsl(mut self, hue: f32, s: f32, l: f32) -> Self {
         let c = (1.0 - ((2.0 * l) - 1.0).abs()) * s;
         let i1 = hue / 60.0;
