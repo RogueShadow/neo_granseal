@@ -487,8 +487,6 @@ impl Mesh {
         let maxy = self.max_y();
         let dx = maxx - minx;
         let dy = maxy - miny;
-        let midx = maxx - dx / 2.0;
-        let midy = maxy - dy / 2.0;
         let texu = |x: f32| (x - minx) / dx;
         let texv = |y: f32| (y - miny) / dy;
         match style {
@@ -502,43 +500,35 @@ impl Mesh {
             FadeDown(c1, c2) => self.vertices.iter_mut().for_each(|v| {
                 v.u = texu(v.x);
                 v.v = texv(v.y);
-                if v.y < midy {
-                    v.set_color(c1)
-                } else {
-                    v.set_color(c2)
-                }
+                v.set_color(c1.interpolate(&c2, v.v));
             }),
             FadeLeft(c1, c2) => self.vertices.iter_mut().for_each(|v| {
                 v.u = texu(v.x);
                 v.v = texv(v.y);
-                if v.x < midx {
-                    v.set_color(c1)
-                } else {
-                    v.set_color(c2)
-                }
+                v.set_color(c1.interpolate(&c2, v.u));
             }),
             Corners(c1, c2, c3, c4) => self.vertices.iter_mut().for_each(|v| {
                 v.u = texu(v.x);
                 v.v = texv(v.y);
-                match (v.x < midx, v.y < midy) {
-                    (true, true) => v.set_color(c1),
-                    (false, true) => v.set_color(c2),
-                    (false, false) => v.set_color(c3),
-                    (true, false) => v.set_color(c4),
-                }
+                let color1 = c1.interpolate(&c2, v.u);
+                let color2 = c4.interpolate(&c3, v.u);
+                let color3 = c1.interpolate(&c4, v.v);
+                let color4 = c2.interpolate(&c3, v.v);
+
+                let h_color = color1.interpolate(&color2, v.v);
+                let v_color = color3.interpolate(&color4, v.u);
+
+                v.set_color(h_color.interpolate(&v_color, 0.5));
             }),
             Radial(c1, c2) => {
                 let mx = self.mid_x();
                 let my = self.mid_y();
+                let td = mx * mx + my * my;
                 self.vertices.iter_mut().for_each(|v| {
                     let dx = (v.x - mx).abs();
                     let dy = (v.y - my).abs();
                     let d = dx * dx + dy * dy;
-                    if d > 1.0 {
-                        v.set_color(c1);
-                    } else {
-                        v.set_color(c2)
-                    }
+                    v.set_color(c1.interpolate(&c2, d / td));
                 })
             }
         };
