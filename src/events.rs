@@ -18,7 +18,6 @@ pub enum Event {
     Update(Duration),
     Load,
     Resized(u32, u32),
-    Fps(u32),
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
