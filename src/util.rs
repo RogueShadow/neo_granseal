@@ -338,7 +338,7 @@ impl Ray {
         Self { origin, dir }
     }
     /// Raycast against an AABB.
-    pub fn cast_rect(&self, rect: &Rectangle) -> Option<RayHit> {
+    pub fn intersect_rect(&self, rect: &Rectangle) -> Option<RayHit> {
         let mut near = (rect.top_left - self.origin) / self.dir;
         let mut far = (rect.bottom_right - self.origin) / self.dir;
         if near.x > far.x {
@@ -371,6 +371,20 @@ impl Ray {
             normal,
             time: hit_near,
         })
+    }
+    pub fn cast_rect(&self, other: &[Rectangle]) -> Option<RayHit> {
+        let mut closest = f32::MAX;
+        let mut hit: Option<RayHit> = None;
+        for rect in other.iter() {
+            if let Some(h) = self.intersect_rect(rect) {
+                let distance = (h.hit - self.origin).magnitude();
+                if distance < closest {
+                    hit = Some(h);
+                    closest = distance;
+                }
+            }
+        }
+        hit
     }
     pub fn cast(&self, other: &[LineSegment]) -> Option<RayHit> {
         let mut closest = f32::MAX;

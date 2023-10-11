@@ -3,7 +3,6 @@ use crate::mesh::FillStyle::*;
 use crate::shape_pipeline::Vertex;
 use crate::util::{cubic_to_point, quadratic_to_point, Contour, LineSegment, PathData, Ray};
 use crate::Color;
-use log::error;
 use std::collections::HashMap;
 use std::f32::consts::{PI, TAU};
 
@@ -68,7 +67,7 @@ pub trait FillStyleShorthand {
 }
 
 pub struct MeshBuilder {
-    pub(crate) state: MBState,
+    pub state: MBState,
     pub meshes: Vec<Mesh>,
     pub(crate) states: Vec<MBState>,
 }
