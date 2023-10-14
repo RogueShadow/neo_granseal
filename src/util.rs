@@ -451,6 +451,9 @@ impl Rectangle {
             test: false,
         }
     }
+    pub fn size(&self) -> Vec2 {
+        Vec2::from(self.bottom_right - self.top_left)
+    }
     pub fn contains_point(&self, other: &Vec2) -> bool {
         if other.x < self.top_left.x {
             return false;
