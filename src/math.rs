@@ -516,7 +516,7 @@ impl Vec3 {
 }
 
 /// 2 component Vector x y
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Default)]
 pub struct Vec2 {
     pub x: f32,
     pub y: f32,

@@ -385,11 +385,6 @@ impl MeshBuilder {
     pub fn build(self) -> Mesh {
         combine(self.meshes)
     }
-    pub fn clear(&mut self) {
-        self.state = MBState::default();
-        self.states = vec![];
-        self.meshes = vec![];
-    }
 }
 
 #[derive(Debug, Clone, Default)]
