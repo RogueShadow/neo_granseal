@@ -1,4 +1,4 @@
-use crate::math::Vec2;
+use crate::math::{angle_vec2, Vec2};
 use crate::mesh::{FillStyle, MeshBuilder, Polygon};
 use num_traits::AsPrimitive;
 use rand::{Rng, SeedableRng};
@@ -327,6 +327,12 @@ pub struct Ray {
     pub origin: Vec2,
     pub dir: Vec2,
 }
+pub fn ray(origin: Vec2, dir: Vec2) -> Ray {
+    Ray::new(origin, dir)
+}
+pub fn raycast(origin: Vec2, dir: Vec2, targets: &[LineSegment]) -> Option<RayHit> {
+    Ray::new(origin, dir).cast(targets)
+}
 impl Ray {
     pub fn new_dir(origin: Vec2, dir: f32) -> Self {
         Self {
@@ -624,7 +630,7 @@ impl LineSegment {
     pub fn normal(&self) -> Vec2 {
         let d = self.end - self.begin;
         let a = d.angle2() - PI / 2.0;
-        Vec2::from(a)
+        angle_vec2(a)
     }
     pub fn length(&self) -> f32 {
         let d = self.end - self.begin;
@@ -632,7 +638,7 @@ impl LineSegment {
     }
     pub fn axis(&self) -> Vec2 {
         let d = self.end - self.begin;
-        let a = d.angle();
+        let a = d.angle2();
         Vec2::new(a.cos(), a.sin())
     }
     pub fn first_intersection(&self, others: &Vec<Self>) -> Option<Vec2> {

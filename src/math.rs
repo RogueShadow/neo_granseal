@@ -521,10 +521,11 @@ pub struct Vec2 {
     pub x: f32,
     pub y: f32,
 }
-impl From<f32> for Vec2 {
-    fn from(value: f32) -> Self {
-        Vec2::new(value.cos(), value.sin())
-    }
+pub fn angle_vec2(angle: f32) -> Vec2 {
+    Vec2::new(angle.cos(), angle.sin())
+}
+pub fn vec2(x: impl AsPrimitive<f32>, y: impl AsPrimitive<f32>) -> Vec2 {
+    Vec2::new(x, y)
 }
 impl Vec2 {
     pub const ZERO: Vec2 = Vec2 { x: 0.0, y: 0.0 };
