@@ -335,7 +335,10 @@ impl Ray {
         }
     }
     pub fn new(origin: Vec2, dir: Vec2) -> Self {
-        Self { origin, dir }
+        Self {
+            origin,
+            dir: origin + dir,
+        }
     }
     /// Raycast against an AABB.
     pub fn intersect_rect(&self, rect: &Rectangle) -> Option<RayHit> {
@@ -408,7 +411,7 @@ impl Ray {
                 let y = other.begin.y + u * (other.end.y - other.begin.y);
                 Some(RayHit {
                     hit: Vec2::new(x, y),
-                    normal: Vec2::ZERO,
+                    normal: other.normal(),
                     time: 0.0,
                 })
             } else {
@@ -452,7 +455,7 @@ impl Rectangle {
         }
     }
     pub fn size(&self) -> Vec2 {
-        Vec2::from(self.bottom_right - self.top_left)
+        self.bottom_right - self.top_left
     }
     pub fn contains_point(&self, other: &Vec2) -> bool {
         if other.x < self.top_left.x {
@@ -620,8 +623,8 @@ impl LineSegment {
     }
     pub fn normal(&self) -> Vec2 {
         let d = self.end - self.begin;
-        let a = d.angle() - PI / 2.0;
-        Vec2::new(a.cos(), a.sin())
+        let a = d.angle2() - PI / 2.0;
+        Vec2::from(a)
     }
     pub fn length(&self) -> f32 {
         let d = self.end - self.begin;
