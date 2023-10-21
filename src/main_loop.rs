@@ -49,6 +49,9 @@ pub(crate) fn main_loop(
                         core.config.title = title;
                         core.window.set_title(core.config.title.as_str());
                     }
+                    NGCommand::CustomEvent(event) => {
+                        h.event(&mut core, events::Event::Custom(event))
+                    }
                 };
             }
             match event {

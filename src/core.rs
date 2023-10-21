@@ -40,6 +40,7 @@ pub enum NGCommand {
     Render(usize, Box<dyn Any>),
     SetCursorVisibility(bool),
     SetTitle(String),
+    CustomEvent(String),
 }
 
 pub struct MouseState {
@@ -181,6 +182,9 @@ impl NGCore {
     }
     pub fn render(&mut self, pipeline: usize, data: Box<dyn Any>) {
         self.cmd_queue.push(NGCommand::Render(pipeline, data));
+    }
+    pub fn event(&mut self, event: String) {
+        self.cmd_queue.push(NGCommand::CustomEvent(event));
     }
     pub fn set_title(&mut self, title: String) {
         self.cmd_queue.push(NGCommand::SetTitle(title));

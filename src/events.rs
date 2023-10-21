@@ -1,7 +1,7 @@
 use crate::math::Vec2;
 use std::time::Duration;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Debug)]
 pub enum Event {
     KeyEvent {
         state: KeyState,
@@ -18,6 +18,7 @@ pub enum Event {
     Update(Duration),
     Load,
     Resized(u32, u32),
+    Custom(String),
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
