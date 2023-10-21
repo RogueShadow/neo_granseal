@@ -1299,17 +1299,23 @@ impl Font {
     }
     pub fn text(&self, text: &str) -> Mesh {
         let mut mesh = Mesh::default();
-        let chars = text.chars().map(|c| String::from(c)).collect::<Vec<_>>();
         let mut pos = Vec2::ZERO;
         let space = self.font["A"].width();
-        for c in chars {
-            if let Some(char) = self.font.get(c.as_str()) {
-                let mut c = char.to_owned();
-                c.translate(pos);
-                pos.x += space;
-                mesh = mesh.add(&c);
+        let y_space = self.font["A"].height();
+        let padding = y_space * 0.1f32;
+        for i in 0..text.len() {
+            if &text[i..i + 1] == "\n" {
+                pos.y += y_space + padding;
+                pos.x = 0f32;
             } else {
-                pos.x += space;
+                if let Some(char) = self.font.get(&text[i..i + 1]) {
+                    let mut c = char.to_owned();
+                    c.translate(pos);
+                    pos.x += space;
+                    mesh = mesh.add(&c);
+                } else {
+                    pos.x += space;
+                }
             }
         }
         mesh
