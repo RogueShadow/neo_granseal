@@ -28,8 +28,8 @@ pub(crate) fn main_loop(
     h.event(&mut core, events::Event::Load);
 
     e_loop
-        .run(move |event, _, control_flow| {
-            *control_flow = event_loop::ControlFlow::Poll;
+        .run(move |event, window| {
+            window.set_control_flow(event_loop::ControlFlow::Poll);
             while !core.cmd_queue.is_empty() {
                 match core.cmd_queue.pop().unwrap() {
                     NGCommand::AddPipeline(p) => {
@@ -60,8 +60,23 @@ pub(crate) fn main_loop(
                         h.event(&mut core, nge);
                     }
                     match event {
+                        WindowEvent::RedrawRequested => {
+                            h.event(&mut core, events::Event::Update(delta.elapsed()));
+                            h.event(&mut core, events::Event::Draw);
+                            delta = std::time::Instant::now();
+                            pipelines.iter_mut().for_each(|p| {
+                                p.set_globals(GlobalUniforms::new(&core));
+                                p.render(&mut core).expect("Render");
+                            });
+                            if frame_timer.elapsed().as_secs_f64() > 1.0 {
+                                frame_timer = std::time::Instant::now();
+                                core.state.fps = frames;
+                                frames = 0;
+                            }
+                            frames += 1;
+                        }
                         WindowEvent::CloseRequested => {
-                            *control_flow = event_loop::ControlFlow::Exit;
+                            window.exit();
                         }
                         WindowEvent::KeyboardInput { event, .. } => match event {
                             KeyEvent {
@@ -75,7 +90,7 @@ pub(crate) fn main_loop(
                                         .keys
                                         .insert(ng_key, state == ElementState::Pressed);
                                     if key == winit::keyboard::KeyCode::Escape {
-                                        *control_flow = event_loop::ControlFlow::Exit;
+                                        window.exit();
                                     }
                                 }
                             },
@@ -111,21 +126,6 @@ pub(crate) fn main_loop(
                     }
                 }
                 Event::AboutToWait => core.window.request_redraw(),
-                Event::RedrawRequested(_) => {
-                    h.event(&mut core, events::Event::Update(delta.elapsed()));
-                    h.event(&mut core, events::Event::Draw);
-                    delta = std::time::Instant::now();
-                    pipelines.iter_mut().for_each(|p| {
-                        p.set_globals(GlobalUniforms::new(&core));
-                        p.render(&mut core).expect("Render");
-                    });
-                    if frame_timer.elapsed().as_secs_f64() > 1.0 {
-                        frame_timer = std::time::Instant::now();
-                        core.state.fps = frames;
-                        frames = 0;
-                    }
-                    frames += 1;
-                }
                 _ => (),
             }
         })
