@@ -74,6 +74,7 @@ pub(crate) fn main_loop(
                                 frames = 0;
                             }
                             frames += 1;
+                            core.window.request_redraw();
                         }
                         WindowEvent::CloseRequested => {
                             window.exit();
@@ -125,7 +126,7 @@ pub(crate) fn main_loop(
                         _ => {}
                     }
                 }
-                Event::AboutToWait => core.window.request_redraw(),
+                //Event::AboutToWait => core.window.request_redraw(),
                 _ => (),
             }
         })

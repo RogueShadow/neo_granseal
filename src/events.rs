@@ -161,7 +161,6 @@ pub fn map_events(event: &winit::event::WindowEvent) -> Option<Event> {
                 winit::event::KeyEvent {
                     physical_key: keycode,
                     state,
-                    logical_key,
                     ..
                 },
             ..
@@ -207,8 +206,6 @@ pub fn map_keys(key: &winit::keyboard::PhysicalKey) -> Key {
     use winit::keyboard::PhysicalKey::Code as P;
     use Key as G;
 
-    println!("Pressed Key {:?}", key);
-
     match key {
         P(Escape) => G::Escape,
         P(F1) => G::F1,
@@ -223,7 +220,7 @@ pub fn map_keys(key: &winit::keyboard::PhysicalKey) -> Key {
         P(F10) => G::F10,
         P(F11) => G::F11,
         P(F12) => G::F12,
-        P(Hyper) => G::Grave, //todo("Is this right? Guesswork, why no Grave key..")
+        P(Backquote) => G::Grave,
         P(Digit1) => G::Key1,
         P(Digit2) => G::Key2,
         P(Digit3) => G::Key3,

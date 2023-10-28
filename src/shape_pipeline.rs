@@ -418,6 +418,7 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
 
         drop(render_pass);
         core.queue.submit(std::iter::once(encoder.finish()));
+        core.window.pre_present_notify();
         output.present();
         Ok(())
     }
