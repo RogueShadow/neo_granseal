@@ -1284,7 +1284,7 @@ pub fn load_meshes2(data: &str, scale: f32) -> HashMap<&str, Mesh> {
 
 #[derive(Debug)]
 pub struct Font {
-    font: HashMap<&'static str, Mesh>,
+    pub font: HashMap<&'static str, Mesh>,
 }
 impl Default for Font {
     fn default() -> Self {
@@ -1311,7 +1311,7 @@ impl Font {
                 if let Some(char) = self.font.get(&text[i..i + 1]) {
                     let mut c = char.to_owned();
                     c.translate(pos);
-                    pos.x += space;
+                    pos.x += self.font[&text[i..i + 1]].width() + padding;
                     mesh = mesh.add(&c);
                 } else {
                     pos.x += space;
