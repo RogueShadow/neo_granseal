@@ -5,6 +5,7 @@ use crate::{
     events, GlobalUniforms,
 };
 use log::error;
+use std::time::Duration;
 use winit::event::{ElementState, KeyEvent, MouseButton};
 use winit::{
     event::{Event, WindowEvent},
@@ -19,6 +20,7 @@ pub(crate) fn main_loop(
     env_logger::init();
     let mut delta = std::time::Instant::now();
     let mut frames = 0;
+    let one_second = Duration::from_secs(1);
     let mut frame_timer = std::time::Instant::now();
     let mut pipelines: Vec<Box<dyn crate::NGRenderPipeline>> = vec![];
     if core.config.simple_pipeline {
@@ -50,7 +52,7 @@ pub(crate) fn main_loop(
                         core.window.set_title(core.config.title.as_str());
                     }
                     NGCommand::CustomEvent(event) => {
-                        h.event(&mut core, events::Event::Custom(event))
+                        h.event(&mut core, events::Event::Custom(event));
                     }
                 };
             }
@@ -62,13 +64,13 @@ pub(crate) fn main_loop(
                     match event {
                         WindowEvent::RedrawRequested => {
                             h.event(&mut core, events::Event::Update(delta.elapsed()));
-                            h.event(&mut core, events::Event::Draw);
                             delta = std::time::Instant::now();
+                            h.event(&mut core, events::Event::Draw);
                             pipelines.iter_mut().for_each(|p| {
                                 p.set_globals(GlobalUniforms::new(&core));
                                 p.render(&mut core).expect("Render");
                             });
-                            if frame_timer.elapsed().as_secs_f64() > 1.0 {
+                            if frame_timer.elapsed() >= one_second {
                                 frame_timer = std::time::Instant::now();
                                 core.state.fps = frames;
                                 frames = 0;
