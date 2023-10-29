@@ -128,7 +128,6 @@ pub(crate) fn main_loop(
                         _ => {}
                     }
                 }
-                //Event::AboutToWait => core.window.request_redraw(),
                 _ => (),
             }
         })

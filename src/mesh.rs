@@ -394,6 +394,7 @@ pub struct Mesh {
     pub(crate) buffer_id: std::cell::Cell<Option<usize>>,
     pub(crate) buffer: std::cell::Cell<bool>,
     pub(crate) dirty: std::cell::Cell<bool>,
+    pub(crate) texture: Option<crate::core::Image>,
 }
 impl FillStyleShorthand for Mesh {
     fn solid(&mut self, c: Color) {
@@ -416,6 +417,10 @@ impl Mesh {
     pub fn buffer(&self) -> &Self {
         self.buffer.set(true);
         &self
+    }
+    pub fn texture(&mut self, image: &crate::core::Image) {
+        self.texture = Some(image.to_owned());
+        self.uv_project();
     }
     pub fn add(mut self, other: &Mesh) -> Mesh {
         let start = self.vertices.len() as u32;
@@ -494,6 +499,22 @@ impl Mesh {
             v.y = p.y;
         });
         self.dirty = true.into();
+        self
+    }
+    pub fn uv_project(&mut self) -> &Self {
+        self.dirty = true.into();
+        let minx = self.min_x();
+        let maxx = self.max_x();
+        let miny = self.min_y();
+        let maxy = self.max_y();
+        let dx = maxx - minx;
+        let dy = maxy - miny;
+        let texu = |x: f32| (x - minx) / dx;
+        let texv = |y: f32| (y - miny) / dy;
+        self.vertices.iter_mut().for_each(|v| {
+            v.u = texu(v.x);
+            v.v = texv(v.y);
+        });
         self
     }
     pub fn style(&mut self, style: FillStyle) -> &Self {
@@ -843,6 +864,7 @@ pub fn rect_filled(top_left: Vec2, bottom_right: Vec2, style: FillStyle) -> Mesh
         buffer_id: None.into(),
         buffer: false.into(),
         dirty: false.into(),
+        texture: None,
     }
 }
 pub fn rect_outlined(top_left: Vec2, bottom_right: Vec2, thickness: f32, style: FillStyle) -> Mesh {
@@ -924,6 +946,7 @@ pub fn oval_filled(
         buffer_id: None.into(),
         buffer: false.into(),
         dirty: false.into(),
+        texture: None,
     };
     m.style(style);
     m
@@ -1276,6 +1299,7 @@ pub fn load_meshes2(data: &str, scale: f32) -> HashMap<&str, Mesh> {
                 buffer_id: None.into(),
                 buffer: false.into(),
                 dirty: false.into(),
+                texture: None,
             },
         );
     }

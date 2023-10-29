@@ -59,6 +59,12 @@ var<storage,read> materials: array<Material>;
 @group(1) @binding(2)
 var<storage,read_write> pixels: array<Color>;
 
+@group(2) @binding(0)
+var tex: texture_2d<f32>;
+
+@group(2) @binding(1)
+var samp: sampler;
+
 @vertex
 fn vs_main(@builtin(vertex_index) index: u32, in: VertexInput, @builtin(instance_index) inst: u32) -> VertexOutput {
     let a = transforms[inst].a;
@@ -96,17 +102,20 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var index = u32(in.clip_position.x + in.clip_position.y * screen.x);
     var test = as_vec(pixels[index]);
     var color = in.color;
+    var tex_color = textureSample(tex,samp,in.tex);
     if (test.r > 0.0) {
-        color = vec4<f32>(color.rgb * test.rgb,color.a);
+        //color = vec4<f32>(color.rgb * test.rgb,color.a);
     }
     var ndcPos = in.tex * 2.0 - 0.5; // convert to -1,1 range for some functions
+
+    //pixels[index] = as_col(color);
+
     if (in.kind == 0) {
         return color;
     }
     if (in.kind == 1) {
-        return color * oval2(ndcPos);
+        return color * tex_color;
     }
-    pixels[index] = as_col(color);
     return color;
 }
 
