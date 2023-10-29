@@ -33,6 +33,7 @@ pub struct GransealGameConfig {
     pub clear_color: Color,
     pub simple_pipeline: bool,
     pub msaa: MSAA,
+    pub fullscreen: bool,
 }
 impl Default for GransealGameConfig {
     fn default() -> Self {
@@ -44,6 +45,7 @@ impl Default for GransealGameConfig {
             clear_color: Color::DARK_ORANGE,
             simple_pipeline: true,
             msaa: MSAA::Enable4x,
+            fullscreen: false,
         }
     }
 }
@@ -73,6 +75,10 @@ impl GransealGameConfig {
     }
     pub fn msaa(mut self, v: MSAA) -> Self {
         self.msaa = v;
+        self
+    }
+    pub fn fullscreen(mut self, v: bool) -> Self {
+        self.fullscreen = v;
         self
     }
 }

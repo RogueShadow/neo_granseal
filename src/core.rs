@@ -9,6 +9,7 @@ use wgpu::util::DeviceExt;
 use wgpu::{BufferUsages, Features};
 use winit::dpi::PhysicalSize;
 use winit::event_loop::EventLoop;
+use winit::window::Fullscreen;
 
 #[derive(Debug)]
 pub enum NGError {
@@ -192,13 +193,19 @@ impl NGCore {
     pub fn set_cursor_visibility(&mut self, visible: bool) {
         self.cmd_queue.push(NGCommand::SetCursorVisibility(visible))
     }
-    pub fn new(event_loop: &EventLoop<()>, config: GransealGameConfig) -> Result<Self, NGError> {
+    pub fn new(
+        event_loop: &EventLoop<()>,
+        mut config: GransealGameConfig,
+    ) -> Result<Self, NGError> {
         let timer = std::time::Instant::now();
         let window = winit::window::WindowBuilder::new()
             .with_title(&config.title)
             .with_resizable(false)
             .with_inner_size(PhysicalSize::new(config.width, config.height))
             .build(event_loop)?;
+        if config.fullscreen {
+            window.set_fullscreen(Some(Fullscreen::Borderless(None)));
+        }
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::PRIMARY,
             dx12_shader_compiler: Default::default(),
@@ -240,6 +247,12 @@ impl NGCore {
             .block_on()?;
         surface.configure(&device, &surface_configuration);
         let state = EngineState::default();
+
+        // change config to whatever size we actually ended up with.
+        let size = window.inner_size();
+        config.width = size.width as i32;
+        config.height = size.height as i32;
+
         Ok(Self {
             config,
             timer,

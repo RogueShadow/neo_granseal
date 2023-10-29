@@ -259,7 +259,7 @@ pub fn map_keys(key: &winit::keyboard::PhysicalKey) -> Key {
         P(KeyK) => G::K,
         P(KeyL) => G::L,
         P(Semicolon) => G::SemiColon,
-        P(Backquote) => G::Apostrophe,
+        P(Quote) => G::Apostrophe,
         P(Enter) => G::Enter,
         P(ShiftLeft) => G::LShift,
         P(KeyZ) => G::Z,
