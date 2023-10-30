@@ -1,8 +1,9 @@
-use crate::math::Vec2;
+use crate::core::Image;
+use crate::math::{vec2, Vec2};
 use crate::mesh::FillStyle::*;
 use crate::shape_pipeline::Vertex;
 use crate::util::{cubic_to_point, quadratic_to_point, Contour, LineSegment, PathData, Ray};
-use crate::Color;
+use crate::{math, Color};
 use std::collections::HashMap;
 use std::f32::consts::{PI, TAU};
 
@@ -66,6 +67,7 @@ pub trait FillStyleShorthand {
     fn corners(&mut self, c1: Color, c2: Color, c3: Color, c4: Color);
 }
 
+#[derive(Default)]
 pub struct MeshBuilder {
     pub state: MBState,
     pub meshes: Vec<Mesh>,
@@ -88,15 +90,7 @@ impl FillStyleShorthand for MeshBuilder {
         self.set_style(Corners(c1, c2, c3, c4))
     }
 }
-impl Default for MeshBuilder {
-    fn default() -> Self {
-        Self {
-            state: MBState::new(),
-            meshes: vec![],
-            states: vec![],
-        }
-    }
-}
+
 impl MeshBuilder {
     pub fn set_cursor(&mut self, cursor: Vec2) {
         self.state.cursor = cursor;
@@ -487,14 +481,12 @@ impl Mesh {
         self
     }
     pub fn rotate(&mut self, rotation: f32) -> &Self {
-        let rot = cgmath::Matrix2::new(
-            rotation.cos(),
-            -rotation.sin(),
-            rotation.sin(),
-            rotation.cos(),
-        );
+        let rot = math::Matrix2x2 {
+            row1: [rotation.cos(), -rotation.sin()],
+            row2: [rotation.sin(), rotation.cos()],
+        };
         self.vertices.iter_mut().for_each(|v| {
-            let p = rot * cgmath::vec2(v.x, v.y);
+            let p = rot * vec2(v.x, v.y);
             v.x = p.x;
             v.y = p.y;
         });
@@ -502,6 +494,14 @@ impl Mesh {
         self
     }
     pub fn uv_project(&mut self) -> &Self {
+        let (min, max) = match self.texture {
+            Some(img) if img.start.is_some() && img.end.is_some() => {
+                (img.start.unwrap() / img.size, img.end.unwrap() / img.size)
+            }
+            _ => (vec2(0, 0), vec2(1, 1)),
+        };
+        let dist = max - min;
+
         self.dirty = true.into();
         let minx = self.min_x();
         let maxx = self.max_x();
@@ -512,42 +512,26 @@ impl Mesh {
         let texu = |x: f32| (x - minx) / dx;
         let texv = |y: f32| (y - miny) / dy;
         self.vertices.iter_mut().for_each(|v| {
-            v.u = texu(v.x);
-            v.v = texv(v.y);
+            v.u = min.x + texu(v.x) * dist.x;
+            v.v = min.y + texv(v.y) * dist.y;
         });
         self
     }
     pub fn style(&mut self, style: FillStyle) -> &Self {
         self.dirty = true.into();
-        let minx = self.min_x();
-        let maxx = self.max_x();
-        let miny = self.min_y();
-        let maxy = self.max_y();
-        let dx = maxx - minx;
-        let dy = maxy - miny;
-        let texu = |x: f32| (x - minx) / dx;
-        let texv = |y: f32| (y - miny) / dy;
         match style {
             Solid(c1) => {
                 self.vertices.iter_mut().for_each(|v| {
                     v.set_color(c1);
-                    v.u = texu(v.x);
-                    v.v = texv(v.y);
                 });
             }
             FadeDown(c1, c2) => self.vertices.iter_mut().for_each(|v| {
-                v.u = texu(v.x);
-                v.v = texv(v.y);
                 v.set_color(c1.interpolate(&c2, v.v));
             }),
             FadeLeft(c1, c2) => self.vertices.iter_mut().for_each(|v| {
-                v.u = texu(v.x);
-                v.v = texv(v.y);
                 v.set_color(c1.interpolate(&c2, v.u));
             }),
             Corners(c1, c2, c3, c4) => self.vertices.iter_mut().for_each(|v| {
-                v.u = texu(v.x);
-                v.v = texv(v.y);
                 let color1 = c1.interpolate(&c2, v.u);
                 let color2 = c4.interpolate(&c3, v.u);
                 let color3 = c1.interpolate(&c4, v.v);

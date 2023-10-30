@@ -1,4 +1,5 @@
 use num_traits::AsPrimitive;
+use rand::Rng;
 use std::fmt::{Display, Formatter};
 use std::ops::*;
 
@@ -534,6 +535,13 @@ impl Vec2 {
             x: x.as_(),
             y: y.as_(),
         }
+    }
+    pub fn random() -> Self {
+        use rand::SeedableRng;
+        let mut r = rand_xorshift::XorShiftRng::from_rng(rand::thread_rng()).unwrap();
+        let vec = Vec2::new(r.gen_range(-1.0..=1.0), r.gen_range(-1.0..=1.0));
+        vec.normalize();
+        vec
     }
     pub fn magnitude(&self) -> f32 {
         self.dot(self).sqrt()

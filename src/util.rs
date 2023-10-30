@@ -527,28 +527,7 @@ pub fn cubic_to_point(time: f32, begin: Vec2, control1: Vec2, control2: Vec2, en
 pub fn quadratic_to_point(time: f32, begin: Vec2, control: Vec2, end: Vec2) -> Vec2 {
     control + (begin - control) * (1.0 - time).powf(2.0) + (end - control) * time.powf(2.0)
 }
-pub fn text_to_path<'a>(
-    pb: &'a mut PathBuilder,
-    font: &rusttype::Font,
-    text: &str,
-    scale: f32,
-) -> &'a PathBuilder {
-    let v_metrics = font.v_metrics(rusttype::Scale::uniform(scale));
-    let glyphs: Vec<_> = font
-        .layout(
-            text,
-            rusttype::Scale::uniform(scale),
-            rusttype::point(0.0, 0.0 + v_metrics.ascent),
-        )
-        .collect();
-    for g in glyphs {
-        if let Some(bb) = g.pixel_bounding_box() {
-            pb.set_offset(Vec2::new(bb.min.x, bb.min.y));
-            g.build_outline(pb);
-        }
-    }
-    pb
-}
+
 /// Meant to represent a line that stretches to infinity in both directions.
 pub struct Line {
     pub first: Vec2,
@@ -749,28 +728,6 @@ impl PathBuilder {
         let mut path = PathData { segments: vec![] };
         path.segments.append(&mut self.segments);
         path
-    }
-}
-
-impl rusttype::OutlineBuilder for PathBuilder {
-    fn move_to(&mut self, x: f32, y: f32) {
-        self.move_to(Vec2::new(x, y));
-    }
-
-    fn line_to(&mut self, x: f32, y: f32) {
-        self.line_to(Vec2::new(x, y));
-    }
-
-    fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
-        self.quadratic_to(Vec2::new(x1, y1), Vec2::new(x, y));
-    }
-
-    fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
-        self.cubic_to(Vec2::new(x1, y1), Vec2::new(x2, y2), Vec2::new(x, y));
-    }
-
-    fn close(&mut self) {
-        self.close_path(false);
     }
 }
 

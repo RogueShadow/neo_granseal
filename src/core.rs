@@ -1,4 +1,5 @@
 use crate::events::Key;
+use crate::math::Vec2;
 use crate::mesh::Mesh;
 use crate::shape_pipeline::{BufferedObjectID, MeshBuffer, SSRObjectInfo, Vertex};
 use crate::{map_present_modes, GransealGameConfig, NGRenderPipeline};
@@ -85,11 +86,20 @@ pub struct TextureInfo {
     pub(crate) bind_group_layout: wgpu::BindGroupLayout,
     pub(crate) bind_group: wgpu::BindGroup,
 }
+
 #[derive(Copy, Clone, Debug)]
 pub struct Image {
-    pub(crate) tex: usize,
-    pub width: u32,
-    pub height: u32,
+    pub(crate) texture: usize,
+    pub size: Vec2,
+    pub start: Option<Vec2>,
+    pub end: Option<Vec2>,
+}
+impl Image {
+    pub fn sub_image(mut self, start: Vec2, size: Vec2) -> Self {
+        self.start = Some(start);
+        self.end = Some(start + size);
+        self
+    }
 }
 
 pub struct NGCore {
@@ -258,9 +268,10 @@ impl NGCore {
             bind_group,
         });
         Image {
-            tex: self.textures.len() - 1,
-            width: image.width(),
-            height: image.height(),
+            texture: self.textures.len() - 1,
+            size: Vec2::new(image.width(), image.height()),
+            start: None,
+            end: None,
         }
     }
     pub fn update_buffer_object(&mut self, slot: usize, mesh: &Mesh) -> bool {

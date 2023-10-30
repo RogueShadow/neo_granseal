@@ -4,9 +4,7 @@ use crate::mesh::*;
 use crate::{Color, GlobalUniforms, NGCore, NGError, NGRenderPipeline, MSAA};
 use bytemuck_derive::{Pod, Zeroable};
 use wgpu::util::DeviceExt;
-use wgpu::{
-    BindGroupDescriptor, BindGroupLayout, BindGroupLayoutDescriptor, TextureViewDescriptor,
-};
+use wgpu::TextureViewDescriptor;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
@@ -121,7 +119,6 @@ pub struct SimpleShapeRenderPipeline {
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     trans_buffer: wgpu::Buffer,
-    //pixel_buffer: wgpu::Buffer,
     mats_buffer: wgpu::Buffer,
     data_bind_group: wgpu::BindGroup,
     globals: GlobalUniforms,
@@ -173,15 +170,6 @@ impl SimpleShapeRenderPipeline {
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        let pixels = core.window.inner_size().width
-            * core.window.inner_size().height
-            * std::mem::size_of::<Color>() as u32;
-        let pixel_buffer = core.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("SSR Pixel Buffer"),
-            size: wgpu::BufferAddress::from(pixels),
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
         let mats_buffer = core.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("SSR Materials Buffer"),
             size: (max * std::mem::size_of::<SSRMaterial>()) as wgpu::BufferAddress,
@@ -213,16 +201,6 @@ impl SimpleShapeRenderPipeline {
                         },
                         count: None,
                     },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 2,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Storage { read_only: false },
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
-                    },
                 ],
             });
         let data_bind_group = core.device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -236,10 +214,6 @@ impl SimpleShapeRenderPipeline {
                 wgpu::BindGroupEntry {
                     binding: 1,
                     resource: mats_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: pixel_buffer.as_entire_binding(),
                 },
             ],
         });
@@ -307,7 +281,7 @@ impl SimpleShapeRenderPipeline {
                     entry_point: "fs_main",
                     targets: &[Some(wgpu::ColorTargetState {
                         format: core.surface_configuration.format,
-                        blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+                        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                         write_mask: wgpu::ColorWrites::ALL,
                     })],
                 }),
@@ -318,7 +292,6 @@ impl SimpleShapeRenderPipeline {
             vertex_buffer,
             index_buffer,
             trans_buffer,
-            //pixel_buffer,
             mats_buffer,
             data_bind_group,
             globals,
@@ -337,14 +310,14 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
         self.vertex_buffer = core
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("SSRP Vertex Buffer"),
+                label: Some("Simple Shape Renderer Pipeline Vertex Buffer"),
                 contents: bytemuck::cast_slice(data.vertices.as_slice()),
                 usage: wgpu::BufferUsages::VERTEX,
             });
         self.index_buffer = core
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("SSRP Index Buffer"),
+                label: Some("Simple Shape Renderer Pipeline Index Buffer"),
                 contents: bytemuck::cast_slice(data.indices.as_slice()),
                 usage: wgpu::BufferUsages::INDEX,
             });
@@ -520,11 +493,16 @@ impl<'draw> ShapeGfx<'draw> {
         }
     }
     pub fn draw_image(&mut self, image: &Image, pos: Vec2) {
-        let mut mesh = rect_filled(
-            Vec2::ZERO,
-            Vec2::new(image.width, image.height),
-            FillStyle::Solid(Color::WHITE),
-        );
+        let size = if let Some(start) = image.start {
+            if let Some(end) = image.end {
+                end - start
+            } else {
+                image.size
+            }
+        } else {
+            image.size
+        };
+        let mut mesh = rect_filled(Vec2::ZERO, size, FillStyle::Solid(Color::WHITE));
         mesh.texture(image);
         self.draw_mesh(&mesh, pos);
     }
@@ -536,7 +514,7 @@ impl<'draw> ShapeGfx<'draw> {
                 mesh.dirty.set(false);
                 self.draw_buffered_mesh(mesh, pos);
             }
-            (true, false, Some(bid)) => {
+            (true, false, Some(_)) => {
                 self.draw_buffered_mesh(mesh, pos);
             }
             (true, true, Some(bid)) => {
@@ -544,6 +522,10 @@ impl<'draw> ShapeGfx<'draw> {
                 self.draw_buffered_mesh(mesh, pos);
             }
             (false, _, _) => {
+                let texture = match mesh.texture {
+                    Some(image) => Some(image.texture),
+                    None => None,
+                };
                 let start_vertex = self.data.vertices.len();
                 let start_index = self.data.indices.len();
                 self.data.vertices.extend(mesh.vertices.as_slice());
@@ -554,13 +536,7 @@ impl<'draw> ShapeGfx<'draw> {
                     start_vertice: start_vertex as u32,
                     start_index: start_index as u32,
                     end_index: end_index as u32,
-                    texture: {
-                        if let Some(tex) = mesh.texture {
-                            Some(tex.tex)
-                        } else {
-                            None
-                        }
-                    },
+                    texture,
                 };
                 let transform = SSRTransform {
                     x: self.offset.x + pos.x,
@@ -584,9 +560,10 @@ impl<'draw> ShapeGfx<'draw> {
             .buffered_objects
             .get_mut(obj.buffer_id.get().unwrap())
             .unwrap();
-        if let Some(tex) = obj.texture {
-            info.texture = Some(tex.tex);
-        }
+        info.texture = match obj.texture {
+            Some(image) => Some(image.texture),
+            None => None,
+        };
         let transform = SSRTransform {
             x: self.offset.x + pos.x,
             y: self.offset.y + pos.y,
@@ -596,7 +573,7 @@ impl<'draw> ShapeGfx<'draw> {
         };
         let material = SSRMaterial {
             kind: {
-                if let Some(tex) = obj.texture {
+                if let Some(_) = obj.texture {
                     1
                 } else {
                     0
