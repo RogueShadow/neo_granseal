@@ -4,7 +4,7 @@ use crate::mesh::*;
 use crate::{Color, GlobalUniforms, NGCore, NGError, NGRenderPipeline, MSAA};
 use bytemuck_derive::{Pod, Zeroable};
 use wgpu::util::DeviceExt;
-use wgpu::TextureViewDescriptor;
+use wgpu::{MultisampleState, TextureViewDescriptor};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
@@ -92,13 +92,6 @@ pub struct SSRMaterial {
     pub kind: i32,
 }
 
-impl SSRMaterial {
-    pub fn oval(mut self) -> Self {
-        self.kind = 1;
-        self
-    }
-}
-
 #[derive(Copy, Clone, Debug)]
 pub struct SSRObjectInfo {
     pub(crate) bo_slot: Option<usize>,
@@ -124,6 +117,8 @@ pub struct SimpleShapeRenderPipeline {
     globals: GlobalUniforms,
     data: Option<SSRRenderData>,
     pipeline: wgpu::RenderPipeline,
+    pipeline2: wgpu::RenderPipeline,
+    pipeline3: wgpu::RenderPipeline,
 }
 impl SimpleShapeRenderPipeline {
     const MAX: usize = 1_000_000;
@@ -217,7 +212,7 @@ impl SimpleShapeRenderPipeline {
                 },
             ],
         });
-        let globals = GlobalUniforms::new(core);
+        let globals = GlobalUniforms::new(core, (32.0, 32.0));
         let shader = core
             .device
             .create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -287,6 +282,82 @@ impl SimpleShapeRenderPipeline {
                 }),
                 multiview: None,
             });
+        let pipeline2 = core
+            .device
+            .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("SSR Pipeline Offscreen"),
+                layout: Some(&pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &shader,
+                    entry_point: "vs_main",
+                    buffers: &[
+                        wgpu::VertexBufferLayout {
+                            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
+                            step_mode: wgpu::VertexStepMode::Vertex,
+                            attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2,  2 => Float32x4],
+                        }
+                    ],
+                },
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleList,
+                    strip_index_format: None,
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: Some(wgpu::Face::Back),
+                    unclipped_depth: false,
+                    polygon_mode: wgpu::PolygonMode::Fill,
+                    conservative: false,
+                },
+                depth_stencil: None,
+                multisample: MultisampleState::default(),
+                fragment: Some(wgpu::FragmentState {
+                    module: &shader,
+                    entry_point: "fs_main",
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                }),
+                multiview: None,
+            });
+        let pipeline3 = core
+            .device
+            .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("SSR Pipeline Offscreen"),
+                layout: Some(&pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &shader,
+                    entry_point: "vs_main",
+                    buffers: &[
+                        wgpu::VertexBufferLayout {
+                            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
+                            step_mode: wgpu::VertexStepMode::Vertex,
+                            attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2,  2 => Float32x4],
+                        }
+                    ],
+                },
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleList,
+                    strip_index_format: None,
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: Some(wgpu::Face::Back),
+                    unclipped_depth: false,
+                    polygon_mode: wgpu::PolygonMode::Fill,
+                    conservative: false,
+                },
+                depth_stencil: None,
+                multisample: MultisampleState::default(),
+                fragment: Some(wgpu::FragmentState {
+                    module: &shader,
+                    entry_point: "fs_main",
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                        blend: Some(wgpu::BlendState::REPLACE),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                }),
+                multiview: None,
+            });
         Self {
             multisample,
             vertex_buffer,
@@ -297,14 +368,28 @@ impl SimpleShapeRenderPipeline {
             globals,
             data: None,
             pipeline,
+            pipeline2,
+            pipeline3,
         }
     }
-}
-impl NGRenderPipeline for SimpleShapeRenderPipeline {
-    fn render(&mut self, core: &mut NGCore) -> Result<(), NGError> {
+    fn render_to(
+        &mut self,
+        core: &mut NGCore,
+        texture: Option<&wgpu::Texture>,
+        render_target: Option<Image>,
+        replace: bool,
+    ) {
+        let disable_msaa = texture.is_none();
+        let texture = match texture {
+            Some(tex) => tex,
+            None => match render_target {
+                Some(img) => &core.textures.get(img.texture).unwrap().texture,
+                None => return,
+            },
+        };
         let data = match self.data.as_ref() {
             Some(d) => d,
-            None => return Ok(()),
+            None => return,
         };
 
         self.vertex_buffer = core
@@ -333,10 +418,9 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
             bytemuck::cast_slice(data.materials.as_slice()),
         );
 
-        let output = core.surface.get_current_texture()?;
         let texture_view_descriptor = TextureViewDescriptor {
             label: None,
-            format: Some(core.surface_configuration.format),
+            format: Some(texture.format()),
             dimension: Some(wgpu::TextureViewDimension::D2),
             aspect: wgpu::TextureAspect::All,
             base_mip_level: 0,
@@ -344,10 +428,12 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
             base_array_layer: 0,
             array_layer_count: None,
         };
-        let output_view = output.texture.create_view(&texture_view_descriptor);
+        let output_view = texture.create_view(&texture_view_descriptor);
         let (view, resolve_target) = match &self.multisample {
-            None => (output_view, None),
-            Some(t) => (t.create_view(&texture_view_descriptor), Some(&output_view)),
+            Some(t) if !disable_msaa => {
+                (t.create_view(&texture_view_descriptor), Some(&output_view))
+            }
+            _ => (output_view, None),
         };
         let mut encoder = core
             .device
@@ -360,14 +446,26 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
                 view: &view,
                 resolve_target,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(core.config.clear_color.into()),
+                    load: if render_target.is_some() {
+                        wgpu::LoadOp::Load
+                    } else {
+                        wgpu::LoadOp::Clear(core.config.clear_color.into())
+                    },
                     store: true,
                 },
             })],
             depth_stencil_attachment: None,
         });
 
-        render_pass.set_pipeline(&self.pipeline);
+        if disable_msaa {
+            if replace {
+                render_pass.set_pipeline(&self.pipeline3);
+            } else {
+                render_pass.set_pipeline(&self.pipeline2);
+            }
+        } else {
+            render_pass.set_pipeline(&self.pipeline);
+        }
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
         render_pass.set_bind_group(0, &self.globals.bind_group, &[]);
@@ -413,11 +511,19 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
 
         drop(render_pass);
         core.queue.submit(std::iter::once(encoder.finish()));
+    }
+}
+impl NGRenderPipeline for SimpleShapeRenderPipeline {
+    fn render(&mut self, core: &mut NGCore) -> Result<(), NGError> {
+        let texture = core.surface.get_current_texture()?;
+        self.render_to(core, Some(&texture.texture), None, false);
         core.window.pre_present_notify();
-        output.present();
+        texture.present();
         Ok(())
     }
-
+    fn render_image(&mut self, core: &mut NGCore, texture: Image, replace: bool) {
+        self.render_to(core, None, Some(texture), replace);
+    }
     fn set_data(&mut self, data: Box<dyn std::any::Any>) {
         let rd = data.downcast::<SSRRenderData>().expect("Get Render Data");
         self.data = Some(*rd);
@@ -587,5 +693,9 @@ impl<'draw> ShapeGfx<'draw> {
     }
     pub fn finish(&mut self) {
         self.core.render(0, Box::new(self.data.to_owned()));
+    }
+    pub fn render_image(&mut self, image: &Image, replace: bool) {
+        self.core
+            .render_image(0, Box::new(self.data.to_owned()), image, replace);
     }
 }

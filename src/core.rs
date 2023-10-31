@@ -44,6 +44,7 @@ pub enum NGCommand {
     SetCursorVisibility(bool),
     SetTitle(String),
     CustomEvent(String),
+    RenderImage(usize, Box<dyn Any>, Image, bool),
 }
 
 pub struct MouseState {
@@ -82,7 +83,7 @@ impl Default for EngineState {
 }
 
 pub struct TextureInfo {
-    texture: wgpu::Texture,
+    pub(crate) texture: wgpu::Texture,
     pub(crate) bind_group_layout: wgpu::BindGroupLayout,
     pub(crate) bind_group: wgpu::BindGroup,
 }
@@ -121,94 +122,26 @@ pub struct NGCore {
 
 impl NGCore {
     fn initialize_texture(&mut self) {
-        let image = image::RgbaImage::new(64, 64);
+        let mut image = image::RgbaImage::new(16, 16);
+        image.fill(u8::MAX);
         let data = image.as_bytes();
-        let tex = wgpu::TextureDescriptor {
-            label: Some("Image Texture"),
-            size: wgpu::Extent3d {
-                width: image.width(),
-                height: image.height(),
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: TextureDimension::D2,
-            format: TextureFormat::Rgba8UnormSrgb,
-            usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
-            view_formats: &[],
-        };
-        let texture = self
-            .device
-            .create_texture_with_data(&self.queue, &tex, data);
-        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let sampler = self.device.create_sampler(&wgpu::SamplerDescriptor {
-            label: Some("Texture Sampler"),
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            ..Default::default()
-        });
-        let bind_group_layout =
-            self.device
-                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    label: Some("Texture Bind Group Layout"),
-                    entries: &[
-                        wgpu::BindGroupLayoutEntry {
-                            binding: 0,
-                            visibility: wgpu::ShaderStages::FRAGMENT,
-                            ty: wgpu::BindingType::Texture {
-                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                                view_dimension: wgpu::TextureViewDimension::D2,
-                                multisampled: false,
-                            },
-                            count: None,
-                        },
-                        wgpu::BindGroupLayoutEntry {
-                            binding: 1,
-                            visibility: wgpu::ShaderStages::FRAGMENT,
-                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                            count: None,
-                        },
-                    ],
-                });
-        let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Texture Bind Group"),
-            layout: &bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&sampler),
-                },
-            ],
-        });
-        self.textures.push(TextureInfo {
-            texture,
-            bind_group_layout,
-            bind_group,
-        });
+        self.load_image_data(image.width(), image.height(), data);
     }
-    pub fn load_texture(&mut self, file: &str) -> Image {
-        let image = image::open(file).expect("Load Image").to_rgba8();
-        let data = image.as_raw().as_slice();
+    pub fn load_image_data(&mut self, width: u32, height: u32, data: &[u8]) -> Image {
         let tex = wgpu::TextureDescriptor {
             label: Some("Image Texture"),
             size: wgpu::Extent3d {
-                width: image.width(),
-                height: image.height(),
+                width: width,
+                height: height,
                 depth_or_array_layers: 1,
             },
             mip_level_count: 1,
             sample_count: 1,
             dimension: TextureDimension::D2,
             format: TextureFormat::Rgba8UnormSrgb,
-            usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+            usage: TextureUsages::TEXTURE_BINDING
+                | TextureUsages::COPY_DST
+                | TextureUsages::RENDER_ATTACHMENT,
             view_formats: &[],
         };
         let texture = self
@@ -269,10 +202,15 @@ impl NGCore {
         });
         Image {
             texture: self.textures.len() - 1,
-            size: Vec2::new(image.width(), image.height()),
+            size: Vec2::new(width, height),
             start: None,
             end: None,
         }
+    }
+    pub fn load_image(&mut self, file: &str) -> Image {
+        let image = image::open(file).expect("Load Image").to_rgba8();
+        let data = image.as_raw().as_slice();
+        self.load_image_data(image.width(), image.height(), data)
     }
     pub fn update_buffer_object(&mut self, slot: usize, mesh: &Mesh) -> bool {
         if self.mesh_buffers.get(slot).is_some() {
@@ -363,6 +301,20 @@ impl NGCore {
     }
     pub fn render(&mut self, pipeline: usize, data: Box<dyn Any>) {
         self.cmd_queue.push(NGCommand::Render(pipeline, data));
+    }
+    pub fn render_image(
+        &mut self,
+        pipeline: usize,
+        data: Box<dyn Any>,
+        image: &Image,
+        replace: bool,
+    ) {
+        self.cmd_queue.push(NGCommand::RenderImage(
+            pipeline,
+            data,
+            image.clone(),
+            replace,
+        ));
     }
     pub fn event(&mut self, event: String) {
         self.cmd_queue.push(NGCommand::CustomEvent(event));

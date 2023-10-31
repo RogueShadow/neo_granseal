@@ -46,6 +46,21 @@ pub(crate) fn main_loop(
                             error!("Index out of bounds for pipeline.")
                         }
                     }
+                    NGCommand::RenderImage(index, data, img, replace) => {
+                        if index < pipelines.len() {
+                            if !pipelines.is_empty() {
+                                let mut renderer = pipelines.get_mut(index).unwrap();
+                                renderer.set_globals(GlobalUniforms::new(
+                                    &core,
+                                    (img.size.x, img.size.y),
+                                ));
+                                renderer.set_data(data);
+                                renderer.render_image(&mut core, img, replace);
+                            }
+                        } else {
+                            error!("Index out of bounds for pipeline.")
+                        }
+                    }
                     NGCommand::SetCursorVisibility(v) => core.window.set_cursor_visible(v),
                     NGCommand::SetTitle(title) => {
                         core.config.title = title;
@@ -64,11 +79,15 @@ pub(crate) fn main_loop(
                     match event {
                         WindowEvent::RedrawRequested => {
                             if core.window.has_focus() {
+                                let size = {
+                                    let d = core.window.inner_size();
+                                    (d.width as f32, d.height as f32)
+                                };
                                 h.event(&mut core, events::Event::Update(delta.elapsed()));
                                 delta = std::time::Instant::now();
                                 h.event(&mut core, events::Event::Draw);
                                 pipelines.iter_mut().for_each(|p| {
-                                    p.set_globals(GlobalUniforms::new(&core));
+                                    p.set_globals(GlobalUniforms::new(&core, size));
                                     p.render(&mut core).expect("Render");
                                 });
                                 if frame_timer.elapsed() >= one_second {

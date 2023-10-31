@@ -83,12 +83,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var color = in.color;
     var tex_color = textureSample(tex,samp,in.tex);
 
-    if (in.kind == 0) {
-        return color;
-    }
-    if (in.kind == 1) {
-        return color * tex_color;
-    }
-    return color;
+    return color * tex_color;
 }
 

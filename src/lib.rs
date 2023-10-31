@@ -117,6 +117,7 @@ pub trait NeoGransealEventHandler {
 
 pub trait NGRenderPipeline {
     fn render(&mut self, core: &mut NGCore) -> Result<(), NGError>;
+    fn render_image(&mut self, core: &mut NGCore, texture: crate::core::Image, replace: bool);
     fn set_data(&mut self, data: Box<dyn std::any::Any>);
     fn set_globals(&mut self, globals: GlobalUniforms);
 }
@@ -126,18 +127,12 @@ pub struct GlobalUniforms {
     bind_group: wgpu::BindGroup,
 }
 impl GlobalUniforms {
-    fn new(core: &NGCore) -> Self {
+    fn new(core: &NGCore, screen: (f32, f32)) -> Self {
         let screen_uniform_buffer =
             core.device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("Screen Uniform Buffer"),
-                    contents: bytemuck::cast_slice(
-                        [
-                            core.window.inner_size().width as f32,
-                            core.window.inner_size().height as f32,
-                        ]
-                        .as_slice(),
-                    ),
+                    contents: bytemuck::cast_slice([screen.0, screen.1].as_slice()),
                     usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                 });
         let time_uniform_buffer =
