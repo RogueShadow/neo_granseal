@@ -32,6 +32,7 @@ pub struct MBState {
     pub rot_origin: Vec2,
     pub resolution: f32,
     pub path_start: Vec2,
+    pub image: Option<Image>,
 }
 impl Default for MBState {
     fn default() -> Self {
@@ -45,6 +46,7 @@ impl Default for MBState {
             rot_origin: Vec2::new(0, 0),
             resolution: 8.0,
             path_start: Vec2::new(0, 0),
+            image: None,
         }
     }
 }
@@ -92,6 +94,12 @@ impl FillStyleShorthand for MeshBuilder {
 }
 
 impl MeshBuilder {
+    pub fn clear_image(&mut self) {
+        self.state.image = None;
+    }
+    pub fn set_image(&mut self, image: &Image) {
+        self.state.image = Some(*image);
+    }
     pub fn set_cursor(&mut self, cursor: Vec2) {
         self.state.cursor = cursor;
     }
@@ -197,6 +205,8 @@ impl MeshBuilder {
 
         self.do_rotation(&mut m);
 
+        m.image = self.state.image;
+        m.uv_project();
         self.meshes.push(m);
     }
     pub fn do_rotation(&self, m: &mut Mesh) {
@@ -226,7 +236,8 @@ impl MeshBuilder {
         };
 
         self.do_rotation(&mut m);
-
+        m.image = self.state.image;
+        m.uv_project();
         self.meshes.push(m);
     }
     pub fn oval(&mut self, radius: Vec2) {
@@ -251,6 +262,8 @@ impl MeshBuilder {
             )
         };
         self.do_rotation(&mut m);
+        m.image = self.state.image;
+        m.uv_project();
         self.meshes.push(m);
     }
     pub fn arc(&mut self, radius: Vec2, arc_begin: f32, arc_end: f32) {
@@ -275,6 +288,8 @@ impl MeshBuilder {
             )
         };
         self.do_rotation(&mut m);
+        m.image = self.state.image;
+        m.uv_project();
         self.meshes.push(m);
     }
     pub fn line(&mut self, begin: Vec2, end: Vec2) {
@@ -286,6 +301,8 @@ impl MeshBuilder {
             self.state.fill_style,
         );
         self.do_rotation(&mut m);
+        m.image = self.state.image;
+        m.uv_project();
         self.meshes.push(m);
     }
     pub fn move_to(&mut self, pos: Vec2) {
@@ -307,6 +324,8 @@ impl MeshBuilder {
         );
         self.do_rotation(&mut m);
         self.set_cursor(end);
+        m.image = self.state.image;
+        m.uv_project();
         self.meshes.push(m);
     }
     pub fn quadratic(&mut self, begin: Vec2, control: Vec2, end: Vec2) {
@@ -320,6 +339,8 @@ impl MeshBuilder {
             self.state.resolution,
         );
         self.do_rotation(&mut m);
+        m.image = self.state.image;
+        m.uv_project();
         self.meshes.push(m);
     }
     pub fn quad_to(&mut self, control: Vec2, end: Vec2) {
@@ -334,6 +355,8 @@ impl MeshBuilder {
         );
         self.do_rotation(&mut m);
         self.set_cursor(end);
+        m.image = self.state.image;
+        m.uv_project();
         self.meshes.push(m);
     }
     pub fn cubic(&mut self, begin: Vec2, control1: Vec2, control2: Vec2, end: Vec2) {
@@ -348,6 +371,8 @@ impl MeshBuilder {
             self.state.resolution,
         );
         self.do_rotation(&mut m);
+        m.image = self.state.image;
+        m.uv_project();
         self.meshes.push(m);
     }
     pub fn cubic_to(&mut self, control1: Vec2, control2: Vec2, end: Vec2) {
@@ -363,21 +388,29 @@ impl MeshBuilder {
         );
         self.do_rotation(&mut m);
         self.set_cursor(end);
+        m.image = self.state.image;
+        m.uv_project();
         self.meshes.push(m);
     }
     pub fn triangle_raw(&mut self, p1: Vec2, p2: Vec2, p3: Vec2) {
         let (c1, c2, c3, _) = style_colors(self.state.fill_style);
         let mut m = raw_triangle_filled(p1, p2, p3, c1, c2, c3);
         self.do_rotation(&mut m);
+        m.image = self.state.image;
+        m.uv_project();
         self.meshes.push(m);
     }
     pub fn quad_raw(&mut self, p1: Vec2, p2: Vec2, p3: Vec2, p4: Vec2) {
         let mut m = raw_quad_filled(p1, p2, p3, p4, self.state.fill_style);
         self.do_rotation(&mut m);
+        m.image = self.state.image;
+        m.uv_project();
         self.meshes.push(m);
     }
     pub fn build(self) -> Mesh {
-        combine(self.meshes)
+        let mut m = combine(self.meshes);
+        m.image = self.state.image;
+        m
     }
 }
 
@@ -388,7 +421,7 @@ pub struct Mesh {
     pub(crate) buffer_id: std::cell::Cell<Option<usize>>,
     pub(crate) buffer: std::cell::Cell<bool>,
     pub(crate) dirty: std::cell::Cell<bool>,
-    pub(crate) texture: Option<crate::core::Image>,
+    pub(crate) image: Option<crate::core::Image>,
 }
 impl FillStyleShorthand for Mesh {
     fn solid(&mut self, c: Color) {
@@ -413,7 +446,7 @@ impl Mesh {
         &self
     }
     pub fn texture(&mut self, image: &crate::core::Image) {
-        self.texture = Some(image.to_owned());
+        self.image = Some(image.to_owned());
         self.uv_project();
     }
     pub fn add(mut self, other: &Mesh) -> Mesh {
@@ -494,7 +527,7 @@ impl Mesh {
         self
     }
     pub fn uv_project(&mut self) -> &Self {
-        let (min, max) = match self.texture {
+        let (min, max) = match self.image {
             Some(img) if img.start.is_some() && img.end.is_some() => {
                 (img.start.unwrap() / img.size, img.end.unwrap() / img.size)
             }
@@ -848,7 +881,7 @@ pub fn rect_filled(top_left: Vec2, bottom_right: Vec2, style: FillStyle) -> Mesh
         buffer_id: None.into(),
         buffer: false.into(),
         dirty: false.into(),
-        texture: None,
+        image: None,
     }
 }
 pub fn rect_outlined(top_left: Vec2, bottom_right: Vec2, thickness: f32, style: FillStyle) -> Mesh {
@@ -930,7 +963,7 @@ pub fn oval_filled(
         buffer_id: None.into(),
         buffer: false.into(),
         dirty: false.into(),
-        texture: None,
+        image: None,
     };
     m.style(style);
     m
@@ -1283,7 +1316,7 @@ pub fn load_meshes2(data: &str, scale: f32) -> HashMap<&str, Mesh> {
                 buffer_id: None.into(),
                 buffer: false.into(),
                 dirty: false.into(),
-                texture: None,
+                image: None,
             },
         );
     }

@@ -63,20 +63,22 @@ pub(crate) fn main_loop(
                     }
                     match event {
                         WindowEvent::RedrawRequested => {
-                            h.event(&mut core, events::Event::Update(delta.elapsed()));
-                            delta = std::time::Instant::now();
-                            h.event(&mut core, events::Event::Draw);
-                            pipelines.iter_mut().for_each(|p| {
-                                p.set_globals(GlobalUniforms::new(&core));
-                                p.render(&mut core).expect("Render");
-                            });
-                            if frame_timer.elapsed() >= one_second {
-                                frame_timer = std::time::Instant::now();
-                                core.state.fps = frames;
-                                frames = 0;
+                            if core.window.has_focus() {
+                                h.event(&mut core, events::Event::Update(delta.elapsed()));
+                                delta = std::time::Instant::now();
+                                h.event(&mut core, events::Event::Draw);
+                                pipelines.iter_mut().for_each(|p| {
+                                    p.set_globals(GlobalUniforms::new(&core));
+                                    p.render(&mut core).expect("Render");
+                                });
+                                if frame_timer.elapsed() >= one_second {
+                                    frame_timer = std::time::Instant::now();
+                                    core.state.fps = frames;
+                                    frames = 0;
+                                }
+                                frames += 1;
+                                core.window.request_redraw();
                             }
-                            frames += 1;
-                            core.window.request_redraw();
                         }
                         WindowEvent::CloseRequested => {
                             window.exit();

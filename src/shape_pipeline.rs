@@ -522,7 +522,7 @@ impl<'draw> ShapeGfx<'draw> {
                 self.draw_buffered_mesh(mesh, pos);
             }
             (false, _, _) => {
-                let texture = match mesh.texture {
+                let texture = match mesh.image {
                     Some(image) => Some(image.texture),
                     None => None,
                 };
@@ -546,7 +546,7 @@ impl<'draw> ShapeGfx<'draw> {
                     ry: self.rotation_origin.y,
                 };
                 let material = SSRMaterial {
-                    kind: if mesh.texture.is_none() { 0 } else { 1 },
+                    kind: if mesh.image.is_none() { 0 } else { 1 },
                 };
                 self.data.transforms.push(transform);
                 self.data.materials.push(material);
@@ -560,7 +560,7 @@ impl<'draw> ShapeGfx<'draw> {
             .buffered_objects
             .get_mut(obj.buffer_id.get().unwrap())
             .unwrap();
-        info.texture = match obj.texture {
+        info.texture = match obj.image {
             Some(image) => Some(image.texture),
             None => None,
         };
@@ -573,7 +573,7 @@ impl<'draw> ShapeGfx<'draw> {
         };
         let material = SSRMaterial {
             kind: {
-                if let Some(_) = obj.texture {
+                if let Some(_) = obj.image {
                     1
                 } else {
                     0
