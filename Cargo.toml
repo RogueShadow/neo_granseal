@@ -26,10 +26,6 @@ name = "pixels"
 test = false
 
 [[example]]
-name = "other"
-test = false
-
-[[example]]
 name = "shapes"
 test = false
 

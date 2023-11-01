@@ -38,13 +38,26 @@ pub(crate) fn main_loop(
                         pipelines.push(p);
                     }
                     NGCommand::Render(index, data) => {
+                        let size = {
+                            let d = core.window.inner_size();
+                            (d.width as f32, d.height as f32)
+                        };
                         if index < pipelines.len() {
                             if !pipelines.is_empty() {
-                                pipelines.get_mut(index).unwrap().set_data(data);
+                                let mut renderer = pipelines.get_mut(index).unwrap();
+                                renderer.set_globals(GlobalUniforms::new(&core, size));
+                                renderer.set_data(data);
+                                renderer.render(&mut core);
                             }
                         } else {
                             error!("Index out of bounds for pipeline.")
                         }
+                        if frame_timer.elapsed() >= one_second {
+                            frame_timer = std::time::Instant::now();
+                            core.state.fps = frames;
+                            frames = 0;
+                        }
+                        frames += 1;
                     }
                     NGCommand::RenderImage(index, data, img, replace) => {
                         if index < pipelines.len() {
@@ -79,25 +92,12 @@ pub(crate) fn main_loop(
                     match event {
                         WindowEvent::RedrawRequested => {
                             if core.window.has_focus() {
-                                let size = {
-                                    let d = core.window.inner_size();
-                                    (d.width as f32, d.height as f32)
-                                };
-                                h.event(&mut core, events::Event::Update(delta.elapsed()));
+                                let elapsed = delta.elapsed();
                                 delta = std::time::Instant::now();
+                                h.event(&mut core, events::Event::Update(elapsed));
                                 h.event(&mut core, events::Event::Draw);
-                                pipelines.iter_mut().for_each(|p| {
-                                    p.set_globals(GlobalUniforms::new(&core, size));
-                                    p.render(&mut core).expect("Render");
-                                });
-                                if frame_timer.elapsed() >= one_second {
-                                    frame_timer = std::time::Instant::now();
-                                    core.state.fps = frames;
-                                    frames = 0;
-                                }
-                                frames += 1;
-                                core.window.request_redraw();
                             }
+                            core.window.request_redraw();
                         }
                         WindowEvent::CloseRequested => {
                             window.exit();
