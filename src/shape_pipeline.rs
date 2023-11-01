@@ -3,8 +3,9 @@ use crate::math::Vec2;
 use crate::mesh::*;
 use crate::{Color, GlobalUniforms, NGCore, NGError, NGRenderPipeline, MSAA};
 use bytemuck_derive::{Pod, Zeroable};
+use std::default::Default;
 use wgpu::util::DeviceExt;
-use wgpu::{MultisampleState, TextureViewDescriptor};
+use wgpu::{MultisampleState, StoreOp, TextureViewDescriptor};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
@@ -451,10 +452,12 @@ impl SimpleShapeRenderPipeline {
                     } else {
                         wgpu::LoadOp::Clear(core.config.clear_color.into())
                     },
-                    store: true,
+                    store: StoreOp::Store,
                 },
             })],
             depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
         });
 
         if disable_msaa {

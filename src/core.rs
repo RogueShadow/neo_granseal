@@ -338,10 +338,7 @@ impl NGCore {
         if config.fullscreen {
             window.set_fullscreen(Some(Fullscreen::Borderless(None)));
         }
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::PRIMARY,
-            dx12_shader_compiler: Default::default(),
-        });
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::default());
         let surface = unsafe {
             instance
                 .create_surface(&window)

@@ -44,10 +44,10 @@ pub(crate) fn main_loop(
                         };
                         if index < pipelines.len() {
                             if !pipelines.is_empty() {
-                                let mut renderer = pipelines.get_mut(index).unwrap();
+                                let renderer = pipelines.get_mut(index).unwrap();
                                 renderer.set_globals(GlobalUniforms::new(&core, size));
                                 renderer.set_data(data);
-                                renderer.render(&mut core);
+                                renderer.render(&mut core).expect("Render");
                             }
                         } else {
                             error!("Index out of bounds for pipeline.")
@@ -62,7 +62,7 @@ pub(crate) fn main_loop(
                     NGCommand::RenderImage(index, data, img, replace) => {
                         if index < pipelines.len() {
                             if !pipelines.is_empty() {
-                                let mut renderer = pipelines.get_mut(index).unwrap();
+                                let renderer = pipelines.get_mut(index).unwrap();
                                 renderer.set_globals(GlobalUniforms::new(
                                     &core,
                                     (img.size.x, img.size.y),
