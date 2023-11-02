@@ -96,16 +96,17 @@ pub struct SSRMaterial {
 #[derive(Copy, Clone, Debug)]
 pub struct SSRObjectInfo {
     pub(crate) bo_slot: Option<usize>,
-    pub(crate) start_vertice: u32,
+    pub(crate) texture: Option<usize>,
     pub(crate) start_index: u32,
     pub(crate) end_index: u32,
-    pub(crate) texture: Option<usize>,
+    pub(crate) start_vertice: u32,
 }
 pub type BufferedObjectID = usize;
+#[derive(Debug)]
 pub struct MeshBuffer {
     pub(crate) vertex_buffer: wgpu::Buffer,
     pub(crate) index_buffer: wgpu::Buffer,
-    pub(crate) meshes: Vec<Mesh>,
+    pub texture: Option<usize>,
 }
 
 pub struct SimpleShapeRenderPipeline {
@@ -480,17 +481,17 @@ impl SimpleShapeRenderPipeline {
         );
 
         for (i, obj) in data.object_info.iter().enumerate() {
-            if let Some(tex) = obj.texture {
-                render_pass.set_bind_group(2, &core.textures[tex].bind_group, &[]);
-            } else {
-                render_pass.set_bind_group(
-                    2,
-                    &core.textures.first().expect("Something").bind_group,
-                    &[],
-                );
-            }
             let index = i as u32..i as u32 + 1;
             if obj.bo_slot.is_none() {
+                if let Some(tex) = obj.texture {
+                    render_pass.set_bind_group(2, &core.textures[tex].bind_group, &[]);
+                } else {
+                    render_pass.set_bind_group(
+                        2,
+                        &core.textures.first().expect("Something").bind_group,
+                        &[],
+                    );
+                }
                 render_pass.draw_indexed(
                     obj.start_index..obj.end_index,
                     obj.start_vertice as i32,
@@ -499,11 +500,20 @@ impl SimpleShapeRenderPipeline {
             } else {
                 let vbi = obj.bo_slot.unwrap();
                 let vb: &MeshBuffer = core.mesh_buffers.get(vbi).unwrap();
+                if let Some(tex) = vb.texture {
+                    render_pass.set_bind_group(2, &core.textures[tex].bind_group, &[]);
+                } else {
+                    render_pass.set_bind_group(
+                        2,
+                        &core.textures.first().expect("Something").bind_group,
+                        &[],
+                    );
+                }
                 render_pass.set_vertex_buffer(0, vb.vertex_buffer.slice(..));
                 render_pass.set_index_buffer(vb.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                 render_pass.draw_indexed(
-                    obj.start_index..obj.end_index,
-                    obj.start_vertice as i32,
+                    0..(vb.index_buffer.size() as u32 / std::mem::size_of::<i32>() as u32),
+                    0,
                     index,
                 );
                 render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
@@ -612,23 +622,24 @@ impl<'draw> ShapeGfx<'draw> {
             image.size
         };
         let mut mesh = rect_filled(Vec2::ZERO, size, FillStyle::Solid(Color::WHITE));
-        mesh.texture(image);
+        mesh.texture(image, true);
         self.draw_mesh(&mesh, pos);
     }
     pub fn draw_mesh(&mut self, mesh: &Mesh, pos: Vec2) {
         match (mesh.buffer.get(), mesh.dirty.get(), mesh.buffer_id.get()) {
             (true, _, None) => {
-                mesh.buffer_id.set(Some(self.core.buffer_object(mesh)));
+                let buffer_id = self.core.buffer_object(mesh);
+                mesh.buffer_id.set(Some(buffer_id));
                 mesh.buffer.set(true);
                 mesh.dirty.set(false);
-                self.draw_buffered_mesh(mesh, pos);
+                self.draw_buffer(buffer_id, pos);
             }
-            (true, false, Some(_)) => {
-                self.draw_buffered_mesh(mesh, pos);
+            (true, false, Some(bid)) => {
+                self.draw_buffer(bid, pos);
             }
             (true, true, Some(bid)) => {
                 self.core.update_buffer_object(bid, mesh);
-                self.draw_buffered_mesh(mesh, pos);
+                self.draw_buffer(bid, pos);
             }
             (false, _, _) => {
                 let texture = match mesh.image {
@@ -663,16 +674,8 @@ impl<'draw> ShapeGfx<'draw> {
             }
         }
     }
-    fn draw_buffered_mesh(&mut self, obj: &Mesh, pos: Vec2) {
-        let info = self
-            .core
-            .buffered_objects
-            .get_mut(obj.buffer_id.get().unwrap())
-            .unwrap();
-        info.texture = match obj.image {
-            Some(image) => Some(image.texture),
-            None => None,
-        };
+    pub fn draw_buffer(&mut self, buffer_id: usize, pos: Vec2) {
+        let info = self.core.buffered_objects.get_mut(buffer_id).unwrap();
         let transform = SSRTransform {
             x: self.offset.x + pos.x,
             y: self.offset.y + pos.y,
@@ -680,15 +683,7 @@ impl<'draw> ShapeGfx<'draw> {
             rx: self.rotation_origin.x,
             ry: self.rotation_origin.y,
         };
-        let material = SSRMaterial {
-            kind: {
-                if let Some(_) = obj.image {
-                    1
-                } else {
-                    0
-                }
-            },
-        };
+        let material = SSRMaterial { kind: 0 };
 
         self.data.transforms.push(transform);
         self.data.materials.push(material);

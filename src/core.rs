@@ -1,14 +1,13 @@
 use crate::events::Key;
 use crate::math::Vec2;
 use crate::mesh::Mesh;
-use crate::shape_pipeline::{BufferedObjectID, MeshBuffer, SSRObjectInfo, Vertex};
+use crate::shape_pipeline::{BufferedObjectID, MeshBuffer, SSRObjectInfo};
 use crate::{map_present_modes, GransealGameConfig, NGRenderPipeline};
 use image::EncodableLayout;
 use pollster::FutureExt;
 use std::any::Any;
 use std::collections::HashMap;
 use wgpu::util::DeviceExt;
-use wgpu::{BufferUsages, Features, TextureDimension, TextureFormat, TextureUsages};
 use winit::dpi::PhysicalSize;
 use winit::event_loop::EventLoop;
 use winit::window::Fullscreen;
@@ -48,7 +47,7 @@ pub enum NGCommand {
 }
 
 pub struct MouseState {
-    pub pos: crate::math::Vec2,
+    pub pos: Vec2,
     pub left: bool,
     pub right: bool,
     pub middle: bool,
@@ -131,17 +130,17 @@ impl NGCore {
         let tex = wgpu::TextureDescriptor {
             label: Some("Image Texture"),
             size: wgpu::Extent3d {
-                width: width,
-                height: height,
+                width,
+                height,
                 depth_or_array_layers: 1,
             },
             mip_level_count: 1,
             sample_count: 1,
-            dimension: TextureDimension::D2,
-            format: TextureFormat::Rgba8UnormSrgb,
-            usage: TextureUsages::TEXTURE_BINDING
-                | TextureUsages::COPY_DST
-                | TextureUsages::RENDER_ATTACHMENT,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::COPY_DST
+                | wgpu::TextureUsages::RENDER_ATTACHMENT,
             view_formats: &[],
         };
         let texture = self
@@ -215,45 +214,30 @@ impl NGCore {
     pub fn update_buffer_object(&mut self, slot: usize, mesh: &Mesh) -> bool {
         if self.mesh_buffers.get(slot).is_some() {
             let bo = &mut self.mesh_buffers[slot];
-            let mut vert_data: Vec<Vertex> = vec![];
-            let mut i_data: Vec<u32> = vec![];
-            bo.meshes.iter().for_each(|m| {
-                vert_data.extend(&m.vertices);
-                i_data.extend(&m.indices);
-            });
-            let start_vertice = vert_data.len() as u32;
-            let start_index = i_data.len() as u32;
-            let end_index = start_index + mesh.indices.len() as u32;
-            vert_data.extend(&mesh.vertices);
-            i_data.extend(&mesh.indices);
-            bo.meshes.push(mesh.to_owned());
+            bo.vertex_buffer.destroy();
+            bo.index_buffer.destroy();
+
             let vertex_buffer = self
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: None,
-                    contents: bytemuck::cast_slice(vert_data.as_slice()),
-                    usage: BufferUsages::VERTEX,
+                    label: Some("Buffered Object Vertices"),
+                    contents: bytemuck::cast_slice(mesh.vertices.as_slice()),
+                    usage: wgpu::BufferUsages::VERTEX,
                 });
             let index_buffer = self
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: None,
-                    contents: bytemuck::cast_slice(i_data.as_slice()),
-                    usage: BufferUsages::INDEX,
+                    label: Some("Buffered Object Indices"),
+                    contents: bytemuck::cast_slice(mesh.indices.as_slice()),
+                    usage: wgpu::BufferUsages::INDEX,
                 });
-            bo.vertex_buffer.destroy();
             bo.vertex_buffer = vertex_buffer;
-            bo.index_buffer.destroy();
             bo.index_buffer = index_buffer;
-            let bo_slot = Some(slot);
-            let object_info = SSRObjectInfo {
-                bo_slot,
-                start_vertice,
-                start_index,
-                end_index,
-                texture: None,
+            bo.texture = if mesh.image.is_some() {
+                Some(mesh.image.unwrap().texture)
+            } else {
+                None
             };
-            self.buffered_objects.push(object_info);
             true
         } else {
             false
@@ -265,30 +249,37 @@ impl NGCore {
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: None,
                 contents: bytemuck::cast_slice(mesh.vertices.as_slice()),
-                usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             });
         let index_buffer = self
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: None,
                 contents: bytemuck::cast_slice(mesh.indices.as_slice()),
-                usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
+                usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
             });
-        let end_index = mesh.indices.len() as u32;
-        let meshes = vec![mesh.to_owned()];
         let bo_slot = self.mesh_buffers.len();
         let object_info = SSRObjectInfo {
             bo_slot: Some(bo_slot),
             start_vertice: 0,
             start_index: 0,
-            end_index,
-            texture: None,
+            end_index: 0,
+            texture: if mesh.image.is_some() {
+                Some(mesh.image.unwrap().texture)
+            } else {
+                None
+            },
         };
         self.mesh_buffers.push(MeshBuffer {
             vertex_buffer,
             index_buffer,
-            meshes,
+            texture: if mesh.image.is_some() {
+                Some(mesh.image.unwrap().texture)
+            } else {
+                None
+            },
         });
+        println!("{:?}", self.mesh_buffers);
         self.buffered_objects.push(object_info);
         self.buffered_objects.len() - 1
     }
@@ -366,9 +357,9 @@ impl NGCore {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
-                    features: Features::STORAGE_RESOURCE_BINDING_ARRAY
-                        | Features::BUFFER_BINDING_ARRAY
-                        | Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES,
+                    features: wgpu::Features::STORAGE_RESOURCE_BINDING_ARRAY
+                        | wgpu::Features::BUFFER_BINDING_ARRAY
+                        | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES,
                     limits: Default::default(),
                 },
                 None,

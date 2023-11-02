@@ -418,7 +418,7 @@ impl MeshBuilder {
 pub struct Mesh {
     pub vertices: Vec<Vertex>,
     pub indices: Vec<u32>,
-    pub(crate) buffer_id: std::cell::Cell<Option<usize>>,
+    pub buffer_id: std::cell::Cell<Option<usize>>,
     pub(crate) buffer: std::cell::Cell<bool>,
     pub(crate) dirty: std::cell::Cell<bool>,
     pub(crate) image: Option<crate::core::Image>,
@@ -443,11 +443,14 @@ impl FillStyleShorthand for Mesh {
 impl Mesh {
     pub fn buffer(&self) -> &Self {
         self.buffer.set(true);
+        self.dirty.set(true);
         &self
     }
-    pub fn texture(&mut self, image: &crate::core::Image) {
+    pub fn texture(&mut self, image: &crate::core::Image, uv_project: bool) {
         self.image = Some(image.to_owned());
-        self.uv_project();
+        if uv_project {
+            self.uv_project();
+        };
     }
     pub fn add(mut self, other: &Mesh) -> Mesh {
         let start = self.vertices.len() as u32;
@@ -1337,6 +1340,31 @@ impl Font {
     pub fn new(scale: f32) -> Self {
         let font = load_meshes2(include_str!("../liberation_mono_mesh.obj"), scale);
         Self { font }
+    }
+    pub fn text_image(&self, text: &str, image: &Image) -> Mesh {
+        let mut mesh = Mesh::default();
+        let mut pos = Vec2::ZERO;
+        let space = self.font["A"].width();
+        let y_space = self.font["A"].height();
+        let padding = y_space * 0.1f32;
+        for i in 0..text.len() {
+            if &text[i..i + 1] == "\n" {
+                pos.y += y_space + padding;
+                pos.x = 0f32;
+            } else {
+                if let Some(char) = self.font.get(&text[i..i + 1]) {
+                    let mut c = char.to_owned();
+                    c.translate(pos);
+                    c.uv_project();
+                    pos.x += self.font[&text[i..i + 1]].width() + padding;
+                    mesh = mesh.add(&c);
+                } else {
+                    pos.x += space;
+                }
+            }
+        }
+        mesh.texture(&image, false);
+        mesh
     }
     pub fn text(&self, text: &str) -> Mesh {
         let mut mesh = Mesh::default();
