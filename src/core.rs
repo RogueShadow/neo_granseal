@@ -211,6 +211,11 @@ impl NGCore {
         let data = image.as_raw().as_slice();
         self.load_image_data(image.width(), image.height(), data)
     }
+    pub fn create_image(&mut self, width: u32, height: u32) -> Image {
+        let mut image = image::RgbaImage::new(width, height);
+        image.fill(u8::MAX);
+        self.load_image_data(image.width(), image.height(), image.as_raw().as_slice())
+    }
     pub fn update_buffer_object(&mut self, slot: usize, mesh: &Mesh) -> bool {
         if self.mesh_buffers.get(slot).is_some() {
             let bo = &mut self.mesh_buffers[slot];
@@ -279,7 +284,6 @@ impl NGCore {
                 None
             },
         });
-        println!("{:?}", self.mesh_buffers);
         self.buffered_objects.push(object_info);
         self.buffered_objects.len() - 1
     }

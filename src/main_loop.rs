@@ -91,7 +91,7 @@ pub(crate) fn main_loop(
                     }
                     match event {
                         WindowEvent::RedrawRequested => {
-                            if core.window.has_focus() {
+                            if !core.window.is_minimized().unwrap() {
                                 let elapsed = delta.elapsed();
                                 delta = std::time::Instant::now();
                                 h.event(&mut core, events::Event::Update(elapsed));
