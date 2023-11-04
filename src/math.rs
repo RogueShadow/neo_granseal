@@ -538,7 +538,7 @@ impl Vec2 {
     }
     pub fn random() -> Self {
         use rand::SeedableRng;
-        let mut r = rand_xorshift::XorShiftRng::from_rng(rand::thread_rng()).unwrap();
+        let mut r = rand_xorshift::XorShiftRng::from_entropy();
         let vec = Vec2::new(r.gen_range(-1.0..=1.0), r.gen_range(-1.0..=1.0));
         vec.normalize();
         vec

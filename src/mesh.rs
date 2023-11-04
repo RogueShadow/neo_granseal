@@ -4,6 +4,7 @@ use crate::mesh::FillStyle::*;
 use crate::shape_pipeline::Vertex;
 use crate::util::{cubic_to_point, quadratic_to_point, Contour, LineSegment, PathData, Ray};
 use crate::{math, Color};
+use log::warn;
 use std::collections::HashMap;
 use std::f32::consts::{PI, TAU};
 
@@ -129,8 +130,12 @@ impl MeshBuilder {
         self.states.push(self.state);
     }
     pub fn pop(&mut self) {
-        if !self.states.is_empty() {
-            self.state = self.states.pop().unwrap()
+        let state = self.states.pop();
+        match state {
+            Some(state) => self.state = state,
+            None => {
+                warn!("No state previously stored.");
+            }
         }
     }
 

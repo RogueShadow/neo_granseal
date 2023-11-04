@@ -195,7 +195,7 @@ impl Color {
         self
     }
     pub fn random() -> Self {
-        let mut r = rand_xorshift::XorShiftRng::from_rng(rand::thread_rng()).unwrap();
+        let mut r = rand_xorshift::XorShiftRng::from_entropy();
         Self {
             r: r.gen::<f32>(),
             g: r.gen::<f32>(),

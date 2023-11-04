@@ -1,8 +1,9 @@
-use crate::core::Image;
+use crate::core::{Image, TextureInfo};
 use crate::math::Vec2;
 use crate::mesh::*;
 use crate::{Color, GlobalUniforms, NGCore, NGError, NGRenderPipeline, MSAA};
 use bytemuck_derive::{Pod, Zeroable};
+use log::{error, warn};
 use std::default::Default;
 use wgpu::util::DeviceExt;
 use wgpu::{MultisampleState, StoreOp, TextureViewDescriptor};
@@ -382,12 +383,16 @@ impl SimpleShapeRenderPipeline {
         replace: bool,
     ) {
         let disable_msaa = texture.is_none();
-        let texture = match texture {
-            Some(tex) => tex,
-            None => match render_target {
-                Some(img) => &core.textures.get(img.texture).unwrap().texture,
-                None => return,
-            },
+        let texture = match (texture, render_target) {
+            (Some(texture), _) => texture,
+            (None, Some(image)) => {
+                if let Some(texture_info) = core.textures.get(image.texture) {
+                    &texture_info.texture
+                } else {
+                    return;
+                }
+            }
+            (_, _) => return,
         };
         let data = match self.data.as_ref() {
             Some(d) => d,
@@ -482,56 +487,71 @@ impl SimpleShapeRenderPipeline {
 
         for (i, obj) in data.object_info.iter().enumerate() {
             let index = i as u32..i as u32 + 1;
-            if obj.bo_slot.is_none() {
-                if let Some(tex) = obj.texture {
-                    render_pass.set_bind_group(2, &core.textures[tex].bind_group, &[]);
-                } else {
-                    render_pass.set_bind_group(
-                        2,
-                        &core.textures.first().expect("Something").bind_group,
-                        &[],
+            match obj.bo_slot {
+                None => {
+                    if let Some(tex) = obj.texture {
+                        render_pass.set_bind_group(2, &core.textures[tex].bind_group, &[]);
+                    } else {
+                        render_pass.set_bind_group(
+                            2,
+                            &core.textures.first().expect("Something").bind_group,
+                            &[],
+                        );
+                    }
+                    render_pass.draw_indexed(
+                        obj.start_index..obj.end_index,
+                        obj.start_vertice as i32,
+                        index,
                     );
                 }
-                render_pass.draw_indexed(
-                    obj.start_index..obj.end_index,
-                    obj.start_vertice as i32,
-                    index,
-                );
-            } else {
-                let vbi = obj.bo_slot.unwrap();
-                let vb: &MeshBuffer = core.mesh_buffers.get(vbi).unwrap();
-                if let Some(tex) = vb.texture {
-                    render_pass.set_bind_group(2, &core.textures[tex].bind_group, &[]);
-                } else {
-                    render_pass.set_bind_group(
-                        2,
-                        &core.textures.first().expect("Something").bind_group,
-                        &[],
+                Some(vbi) => {
+                    let vb = match core.mesh_buffers.get(vbi) {
+                        Some(vb) => vb,
+                        None => {
+                            error!("MeshBuffer index {:?} out of bounds.", vbi);
+                            return;
+                        }
+                    };
+                    if let Some(tex) = vb.texture {
+                        render_pass.set_bind_group(2, &core.textures[tex].bind_group, &[]);
+                    } else {
+                        render_pass.set_bind_group(
+                            2,
+                            &core.textures.first().expect("Something").bind_group,
+                            &[],
+                        );
+                    }
+                    render_pass.set_vertex_buffer(0, vb.vertex_buffer.slice(..));
+                    render_pass
+                        .set_index_buffer(vb.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                    render_pass.draw_indexed(
+                        0..(vb.index_buffer.size() as u32 / std::mem::size_of::<i32>() as u32),
+                        0,
+                        index,
                     );
+                    render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+                    render_pass
+                        .set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                 }
-                render_pass.set_vertex_buffer(0, vb.vertex_buffer.slice(..));
-                render_pass.set_index_buffer(vb.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-                render_pass.draw_indexed(
-                    0..(vb.index_buffer.size() as u32 / std::mem::size_of::<i32>() as u32),
-                    0,
-                    index,
-                );
-                render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-                render_pass
-                    .set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
             }
         }
-
         drop(render_pass);
         core.queue.submit(std::iter::once(encoder.finish()));
     }
 }
 impl NGRenderPipeline for SimpleShapeRenderPipeline {
     fn render(&mut self, core: &mut NGCore) -> Result<(), NGError> {
-        let texture = core.surface.get_current_texture()?;
-        self.render_to(core, Some(&texture.texture), None, false);
-        core.window.pre_present_notify();
-        texture.present();
+        match core.surface.get_current_texture() {
+            Result::Ok(surface_texture) => {
+                self.render_to(core, Some(&surface_texture.texture), None, false);
+                core.window.pre_present_notify();
+                surface_texture.present();
+            }
+            Result::Err(_err) => {
+                core.surface
+                    .configure(&core.device, &core.surface_configuration);
+            }
+        }
         Ok(())
     }
     fn render_image(&mut self, core: &mut NGCore, texture: Image, replace: bool) {
@@ -675,19 +695,25 @@ impl<'draw> ShapeGfx<'draw> {
         }
     }
     pub fn draw_buffer(&mut self, buffer_id: usize, pos: Vec2) {
-        let info = self.core.buffered_objects.get_mut(buffer_id).unwrap();
-        let transform = SSRTransform {
-            x: self.offset.x + pos.x,
-            y: self.offset.y + pos.y,
-            r: self.rotation,
-            rx: self.rotation_origin.x,
-            ry: self.rotation_origin.y,
-        };
-        let material = SSRMaterial { kind: 0 };
+        match self.core.buffered_objects.get_mut(buffer_id) {
+            Some(info) => {
+                let transform = SSRTransform {
+                    x: self.offset.x + pos.x,
+                    y: self.offset.y + pos.y,
+                    r: self.rotation,
+                    rx: self.rotation_origin.x,
+                    ry: self.rotation_origin.y,
+                };
+                let material = SSRMaterial { kind: 0 };
 
-        self.data.transforms.push(transform);
-        self.data.materials.push(material);
-        self.data.object_info.push(*info);
+                self.data.transforms.push(transform);
+                self.data.materials.push(material);
+                self.data.object_info.push(*info);
+            }
+            None => {
+                warn!("No buffer at index {:?}", buffer_id)
+            }
+        }
     }
     pub fn finish(&mut self) {
         self.core.render(0, Box::new(self.data.to_owned()));

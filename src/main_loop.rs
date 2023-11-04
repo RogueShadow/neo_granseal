@@ -5,6 +5,7 @@ use crate::{
     events, GlobalUniforms,
 };
 use log::error;
+use std::thread::sleep;
 use std::time::Duration;
 use winit::event::{ElementState, KeyEvent, MouseButton};
 use winit::{
@@ -33,55 +34,55 @@ pub(crate) fn main_loop(
         .run(move |event, window| {
             window.set_control_flow(event_loop::ControlFlow::Poll);
             while !core.cmd_queue.is_empty() {
-                match core.cmd_queue.pop().unwrap() {
-                    NGCommand::AddPipeline(p) => {
-                        pipelines.push(p);
-                    }
-                    NGCommand::Render(index, data) => {
-                        let size = {
-                            let d = core.window.inner_size();
-                            (d.width as f32, d.height as f32)
-                        };
-                        if index < pipelines.len() {
-                            if !pipelines.is_empty() {
-                                let renderer = pipelines.get_mut(index).unwrap();
+                match core.cmd_queue.pop() {
+                    Some(command) => match command {
+                        NGCommand::AddPipeline(p) => {
+                            pipelines.push(p);
+                        }
+                        NGCommand::Render(index, data) => {
+                            let size = {
+                                let d = core.window.inner_size();
+                                (d.width as f32, d.height as f32)
+                            };
+                            if let Some(renderer) = pipelines.get_mut(index) {
                                 renderer.set_globals(GlobalUniforms::new(&core, size));
                                 renderer.set_data(data);
-                                renderer.render(&mut core).expect("Render");
+                                match renderer.render(&mut core) {
+                                    Result::Ok(_) => {}
+                                    Result::Err(err) => {
+                                        error!("{:?}", err);
+                                    }
+                                };
                             }
-                        } else {
-                            error!("Index out of bounds for pipeline.")
+                            if frame_timer.elapsed() >= one_second {
+                                frame_timer = std::time::Instant::now();
+                                core.state.fps = frames;
+                                frames = 0;
+                            }
+                            frames += 1;
                         }
-                        if frame_timer.elapsed() >= one_second {
-                            frame_timer = std::time::Instant::now();
-                            core.state.fps = frames;
-                            frames = 0;
-                        }
-                        frames += 1;
-                    }
-                    NGCommand::RenderImage(index, data, img, replace) => {
-                        if index < pipelines.len() {
-                            if !pipelines.is_empty() {
-                                let renderer = pipelines.get_mut(index).unwrap();
+                        NGCommand::RenderImage(index, data, img, replace) => {
+                            if let Some(renderer) = pipelines.get_mut(index) {
                                 renderer.set_globals(GlobalUniforms::new(
                                     &core,
                                     (img.size.x, img.size.y),
                                 ));
                                 renderer.set_data(data);
                                 renderer.render_image(&mut core, img, replace);
+                            } else {
+                                error!("Tried to render to invalid pipeline at index {:?}", index);
                             }
-                        } else {
-                            error!("Index out of bounds for pipeline.")
                         }
-                    }
-                    NGCommand::SetCursorVisibility(v) => core.window.set_cursor_visible(v),
-                    NGCommand::SetTitle(title) => {
-                        core.config.title = title;
-                        core.window.set_title(core.config.title.as_str());
-                    }
-                    NGCommand::CustomEvent(event) => {
-                        h.event(&mut core, events::Event::Custom(event));
-                    }
+                        NGCommand::SetCursorVisibility(v) => core.window.set_cursor_visible(v),
+                        NGCommand::SetTitle(title) => {
+                            core.config.title = title;
+                            core.window.set_title(core.config.title.as_str());
+                        }
+                        NGCommand::CustomEvent(event) => {
+                            h.event(&mut core, events::Event::Custom(event));
+                        }
+                    },
+                    None => {}
                 };
             }
             match event {
@@ -91,11 +92,14 @@ pub(crate) fn main_loop(
                     }
                     match event {
                         WindowEvent::RedrawRequested => {
-                            if !core.window.is_minimized().unwrap() {
-                                let elapsed = delta.elapsed();
-                                delta = std::time::Instant::now();
-                                h.event(&mut core, events::Event::Update(elapsed));
-                                h.event(&mut core, events::Event::Draw);
+                            let elapsed = delta.elapsed();
+                            delta = std::time::Instant::now();
+                            h.event(&mut core, events::Event::Update(elapsed));
+                            h.event(&mut core, events::Event::Draw);
+                            if let Some(visible) = core.window.is_visible() {
+                                if !visible {
+                                    sleep(std::time::Duration::from_secs_f32(0.5))
+                                }
                             }
                             core.window.request_redraw();
                         }
@@ -152,5 +156,5 @@ pub(crate) fn main_loop(
                 _ => (),
             }
         })
-        .expect("Looop");
+        .unwrap_or({ error!("Loop error.") });
 }

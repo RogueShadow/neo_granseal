@@ -20,7 +20,9 @@ pub enum NGError {
     NoFormatFound,
     NoPipeline,
     NoCommand,
+    CreateSurfaceError(wgpu::CreateSurfaceError),
     SurfaceError(wgpu::SurfaceError),
+    ImageError(image::ImageError),
 }
 impl From<winit::error::OsError> for NGError {
     fn from(e: winit::error::OsError) -> Self {
@@ -66,7 +68,7 @@ impl Default for EngineState {
     fn default() -> Self {
         Self {
             mouse: MouseState {
-                pos: crate::math::Vec2::new(0, 0),
+                pos: Vec2::new(0, 0),
                 left: false,
                 right: false,
                 middle: false,
@@ -206,10 +208,13 @@ impl NGCore {
             end: None,
         }
     }
-    pub fn load_image(&mut self, file: &str) -> Image {
-        let image = image::open(file).expect("Load Image").to_rgba8();
+    pub fn load_image(&mut self, file: &str) -> Result<Image, NGError> {
+        let image = match image::open(file) {
+            Ok(image) => image.to_rgba8(),
+            Err(err) => return Err(NGError::ImageError(err)),
+        };
         let data = image.as_raw().as_slice();
-        self.load_image_data(image.width(), image.height(), data)
+        Ok(self.load_image_data(image.width(), image.height(), data))
     }
     pub fn create_image(&mut self, width: u32, height: u32) -> Image {
         let mut image = image::RgbaImage::new(width, height);
@@ -238,10 +243,9 @@ impl NGCore {
                 });
             bo.vertex_buffer = vertex_buffer;
             bo.index_buffer = index_buffer;
-            bo.texture = if mesh.image.is_some() {
-                Some(mesh.image.unwrap().texture)
-            } else {
-                None
+            bo.texture = match mesh.image {
+                Some(image) => Some(image.texture),
+                None => None,
             };
             true
         } else {
@@ -269,19 +273,17 @@ impl NGCore {
             start_vertice: 0,
             start_index: 0,
             end_index: 0,
-            texture: if mesh.image.is_some() {
-                Some(mesh.image.unwrap().texture)
-            } else {
-                None
+            texture: match mesh.image {
+                Some(image) => Some(image.texture),
+                None => None,
             },
         };
         self.mesh_buffers.push(MeshBuffer {
             vertex_buffer,
             index_buffer,
-            texture: if mesh.image.is_some() {
-                Some(mesh.image.unwrap().texture)
-            } else {
-                None
+            texture: match mesh.image {
+                Some(image) => Some(image.texture),
+                None => None,
             },
         });
         self.buffered_objects.push(object_info);
@@ -335,9 +337,10 @@ impl NGCore {
         }
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::default());
         let surface = unsafe {
-            instance
-                .create_surface(&window)
-                .expect("Surface Unsupported by Adapter.")
+            match instance.create_surface(&window) {
+                Ok(surface) => surface,
+                Err(err) => return Err(NGError::CreateSurfaceError(err)),
+            }
         };
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
