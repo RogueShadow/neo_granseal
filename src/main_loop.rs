@@ -156,5 +156,5 @@ pub(crate) fn main_loop(
                 _ => (),
             }
         })
-        .unwrap_or({ error!("Loop error.") });
+        .unwrap_or(error!("Loop error."));
 }
