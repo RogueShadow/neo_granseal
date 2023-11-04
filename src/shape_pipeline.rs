@@ -1,4 +1,4 @@
-use crate::core::{Image, TextureInfo};
+use crate::core::Image;
 use crate::math::Vec2;
 use crate::mesh::*;
 use crate::{Color, GlobalUniforms, NGCore, NGError, NGRenderPipeline, MSAA};
