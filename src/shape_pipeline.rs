@@ -632,12 +632,8 @@ impl<'draw> ShapeGfx<'draw> {
         }
     }
     pub fn draw_image(&mut self, image: &Image, pos: Vec2) {
-        let size = if let Some(start) = image.start {
-            if let Some(end) = image.end {
-                end - start
-            } else {
-                image.size
-            }
+        let size = if let Some(sub_image) = image.sub_image {
+            sub_image.1 - sub_image.0
         } else {
             image.size
         };
@@ -721,5 +717,6 @@ impl<'draw> ShapeGfx<'draw> {
     pub fn render_image(&mut self, image: &Image, replace: bool) {
         self.core
             .render_image(0, Box::new(self.data.to_owned()), image, replace);
+        self.data = SSRRenderData::new();
     }
 }

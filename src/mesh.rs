@@ -535,12 +535,16 @@ impl Mesh {
         self
     }
     pub fn uv_project(&mut self) -> &Self {
-        let (min, max) = match self.image {
-            Some(img) if img.start.is_some() && img.end.is_some() => {
-                (img.start.unwrap() / img.size, img.end.unwrap() / img.size)
+        let (min, max) = if let Some(image) = self.image {
+            if let Some(sub_image) = image.sub_image {
+                sub_image
+            } else {
+                (vec2(0, 0), vec2(1, 1))
             }
-            _ => (vec2(0, 0), vec2(1, 1)),
+        } else {
+            (vec2(0, 0), vec2(1, 1))
         };
+
         let dist = max - min;
 
         self.dirty = true.into();
@@ -1162,6 +1166,24 @@ pub fn cubic_curve(
         meshes.push(line(points[i], points[i + 1], thickness, line_style, style));
     });
     combine(meshes)
+}
+pub fn triangle_fan(center: &Vec2, mut points: Vec<Vec2>) -> Mesh {
+    points.sort_by(|a, b| (*center - *a).angle2().total_cmp(&(*center - *b).angle2()));
+    let mut mb = Mesh::default();
+    mb.vertices.push(Vertex::point(*center));
+    points.iter().for_each(|p| {
+        mb.vertices.push(Vertex::point(*p));
+    });
+    (1..mb.vertices.len() as u32).for_each(|i| {
+        mb.indices.push(0);
+        mb.indices.push(i);
+        mb.indices.push(i - 1);
+    });
+    let i = mb.vertices.len() as u32;
+    mb.indices.push(0);
+    mb.indices.push(1);
+    mb.indices.push(i - 1);
+    mb
 }
 pub fn fill_path_fan(center: &Vec2, path: &PathData) -> Mesh {
     let mut mb = Mesh::default();

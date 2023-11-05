@@ -1,5 +1,5 @@
-use crate::math::{angle_vec2, Vec2};
-use crate::mesh::{FillStyle, MeshBuilder, Polygon};
+use crate::math::{angle_vec2, vec2, Vec2};
+use crate::mesh::{FillStyle, FillStyleShorthand, MeshBuilder, Polygon};
 use num_traits::AsPrimitive;
 use rand::{Rng, SeedableRng};
 use std::f32::consts::PI;
@@ -597,17 +597,30 @@ pub fn intersect_t_u(p1: &Vec2, p2: &Vec2, p3: &Vec2, p4: &Vec2) -> Option<(f32,
     Some((t_num / denom, u_num / denom))
 }
 /// LineSegment, has a start and end Vec2.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct LineSegment {
     pub begin: Vec2,
     pub end: Vec2,
+    pub reverse_normal: bool,
 }
 impl LineSegment {
+    pub fn reverse_normal(mut self) -> Self {
+        self.reverse_normal = !self.reverse_normal;
+        self
+    }
     pub fn new(begin: Vec2, end: Vec2) -> Self {
-        Self { begin, end }
+        Self {
+            begin,
+            end,
+            reverse_normal: false,
+        }
     }
     pub fn normal(&self) -> Vec2 {
-        let d = self.end - self.begin;
+        let d = if !self.reverse_normal {
+            self.end - self.begin
+        } else {
+            self.begin - self.end
+        };
         let a = d.angle2() - PI / 2.0;
         angle_vec2(a)
     }
@@ -646,6 +659,21 @@ impl LineSegment {
         } else {
             None
         }
+    }
+    pub fn visualize(&self, mb: &mut MeshBuilder) {
+        mb.push();
+        mb.solid(Color::RED);
+        mb.line(self.begin, self.end);
+        mb.solid(Color::LIME);
+        mb.set_cursor(self.begin - vec2(1, 1));
+        mb.rect(vec2(2, 2));
+        mb.set_cursor(self.end - vec2(1, 1));
+        mb.rect(vec2(2, 2));
+        let center = self.begin + (self.end - self.begin) / 2.0;
+        mb.solid(Color::BLUE);
+        mb.set_cursor(vec2(0, 0));
+        mb.line(center, center + self.normal() * 4.0);
+        mb.pop();
     }
 }
 #[derive(Clone, Debug)]

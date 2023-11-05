@@ -3,11 +3,12 @@ use crate::math::Vec2;
 use crate::mesh::Mesh;
 use crate::shape_pipeline::{BufferedObjectID, MeshBuffer, SSRObjectInfo};
 use crate::{map_present_modes, GransealGameConfig, NGRenderPipeline};
-use image::EncodableLayout;
+use image::{EncodableLayout, ImageError};
 use pollster::FutureExt;
 use std::any::Any;
 use std::collections::HashMap;
 use wgpu::util::DeviceExt;
+use wgpu::CreateSurfaceError;
 use winit::dpi::PhysicalSize;
 use winit::event_loop::EventLoop;
 use winit::window::Fullscreen;
@@ -23,6 +24,16 @@ pub enum NGError {
     CreateSurfaceError(wgpu::CreateSurfaceError),
     SurfaceError(wgpu::SurfaceError),
     ImageError(image::ImageError),
+}
+impl From<wgpu::CreateSurfaceError> for NGError {
+    fn from(value: CreateSurfaceError) -> Self {
+        NGError::CreateSurfaceError(value)
+    }
+}
+impl From<image::ImageError> for NGError {
+    fn from(value: ImageError) -> Self {
+        NGError::ImageError(value)
+    }
 }
 impl From<winit::error::OsError> for NGError {
     fn from(e: winit::error::OsError) -> Self {
@@ -93,13 +104,11 @@ pub struct TextureInfo {
 pub struct Image {
     pub(crate) texture: usize,
     pub size: Vec2,
-    pub start: Option<Vec2>,
-    pub end: Option<Vec2>,
+    pub sub_image: Option<(Vec2, Vec2)>,
 }
 impl Image {
     pub fn sub_image(mut self, start: Vec2, size: Vec2) -> Self {
-        self.start = Some(start);
-        self.end = Some(start + size);
+        self.sub_image = Some((start, start + size));
         self
     }
 }
@@ -127,6 +136,10 @@ impl NGCore {
         image.fill(u8::MAX);
         let data = image.as_bytes();
         self.load_image_data(image.width(), image.height(), data);
+    }
+    pub fn load_image_from_memory(&mut self, data: &[u8]) -> Result<Image, NGError> {
+        let image = image::load_from_memory(data)?.to_rgba8();
+        Ok(self.load_image_data(image.width(), image.height(), image.as_bytes()))
     }
     pub fn load_image_data(&mut self, width: u32, height: u32, data: &[u8]) -> Image {
         let tex = wgpu::TextureDescriptor {
@@ -204,8 +217,7 @@ impl NGCore {
         Image {
             texture: self.textures.len() - 1,
             size: Vec2::new(width, height),
-            start: None,
-            end: None,
+            sub_image: None,
         }
     }
     pub fn load_image(&mut self, file: &str) -> Result<Image, NGError> {
@@ -336,12 +348,7 @@ impl NGCore {
             window.set_fullscreen(Some(Fullscreen::Borderless(None)));
         }
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::default());
-        let surface = unsafe {
-            match instance.create_surface(&window) {
-                Ok(surface) => surface,
-                Err(err) => return Err(NGError::CreateSurfaceError(err)),
-            }
-        };
+        let surface = unsafe { instance.create_surface(&window)? };
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::HighPerformance,
