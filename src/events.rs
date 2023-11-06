@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-#[derive(Debug, PartialEq)]
+#[derive()]
 pub enum Event {
     KeyEvent {
         state: KeyState,
@@ -15,7 +15,7 @@ pub enum Event {
     Update(Duration),
     Load,
     Resized(u32, u32),
-    Custom(String),
+    Custom(Box<dyn std::any::Any>),
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

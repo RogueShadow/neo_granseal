@@ -55,7 +55,7 @@ pub enum NGCommand {
     Render(usize, Box<dyn Any>),
     SetCursorVisibility(bool),
     SetTitle(String),
-    CustomEvent(String),
+    CustomEvent(Box<dyn Any>),
     RenderImage(usize, Box<dyn Any>, Image, bool),
 }
 
@@ -325,8 +325,11 @@ impl NGCore {
             replace,
         ));
     }
-    pub fn event(&mut self, event: String) {
-        self.cmd_queue.push(NGCommand::CustomEvent(event));
+    pub fn event<T>(&mut self, event: T)
+    where
+        T: 'static,
+    {
+        self.cmd_queue.push(NGCommand::CustomEvent(Box::new(event)));
     }
     pub fn set_title(&mut self, title: String) {
         self.cmd_queue.push(NGCommand::SetTitle(title));
@@ -386,6 +389,7 @@ impl NGCore {
         let size = window.inner_size();
         config.width = size.width as i32;
         config.height = size.height as i32;
+        println!("{:?}", &adapter.get_info());
 
         let mut core = Self {
             config,
@@ -403,7 +407,6 @@ impl NGCore {
             buffered_objects: vec![],
             textures: vec![],
         };
-
         core.initialize_texture();
         Ok(core)
     }

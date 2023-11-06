@@ -24,6 +24,7 @@ struct VertexOutput {
     @location(0) tex: vec2<f32>,
     @location(1) @interpolate(linear) color: vec4<f32>,
     @location(2) kind: i32,
+    @location(3) tint:  vec4<f32>,
 }
 @group(0) @binding(0)
 var<uniform> screen: vec2<f32>;
@@ -43,6 +44,10 @@ struct Transform {
 }
 struct Material {
     kind: i32,
+    r: f32,
+    g: f32,
+    b: f32,
+    a: f32,
 }
 
 @group(1) @binding(0)
@@ -74,6 +79,7 @@ fn vs_main(@builtin(vertex_index) index: u32, in: VertexInput, @builtin(instance
     out.tex = in.tex;
     out.color = in.color;
     out.kind = materials[inst].kind;
+    out.tint = vec4<f32>(materials[inst].r,materials[inst].g,materials[inst].b,materials[inst].a);
     return out;
 }
 
@@ -83,6 +89,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var color = in.color;
     var tex_color = textureSample(tex,samp,in.tex);
 
-    return color * tex_color;
+    return color * tex_color * in.tint;
 }
 

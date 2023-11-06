@@ -243,6 +243,7 @@ impl MeshBuilder {
         self.do_rotation(&mut m);
         m.image = self.state.image;
         m.uv_project();
+        m.style(self.state.fill_style);
         self.meshes.push(m);
     }
     pub fn oval(&mut self, radius: Vec2) {
@@ -426,7 +427,7 @@ pub struct Mesh {
     pub buffer_id: std::cell::Cell<Option<usize>>,
     pub(crate) buffer: std::cell::Cell<bool>,
     pub(crate) dirty: std::cell::Cell<bool>,
-    pub(crate) image: Option<crate::core::Image>,
+    pub(crate) image: Option<Image>,
 }
 impl FillStyleShorthand for Mesh {
     fn solid(&mut self, c: Color) {
@@ -451,7 +452,7 @@ impl Mesh {
         self.dirty.set(true);
         &self
     }
-    pub fn texture(&mut self, image: &crate::core::Image, uv_project: bool) {
+    pub fn texture(&mut self, image: &Image, uv_project: bool) {
         self.image = Some(image.to_owned());
         if uv_project {
             self.uv_project();
@@ -792,9 +793,7 @@ pub fn rounded_rect_filled(
         1.0,
         style,
     );
-    let mut rr = combine(vec![inner_rect, top, bottom, left, right, tl, tr, br, bl]);
-    rr.style(style);
-    rr
+    combine(vec![inner_rect, top, bottom, left, right, tl, tr, br, bl])
 }
 pub fn rounded_rect_outlined(
     top_left: Vec2,
@@ -875,10 +874,7 @@ pub fn rounded_rect_outlined(
         thickness,
         style,
     );
-
-    let mut rr = combine(vec![top, bottom, left, right, tl, tr, br, bl]);
-    rr.style(style);
-    rr
+    combine(vec![top, bottom, left, right, tl, tr, br, bl])
 }
 pub fn rect_filled(top_left: Vec2, bottom_right: Vec2, style: FillStyle) -> Mesh {
     let (c1, c2, c3, c4) = style_colors(style);
@@ -938,7 +934,8 @@ pub fn oval_filled(
     resolution: f32,
     style: FillStyle,
 ) -> Mesh {
-    let mut vertices = vec![Vertex::point(center)];
+    let (c1, _c2, c3, _c4) = style_colors(style);
+    let mut vertices = vec![Vertex::point(center).rgba(c1)];
     let start_angle = arc_begin;
     let end_angle = arc_end;
     let arc_length = (end_angle - start_angle).abs() * radius.magnitude();
@@ -949,15 +946,17 @@ pub fn oval_filled(
     let mut a = start_angle;
     (0..=(vertex_count as u32 + 1)).for_each(|i| {
         if i <= vertex_count.floor() as u32 {
-            vertices.push(Vertex::new(
-                center.x + radius.x * a.cos(),
-                center.y + radius.y * a.sin(),
-            ));
+            vertices.push(
+                Vertex::new(center.x + radius.x * a.cos(), center.y + radius.y * a.sin()).rgba(c3),
+            );
         } else {
-            vertices.push(Vertex::new(
-                center.x + radius.x * end_angle.cos(),
-                center.y + radius.y * end_angle.sin(),
-            ));
+            vertices.push(
+                Vertex::new(
+                    center.x + radius.x * end_angle.cos(),
+                    center.y + radius.y * end_angle.sin(),
+                )
+                .rgba(c3),
+            );
             indices.push(0);
             indices.push(i + 1);
             indices.push(i);
@@ -969,16 +968,14 @@ pub fn oval_filled(
         }
         a += angle_step;
     });
-    let mut m = Mesh {
+    Mesh {
         vertices,
         indices,
         buffer_id: None.into(),
         buffer: false.into(),
         dirty: false.into(),
         image: None,
-    };
-    m.style(style);
-    m
+    }
 }
 pub fn oval_outlined(
     center: Vec2,
@@ -1252,7 +1249,7 @@ pub fn polygon_trapezoid_map(polygon: &Polygon) -> Mesh {
     // for l in verticals.iter() {
     //     //mb.line(l.begin,l.end);
     // }
-    mb.set_style(FillStyle::FadeLeft(Color::RED, Color::GREEN));
+    mb.set_style(FadeLeft(Color::RED, Color::GREEN));
     for ls in verticals.windows(2) {
         mb.line(ls[0].begin, ls[0].end);
         let mut p1 = ls[0].begin;

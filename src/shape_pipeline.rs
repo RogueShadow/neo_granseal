@@ -92,6 +92,10 @@ impl SSRTransform {
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
 pub struct SSRMaterial {
     pub kind: i32,
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
+    pub a: f32,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -600,9 +604,13 @@ pub struct ShapeGfx<'draw> {
     offset: Vec2,
     rotation: f32,
     rotation_origin: Vec2,
+    tint: Color,
 }
 
 impl<'draw> ShapeGfx<'draw> {
+    pub fn set_tint(&mut self, color: Color) {
+        self.tint = color;
+    }
     pub fn set_offset(&mut self, cursor: Vec2) {
         self.offset = cursor
     }
@@ -629,6 +637,7 @@ impl<'draw> ShapeGfx<'draw> {
             offset: Vec2::ZERO,
             rotation: 0.0,
             rotation_origin: Vec2::ZERO,
+            tint: Color::WHITE,
         }
     }
     pub fn draw_image(&mut self, image: &Image, pos: Vec2) {
@@ -683,6 +692,10 @@ impl<'draw> ShapeGfx<'draw> {
                 };
                 let material = SSRMaterial {
                     kind: if mesh.image.is_none() { 0 } else { 1 },
+                    r: self.tint.r,
+                    g: self.tint.g,
+                    b: self.tint.b,
+                    a: self.tint.a,
                 };
                 self.data.transforms.push(transform);
                 self.data.materials.push(material);
@@ -700,7 +713,13 @@ impl<'draw> ShapeGfx<'draw> {
                     rx: self.rotation_origin.x,
                     ry: self.rotation_origin.y,
                 };
-                let material = SSRMaterial { kind: 0 };
+                let material = SSRMaterial {
+                    kind: 0,
+                    r: self.tint.r,
+                    g: self.tint.g,
+                    b: self.tint.b,
+                    a: self.tint.a,
+                };
 
                 self.data.transforms.push(transform);
                 self.data.materials.push(material);

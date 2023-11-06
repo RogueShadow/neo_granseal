@@ -1,6 +1,6 @@
 use crate::math::{angle_vec2, vec2, Vec2};
 use crate::mesh::{FillStyle, FillStyleShorthand, MeshBuilder, Polygon};
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, Inv};
 use rand::{Rng, SeedableRng};
 use std::f32::consts::PI;
 use std::ops::Mul;
@@ -251,27 +251,38 @@ impl From<Color> for wgpu::Color {
         }
     }
 }
-pub struct AnimatedVec2 {
-    start: Vec2,
-    end: Vec2,
-    time: f32,
+pub struct ColorAni {
+    duration: f32,
+    colors: Vec<Color>,
 }
-impl AnimatedVec2 {
-    pub fn new(start: Vec2, end: Vec2, time: f32) -> Self {
-        Self { start, end, time }
+impl ColorAni {
+    pub fn new(duration: f32, colors: Vec<Color>) -> Self {
+        Self { duration, colors }
     }
-    pub fn animate(&self, pct: f32) -> Vec2 {
-        let time = pct / self.time;
-        if time < 0.0 {
-            return self.start;
-        }
-        if time > 1.0 {
-            return self.end;
-        }
-        Vec2::new(
-            lerp(self.start.x, self.end.x, time),
-            lerp(self.start.y, self.end.y, time),
-        )
+    pub fn color(&self, time: f32) -> Color {
+        let pct = (time % self.duration) / self.duration;
+        let steps = (self.colors.len() as f32 - 1.0).inv();
+        let sub_pct = pct / steps;
+        let start = sub_pct.floor() as usize;
+        let pct_colors = sub_pct.fract();
+        self.colors[start].interpolate(&self.colors[start + 1], pct_colors)
+    }
+}
+pub struct Vec2Ani {
+    duration: f32,
+    steps: Vec<Vec2>,
+}
+impl Vec2Ani {
+    pub fn new(duration: f32, steps: Vec<Vec2>) -> Self {
+        Self { duration, steps }
+    }
+    pub fn vec2(&self, time: f32) -> Vec2 {
+        let pct = (time % self.duration) / self.duration;
+        let steps = (self.steps.len() as f32 - 1.0).inv();
+        let sub_pct = pct / steps;
+        let start = sub_pct.floor() as usize;
+        let pct_colors = sub_pct.fract();
+        self.steps[start].interpolate(&self.steps[start + 1], pct_colors)
     }
 }
 
