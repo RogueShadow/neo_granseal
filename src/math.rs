@@ -1,3 +1,4 @@
+use crate::util::Animatable;
 use num_traits::AsPrimitive;
 use rand::Rng;
 use std::fmt::{Display, Formatter};
@@ -578,7 +579,9 @@ impl Vec2 {
             w: 1.0,
         }
     }
-    pub fn interpolate(&self, other: &Vec2, pct: f32) -> Vec2 {
+}
+impl Animatable<Vec2> for Vec2 {
+    fn animate(&self, other: &Vec2, pct: f32) -> Vec2 {
         Vec2 {
             x: crate::util::lerp(self.x, other.x, pct),
             y: crate::util::lerp(self.y, other.y, pct),

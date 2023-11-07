@@ -2,7 +2,9 @@ use crate::core::Image;
 use crate::math::{vec2, Vec2};
 use crate::mesh::FillStyle::*;
 use crate::shape_pipeline::Vertex;
-use crate::util::{cubic_to_point, quadratic_to_point, Contour, LineSegment, PathData, Ray};
+use crate::util::{
+    cubic_to_point, quadratic_to_point, Animatable, Contour, LineSegment, PathData, Ray,
+};
 use crate::{math, Color};
 use log::warn;
 use std::collections::HashMap;
@@ -572,21 +574,21 @@ impl Mesh {
                 });
             }
             FadeDown(c1, c2) => self.vertices.iter_mut().for_each(|v| {
-                v.set_color(c1.interpolate(&c2, v.v));
+                v.set_color(c1.animate(&c2, v.v));
             }),
             FadeLeft(c1, c2) => self.vertices.iter_mut().for_each(|v| {
-                v.set_color(c1.interpolate(&c2, v.u));
+                v.set_color(c1.animate(&c2, v.u));
             }),
             Corners(c1, c2, c3, c4) => self.vertices.iter_mut().for_each(|v| {
-                let color1 = c1.interpolate(&c2, v.u);
-                let color2 = c4.interpolate(&c3, v.u);
-                let color3 = c1.interpolate(&c4, v.v);
-                let color4 = c2.interpolate(&c3, v.v);
+                let color1 = c1.animate(&c2, v.u);
+                let color2 = c4.animate(&c3, v.u);
+                let color3 = c1.animate(&c4, v.v);
+                let color4 = c2.animate(&c3, v.v);
 
-                let h_color = color1.interpolate(&color2, v.v);
-                let v_color = color3.interpolate(&color4, v.u);
+                let h_color = color1.animate(&color2, v.v);
+                let v_color = color3.animate(&color4, v.u);
 
-                v.set_color(h_color.interpolate(&v_color, 0.5));
+                v.set_color(h_color.animate(&v_color, 0.5));
             }),
             Radial(c1, c2) => {
                 let mx = self.mid_x();
@@ -596,7 +598,7 @@ impl Mesh {
                     let dx = (v.x - mx).abs();
                     let dy = (v.y - my).abs();
                     let d = dx * dx + dy * dy;
-                    v.set_color(c1.interpolate(&c2, d / td));
+                    v.set_color(c1.animate(&c2, d / td));
                 })
             }
         };

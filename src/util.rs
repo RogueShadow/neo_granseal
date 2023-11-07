@@ -203,14 +203,6 @@ impl Color {
             a: 1.0,
         }
     }
-    pub fn interpolate(&self, other: &Self, pct: f32) -> Self {
-        Self::new(
-            lerp(self.r, other.r, pct),
-            lerp(self.g, other.g, pct),
-            lerp(self.b, other.b, pct),
-            lerp(self.a, other.a, pct),
-        )
-    }
     pub fn hsl(mut self, hue: f32, s: f32, l: f32) -> Self {
         let c = (1.0 - ((2.0 * l) - 1.0).abs()) * s;
         let i1 = hue / 60.0;
@@ -251,41 +243,45 @@ impl From<Color> for wgpu::Color {
         }
     }
 }
-pub struct ColorAni {
+pub struct Ani<T>
+where
+    T: Animatable<T>,
+{
     duration: f32,
-    colors: Vec<Color>,
+    steps: Vec<T>,
 }
-impl ColorAni {
-    pub fn new(duration: f32, colors: Vec<Color>) -> Self {
-        Self { duration, colors }
-    }
-    pub fn color(&self, time: f32) -> Color {
-        let pct = (time % self.duration) / self.duration;
-        let steps = (self.colors.len() as f32 - 1.0).inv();
-        let sub_pct = pct / steps;
-        let start = sub_pct.floor() as usize;
-        let pct_colors = sub_pct.fract();
-        self.colors[start].interpolate(&self.colors[start + 1], pct_colors)
-    }
-}
-pub struct Vec2Ani {
-    duration: f32,
-    steps: Vec<Vec2>,
-}
-impl Vec2Ani {
-    pub fn new(duration: f32, steps: Vec<Vec2>) -> Self {
+impl<T> Ani<T>
+where
+    T: Animatable<T>,
+{
+    pub fn new(duration: f32, steps: Vec<T>) -> Self {
         Self { duration, steps }
     }
-    pub fn vec2(&self, time: f32) -> Vec2 {
+    pub fn ani(&self, time: f32) -> T {
         let pct = (time % self.duration) / self.duration;
+        self.pct(pct)
+    }
+    pub fn pct(&self, pct: f32) -> T {
         let steps = (self.steps.len() as f32 - 1.0).inv();
         let sub_pct = pct / steps;
         let start = sub_pct.floor() as usize;
-        let pct_colors = sub_pct.fract();
-        self.steps[start].interpolate(&self.steps[start + 1], pct_colors)
+        let pct_step = sub_pct.fract();
+        self.steps[start].animate(&self.steps[start + 1], pct_step)
     }
 }
-
+pub trait Animatable<T> {
+    fn animate(&self, other: &T, pct: f32) -> T;
+}
+impl Animatable<Color> for Color {
+    fn animate(&self, other: &Self, pct: f32) -> Self {
+        Self::new(
+            lerp(self.r, other.r, pct),
+            lerp(self.g, other.g, pct),
+            lerp(self.b, other.b, pct),
+            lerp(self.a, other.a, pct),
+        )
+    }
+}
 pub struct Camera {
     offset: Vec2,
     lower_bound: Vec2,
