@@ -102,7 +102,7 @@ pub struct TextureInfo {
 
 #[derive(Copy, Clone, Debug)]
 pub struct Image {
-    pub(crate) texture: usize,
+    pub texture: usize,
     pub size: Vec2,
     pub sub_image: Option<(Vec2, Vec2)>,
 }
