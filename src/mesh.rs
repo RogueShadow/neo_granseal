@@ -539,11 +539,7 @@ impl Mesh {
     }
     pub fn uv_project(&mut self) -> &Self {
         let (min, max) = if let Some(image) = self.image {
-            if let Some(sub_image) = image.sub_image {
-                sub_image
-            } else {
-                (vec2(0, 0), vec2(1, 1))
-            }
+            image.get_uv()
         } else {
             (vec2(0, 0), vec2(1, 1))
         };

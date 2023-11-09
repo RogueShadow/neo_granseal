@@ -1,5 +1,5 @@
 use crate::events::Key;
-use crate::math::Vec2;
+use crate::math::{vec2, Vec2};
 use crate::mesh::Mesh;
 use crate::shape_pipeline::{BufferedObjectID, MeshBuffer, SSRObjectInfo};
 use crate::{map_present_modes, GransealGameConfig, NGRenderPipeline};
@@ -103,6 +103,7 @@ pub struct TextureInfo {
 #[derive(Copy, Clone, Debug)]
 pub struct Image {
     pub texture: usize,
+    pub atlas: Option<Vec2>,
     pub size: Vec2,
     pub sub_image: Option<(Vec2, Vec2)>,
 }
@@ -110,6 +111,20 @@ impl Image {
     pub fn sub_image(mut self, start: Vec2, size: Vec2) -> Self {
         self.sub_image = Some((start, start + size));
         self
+    }
+    pub fn get_uv(&self) -> (Vec2, Vec2) {
+        match (self.atlas, self.sub_image) {
+            (Some(atlas_pos), Some((sub_start, sub_end))) => (
+                atlas_pos + sub_start / vec2(8192, 8192),
+                atlas_pos + sub_end / vec2(8192, 8192),
+            ),
+            (Some(atlas_pos), None) => (
+                atlas_pos / vec2(8192, 8192),
+                atlas_pos + self.size / vec2(8192, 8192),
+            ),
+            (None, Some((sub_start, sub_end))) => (sub_start / self.size, sub_end / self.size),
+            (None, None) => (vec2(0, 0), vec2(1, 1)),
+        }
     }
 }
 
@@ -217,6 +232,7 @@ impl NGCore {
         Image {
             texture: self.textures.len() - 1,
             size: Vec2::new(width, height),
+            atlas: None,
             sub_image: None,
         }
     }
