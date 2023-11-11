@@ -668,7 +668,13 @@ impl<'draw> ShapeGfx<'draw> {
             }
             (false, _, _) => {
                 let texture = match mesh.image {
-                    Some(image) => Some(image.texture),
+                    Some(image) => {
+                        if let Some(atlas) = image.atlas {
+                            Some(atlas.0)
+                        } else {
+                            Some(image.texture)
+                        }
+                    }
                     None => None,
                 };
                 let start_vertex = self.data.vertices.len();

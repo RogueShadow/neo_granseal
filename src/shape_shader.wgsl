@@ -70,7 +70,7 @@ fn vs_main(@builtin(vertex_index) index: u32, in: VertexInput, @builtin(instance
     let offset = vec2<f32>(transforms[inst].rx,transforms[inst].ry);
     var raw_pos = (in.pos.xy - offset) * rotation;
     var pos = ((raw_pos + offset) / screen) * 2.0;
-    var trans = ((vec2<f32>(transforms[inst].x,transforms[inst].y) / screen) - 0.5) * 2.0 ;
+    var trans = ((vec2<f32>((transforms[inst].x),(transforms[inst].y)) / screen) - 0.5) * 2.0 ;
     var output = pos + trans;
     output = vec2<f32>(output.x,output.y * -1.0);
 
@@ -85,10 +85,6 @@ fn vs_main(@builtin(vertex_index) index: u32, in: VertexInput, @builtin(instance
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    var index = u32(in.clip_position.x + in.clip_position.y * screen.x);
-    var color = in.color;
-    var tex_color = textureSample(tex,samp,in.tex);
-
-    return color * tex_color * in.tint;
+    return in.color * textureSample(tex,samp,in.tex) * in.tint;
 }
 

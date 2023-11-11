@@ -1,9 +1,13 @@
+use crate::core::{Image, NGCore, NGError, TEXTURE_SIZE};
 use crate::math::{angle_vec2, vec2, Vec2};
-use crate::mesh::{FillStyle, FillStyleShorthand, MeshBuilder, Polygon};
+use crate::mesh::{rect_filled, FillStyle, FillStyleShorthand, MeshBuilder, Polygon};
+use crate::shape_pipeline::ShapeGfx;
 use num_traits::{AsPrimitive, Inv};
 use rand::{Rng, SeedableRng};
+use std::collections::HashMap;
 use std::f32::consts::PI;
 use std::ops::Mul;
+use std::path::PathBuf;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Color {
@@ -885,4 +889,74 @@ pub fn is_x_monotone(polygon: &Polygon, debug: Option<&mut MeshBuilder>) -> bool
         mb.pop();
     }
     hits <= 2
+}
+pub fn create_texture_atlas(
+    core: &mut NGCore,
+    images: &[(String, PathBuf)],
+) -> Result<HashMap<String, Image>, NGError> {
+    const SIZE: u32 = TEXTURE_SIZE;
+    let atlas = core.create_image(SIZE, SIZE);
+
+    let mut images = images
+        .iter()
+        .map(|(name, path)| {
+            (
+                name,
+                core.load_image(path).expect("Load the image."),
+                Vec2::ZERO,
+            )
+        })
+        .collect::<Vec<_>>();
+    images.sort_by(|a, b| b.1.size.x.total_cmp(&a.1.size.x));
+
+    let pad = 2f32;
+    let mut width_bump: Option<f32> = None;
+    let mut cursor = vec2(pad, pad);
+    let mut iter = images.iter_mut().peekable();
+    loop {
+        if let Some((_name, img, pos)) = iter.next() {
+            if img.size.y <= (SIZE as f32 - cursor.y) {
+                if img.size.x + cursor.x > SIZE as f32 {
+                    return Err(NGError::TextureOverload);
+                }
+                pos.x = cursor.x;
+                pos.y = cursor.y;
+                cursor.y += img.size.y + pad;
+                if width_bump.is_none() {
+                    width_bump = Some(cursor.x + img.size.x + pad)
+                }
+                if let Some((_, peek, _)) = iter.peek() {
+                    if cursor.y + peek.size.y + pad >= SIZE as f32 {
+                        cursor.x = width_bump.unwrap();
+                        cursor.y = pad;
+                        width_bump = None;
+                    }
+                } else {
+                    break;
+                }
+            }
+        }
+    }
+
+    let background = rect_filled(
+        vec2(0, 0),
+        vec2(SIZE, SIZE),
+        FillStyle::Solid(Color::TRANSPARENT),
+    );
+    let mut g = ShapeGfx::new(core);
+    g.draw_mesh(&background, Vec2::ZERO);
+    images.iter().for_each(|(_, img, pos)| {
+        g.draw_image(img, *pos);
+    });
+    g.render_image(&atlas, true);
+    g.finish();
+
+    let mut result = HashMap::new();
+    result.insert("ATLAS".to_string(), atlas);
+    images.iter_mut().for_each(|(name, image, pos)| {
+        image.atlas = Some((atlas.texture, *pos));
+        result.insert(name.to_string(), *image);
+    });
+
+    Ok(result)
 }

@@ -7,6 +7,7 @@ use image::{EncodableLayout, ImageError};
 use pollster::FutureExt;
 use std::any::Any;
 use std::collections::HashMap;
+use std::path::Path;
 use wgpu::util::DeviceExt;
 use wgpu::CreateSurfaceError;
 use winit::dpi::PhysicalSize;
@@ -24,6 +25,7 @@ pub enum NGError {
     CreateSurfaceError(wgpu::CreateSurfaceError),
     SurfaceError(wgpu::SurfaceError),
     ImageError(image::ImageError),
+    TextureOverload,
 }
 impl From<wgpu::CreateSurfaceError> for NGError {
     fn from(value: CreateSurfaceError) -> Self {
@@ -103,10 +105,11 @@ pub struct TextureInfo {
 #[derive(Copy, Clone, Debug)]
 pub struct Image {
     pub texture: usize,
-    pub atlas: Option<Vec2>,
+    pub atlas: Option<(usize, Vec2)>,
     pub size: Vec2,
     pub sub_image: Option<(Vec2, Vec2)>,
 }
+pub const TEXTURE_SIZE: u32 = 8192;
 impl Image {
     pub fn sub_image(mut self, start: Vec2, size: Vec2) -> Self {
         self.sub_image = Some((start, start + size));
@@ -114,13 +117,13 @@ impl Image {
     }
     pub fn get_uv(&self) -> (Vec2, Vec2) {
         match (self.atlas, self.sub_image) {
-            (Some(atlas_pos), Some((sub_start, sub_end))) => (
-                atlas_pos + sub_start / vec2(8192, 8192),
-                atlas_pos + sub_end / vec2(8192, 8192),
+            (Some((_, atlas_pos)), Some((sub_start, sub_end))) => (
+                (atlas_pos + sub_start) / vec2(TEXTURE_SIZE, TEXTURE_SIZE),
+                (atlas_pos + sub_end) / vec2(TEXTURE_SIZE, TEXTURE_SIZE),
             ),
-            (Some(atlas_pos), None) => (
-                atlas_pos / vec2(8192, 8192),
-                atlas_pos + self.size / vec2(8192, 8192),
+            (Some((_, atlas_pos)), None) => (
+                atlas_pos / vec2(TEXTURE_SIZE, TEXTURE_SIZE),
+                (atlas_pos + self.size) / vec2(TEXTURE_SIZE, TEXTURE_SIZE),
             ),
             (None, Some((sub_start, sub_end))) => (sub_start / self.size, sub_end / self.size),
             (None, None) => (vec2(0, 0), vec2(1, 1)),
@@ -182,10 +185,14 @@ impl NGCore {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Nearest,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            ..Default::default()
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::FilterMode::Linear,
+            lod_min_clamp: 0.0,
+            lod_max_clamp: 0.0,
+            compare: None,
+            anisotropy_clamp: 1,
+            border_color: None,
         });
         let bind_group_layout =
             self.device
@@ -236,7 +243,13 @@ impl NGCore {
             sub_image: None,
         }
     }
-    pub fn load_image(&mut self, file: &str) -> Result<Image, NGError> {
+    pub fn destroy_image(&mut self, image: &Image) {
+        self.textures[image.texture].texture.destroy();
+    }
+    pub fn load_image<P>(&mut self, file: P) -> Result<Image, NGError>
+    where
+        P: AsRef<Path>,
+    {
         let image = match image::open(file) {
             Ok(image) => image.to_rgba8(),
             Err(err) => return Err(NGError::ImageError(err)),
@@ -302,7 +315,13 @@ impl NGCore {
             start_index: 0,
             end_index: 0,
             texture: match mesh.image {
-                Some(image) => Some(image.texture),
+                Some(image) => {
+                    if let Some((atlas, _)) = image.atlas {
+                        Some(atlas)
+                    } else {
+                        Some(image.texture)
+                    }
+                }
                 None => None,
             },
         };
@@ -310,7 +329,13 @@ impl NGCore {
             vertex_buffer,
             index_buffer,
             texture: match mesh.image {
-                Some(image) => Some(image.texture),
+                Some(image) => {
+                    if let Some((atlas, _)) = image.atlas {
+                        Some(atlas)
+                    } else {
+                        Some(image.texture)
+                    }
+                }
                 None => None,
             },
         });
