@@ -39,6 +39,18 @@ pub(crate) fn main_loop(
                         NGCommand::AddPipeline(p) => {
                             pipelines.push(p);
                         }
+                        NGCommand::RenderImage(index, data, img, replace) => {
+                            if let Some(renderer) = pipelines.get_mut(index) {
+                                renderer.set_globals(GlobalUniforms::new(
+                                    &core,
+                                    (img.size.x, img.size.y),
+                                ));
+                                renderer.set_data(data);
+                                renderer.render_image(&mut core, img, replace);
+                            } else {
+                                error!("Tried to render to invalid pipeline at index {:?}", index);
+                            }
+                        }
                         NGCommand::Render(index, data) => {
                             let size = {
                                 let d = core.window.inner_size();
@@ -60,18 +72,6 @@ pub(crate) fn main_loop(
                                 frames = 0;
                             }
                             frames += 1;
-                        }
-                        NGCommand::RenderImage(index, data, img, replace) => {
-                            if let Some(renderer) = pipelines.get_mut(index) {
-                                renderer.set_globals(GlobalUniforms::new(
-                                    &core,
-                                    (img.size.x, img.size.y),
-                                ));
-                                renderer.set_data(data);
-                                renderer.render_image(&mut core, img, replace);
-                            } else {
-                                error!("Tried to render to invalid pipeline at index {:?}", index);
-                            }
                         }
                         NGCommand::SetCursorVisibility(v) => core.window.set_cursor_visible(v),
                         NGCommand::SetTitle(title) => {

@@ -78,7 +78,6 @@ impl NeoGransealEventHandler for Shapes {
                 mb.line(Vec2::ZERO, size);
                 let mut g = ShapeGfx::new(core);
                 g.draw_mesh(&mb.build(), Vec2::ZERO);
-                g.finish();
             }
             _ => {}
         }

@@ -736,12 +736,17 @@ impl<'draw> ShapeGfx<'draw> {
             }
         }
     }
-    pub fn finish(&mut self) {
+    fn submit(&mut self) {
         self.core.render(0, Box::new(self.data.to_owned()));
     }
     pub fn render_image(&mut self, image: &Image, replace: bool) {
         self.core
             .render_image(0, Box::new(self.data.to_owned()), image, replace);
         self.data = SSRRenderData::new();
+    }
+}
+impl Drop for ShapeGfx<'_> {
+    fn drop(&mut self) {
+        self.submit();
     }
 }

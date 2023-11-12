@@ -56,7 +56,6 @@ impl NeoGransealEventHandler for Game {
                 });
                 let mut g = ShapeGfx::new(core);
                 g.draw_mesh(&mb.build(), Vec2::ZERO);
-                g.finish();
             }
             Event::Update(d) => {
                 core.set_title(format!(

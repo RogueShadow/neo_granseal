@@ -415,8 +415,11 @@ impl MeshBuilder {
         m.uv_project();
         self.meshes.push(m);
     }
-    pub fn build(self) -> Mesh {
-        let mut m = combine(self.meshes);
+    pub fn build(&mut self) -> Mesh {
+        let mut m = combine(&mut self.meshes);
+        self.state = MBState::default();
+        self.meshes.clear();
+        self.states.clear();
         m.image = self.state.image;
         m
     }
@@ -460,7 +463,7 @@ impl Mesh {
             self.uv_project();
         };
     }
-    pub fn add(mut self, other: &Mesh) -> Mesh {
+    pub fn add(mut self, other: &Self) -> Self {
         let start = self.vertices.len() as u32;
         self.vertices.extend(&other.vertices);
         let indices: Vec<u32> = other.indices.iter().map(|i| i + start).collect();
@@ -791,7 +794,9 @@ pub fn rounded_rect_filled(
         1.0,
         style,
     );
-    combine(vec![inner_rect, top, bottom, left, right, tl, tr, br, bl])
+    combine(&mut vec![
+        inner_rect, top, bottom, left, right, tl, tr, br, bl,
+    ])
 }
 pub fn rounded_rect_outlined(
     top_left: Vec2,
@@ -872,7 +877,7 @@ pub fn rounded_rect_outlined(
         thickness,
         style,
     );
-    combine(vec![top, bottom, left, right, tl, tr, br, bl])
+    combine(&mut vec![top, bottom, left, right, tl, tr, br, bl])
 }
 pub fn rect_filled(top_left: Vec2, bottom_right: Vec2, style: FillStyle) -> Mesh {
     let (c1, c2, c3, c4) = style_colors(style);
@@ -1136,7 +1141,7 @@ pub fn quadratic_curve(
     (0..points.len() - 1).for_each(|i| {
         meshes.push(line(points[i], points[i + 1], thickness, line_style, style));
     });
-    combine(meshes)
+    combine(&mut meshes)
 }
 
 pub fn cubic_curve(
@@ -1160,7 +1165,7 @@ pub fn cubic_curve(
     (0..points.len() - 1).for_each(|i| {
         meshes.push(line(points[i], points[i + 1], thickness, line_style, style));
     });
-    combine(meshes)
+    combine(&mut meshes)
 }
 pub fn triangle_fan(center: &Vec2, mut points: Vec<Vec2>) -> Mesh {
     points.sort_by(|a, b| (*center - *a).angle2().total_cmp(&(*center - *b).angle2()));
@@ -1267,7 +1272,7 @@ pub fn polygon_trapezoid_map(polygon: &Polygon) -> Mesh {
     mb.build()
 }
 
-pub fn combine(mut meshes: Vec<Mesh>) -> Mesh {
+pub fn combine(meshes: &mut Vec<Mesh>) -> Mesh {
     meshes.iter_mut().fold(Mesh::default(), |acc, m| acc.add(m))
 }
 

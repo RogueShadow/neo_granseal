@@ -247,25 +247,47 @@ impl From<Color> for wgpu::Color {
         }
     }
 }
+#[derive(Debug)]
 pub struct Ani<T>
 where
     T: Animatable<T>,
 {
+    start: f32,
     duration: f32,
     steps: Vec<T>,
+    pub repeat: bool,
 }
 impl<T> Ani<T>
 where
-    T: Animatable<T>,
+    T: Animatable<T> + Copy,
 {
-    pub fn new(duration: f32, steps: Vec<T>) -> Self {
-        Self { duration, steps }
+    pub fn new(start: f32, duration: f32, steps: Vec<T>) -> Self {
+        Self {
+            start,
+            duration,
+            steps,
+            repeat: true,
+        }
     }
     pub fn ani(&self, time: f32) -> T {
-        let pct = (time % self.duration) / self.duration;
+        let time = time - self.start;
+        let pct = if !self.repeat {
+            time / self.duration
+        } else {
+            (time % self.duration) / self.duration
+        };
+        if pct <= 0.0 {
+            return *self.steps.first().unwrap();
+        }
+        if pct >= 1.0 {
+            return *self.steps.last().unwrap();
+        }
         self.pct(pct)
     }
     pub fn pct(&self, pct: f32) -> T {
+        if self.steps.len() <= 1 {
+            return self.steps[0];
+        }
         let steps = (self.steps.len() as f32 - 1.0).inv();
         let sub_pct = pct / steps;
         let start = sub_pct.floor() as usize;
@@ -949,7 +971,6 @@ pub fn create_texture_atlas(
         g.draw_image(img, *pos);
     });
     g.render_image(&atlas, true);
-    g.finish();
 
     let mut result = HashMap::new();
     result.insert("ATLAS".to_string(), atlas);
