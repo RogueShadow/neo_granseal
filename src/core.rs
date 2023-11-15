@@ -102,15 +102,22 @@ pub struct TextureInfo {
     pub(crate) bind_group: wgpu::BindGroup,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Image {
     pub texture: usize,
     pub atlas: Option<(usize, Vec2)>,
-    pub size: Vec2,
+    size: Vec2,
     pub sub_image: Option<(Vec2, Vec2)>,
 }
 pub const TEXTURE_SIZE: u32 = 8192;
 impl Image {
+    pub fn atlas_id(&self) -> Option<usize> {
+        if let Some(atlas) = self.atlas {
+            Some(atlas.0)
+        } else {
+            None
+        }
+    }
     pub fn sub_image(mut self, start: Vec2, size: Vec2) -> Self {
         self.sub_image = Some((start, start + size));
         self
@@ -127,6 +134,13 @@ impl Image {
             ),
             (None, Some((sub_start, sub_end))) => (sub_start / self.size, sub_end / self.size),
             (None, None) => (vec2(0, 0), vec2(1, 1)),
+        }
+    }
+    pub fn size(&self) -> Vec2 {
+        if let Some(sub_image) = self.sub_image {
+            sub_image.1 - sub_image.0
+        } else {
+            self.size
         }
     }
 }

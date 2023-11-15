@@ -16,6 +16,11 @@ pub struct Color {
     pub b: f32,
     pub a: f32,
 }
+impl Default for Color {
+    fn default() -> Self {
+        Self {r: 1.0, g: 1.0, b: 1.0, a: 1.0}
+    }
+}
 // Pre-defined colors from CSS colors.
 impl Color {
     // misc
@@ -929,7 +934,7 @@ pub fn create_texture_atlas(
             )
         })
         .collect::<Vec<_>>();
-    images.sort_by(|a, b| b.1.size.x.total_cmp(&a.1.size.x));
+    images.sort_by(|a, b| b.1.size().x.total_cmp(&a.1.size().x));
 
     let pad = 2f32;
     let mut width_bump: Option<f32> = None;
@@ -937,18 +942,18 @@ pub fn create_texture_atlas(
     let mut iter = images.iter_mut().peekable();
     loop {
         if let Some((_name, img, pos)) = iter.next() {
-            if img.size.y <= (SIZE as f32 - cursor.y) {
-                if img.size.x + cursor.x > SIZE as f32 {
+            if img.size().y <= (SIZE as f32 - cursor.y) {
+                if img.size().x + cursor.x > SIZE as f32 {
                     return Err(NGError::TextureOverload);
                 }
                 pos.x = cursor.x;
                 pos.y = cursor.y;
-                cursor.y += img.size.y + pad;
+                cursor.y += img.size().y + pad;
                 if width_bump.is_none() {
-                    width_bump = Some(cursor.x + img.size.x + pad)
+                    width_bump = Some(cursor.x + img.size().x + pad)
                 }
                 if let Some((_, peek, _)) = iter.peek() {
-                    if cursor.y + peek.size.y + pad >= SIZE as f32 {
+                    if cursor.y + peek.size().y + pad >= SIZE as f32 {
                         cursor.x = width_bump.unwrap();
                         cursor.y = pad;
                         width_bump = None;

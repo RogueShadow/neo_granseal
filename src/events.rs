@@ -1,4 +1,5 @@
 use std::time::Duration;
+use winit::event::MouseScrollDelta;
 
 #[derive()]
 pub enum Event {
@@ -11,6 +12,7 @@ pub enum Event {
         button: MouseButton,
     },
     MouseMoved(f64, f64),
+    MouseWheel(f32, f32),
     Draw,
     Update(Duration),
     Load,
@@ -175,7 +177,6 @@ pub fn map_events(event: &winit::event::WindowEvent) -> Option<Event> {
             device_id: _device_id,
             state,
             button,
-            ..
         } => Some(Event::MousePressed {
             state: match state {
                 winit::event::ElementState::Pressed => KeyState::Pressed,
@@ -186,6 +187,10 @@ pub fn map_events(event: &winit::event::WindowEvent) -> Option<Event> {
         winit::event::WindowEvent::CursorMoved { position, .. } => {
             Some(Event::MouseMoved(position.x, position.y))
         }
+        winit::event::WindowEvent::MouseWheel { delta, .. } => match delta {
+            MouseScrollDelta::LineDelta(x, y) => Some(Event::MouseWheel(*x, *y)),
+            _ => None,
+        },
         _ => None,
     }
 }

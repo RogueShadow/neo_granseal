@@ -641,11 +641,11 @@ impl<'draw> ShapeGfx<'draw> {
         }
     }
     pub fn draw_image(&mut self, image: &Image, pos: Vec2) {
-        let size = if let Some(sub_image) = image.sub_image {
-            sub_image.1 - sub_image.0
-        } else {
-            image.size
-        };
+        let mut mesh = rect_filled(Vec2::ZERO, image.size(), FillStyle::Solid(Color::WHITE));
+        mesh.texture(image, true);
+        self.draw_mesh(&mesh, pos);
+    }
+    pub fn draw_image_sized(&mut self, image: &Image, size: Vec2, pos: Vec2) {
         let mut mesh = rect_filled(Vec2::ZERO, size, FillStyle::Solid(Color::WHITE));
         mesh.texture(image, true);
         self.draw_mesh(&mesh, pos);

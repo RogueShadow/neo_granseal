@@ -415,12 +415,47 @@ impl MeshBuilder {
         m.uv_project();
         self.meshes.push(m);
     }
-    pub fn build(&mut self) -> Mesh {
-        let mut m = combine(&mut self.meshes);
+    pub fn reset(&mut self) {
         self.state = MBState::default();
         self.meshes.clear();
         self.states.clear();
-        m.image = self.state.image;
+    }
+    pub fn clear_meshes(&mut self) {
+        self.meshes.clear();
+    }
+    pub fn build(&mut self) -> Mesh {
+        let imgs = self
+            .meshes
+            .iter()
+            .filter_map(|m| m.image)
+            .collect::<Vec<_>>();
+        let ids = imgs
+            .iter()
+            .map(|img| {
+                if let Some((atlas_id, _)) = img.atlas {
+                    atlas_id
+                } else {
+                    img.texture
+                }
+            })
+            .collect::<Vec<_>>();
+        if !ids.is_empty() {
+            let first = *ids.first().unwrap();
+            for i in ids {
+                if i != first {
+                    panic!(
+                        "Meshes can't use more than one texture. Use an atlas, or only one image."
+                    )
+                }
+            }
+        }
+
+        let mut m = combine(&mut self.meshes);
+        if !imgs.is_empty() {
+            m.image = imgs.first().copied();
+        } else {
+            m.image = self.state.image;
+        }
         m
     }
 }
@@ -504,6 +539,9 @@ impl Mesh {
     }
     pub fn height(&self) -> f32 {
         self.max_y() - self.min_y()
+    }
+    pub fn size(&self) -> Vec2 {
+        vec2(self.width(), self.height())
     }
     pub fn center_pos(&self) -> Vec2 {
         Vec2::new(
@@ -1359,7 +1397,7 @@ pub struct Font {
 }
 impl Default for Font {
     fn default() -> Self {
-        let font = load_meshes2(include_str!("../liberation_mono_mesh.obj"), 16.0);
+        let font = load_meshes2(include_str!("../liberation_mono_mesh.obj"), 1.0);
         Self { font }
     }
 }
@@ -1393,7 +1431,7 @@ impl Font {
         mesh.texture(&image, false);
         mesh
     }
-    pub fn text(&self, text: &str) -> Mesh {
+    pub fn text(&self, text: &str, scale: f32) -> Mesh {
         let mut mesh = Mesh::default();
         let mut pos = Vec2::ZERO;
         let space = self.font["A"].width();
@@ -1414,6 +1452,7 @@ impl Font {
                 }
             }
         }
+        mesh.scale(scale);
         mesh
     }
 }
