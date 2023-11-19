@@ -10,8 +10,9 @@ use std::collections::HashMap;
 use std::path::Path;
 use wgpu::util::DeviceExt;
 use wgpu::CreateSurfaceError;
-use winit::dpi::PhysicalSize;
+use winit::dpi::{LogicalSize, PhysicalSize, Size};
 use winit::event_loop::EventLoop;
+use winit::platform::windows::MonitorHandleExtWindows;
 use winit::window::Fullscreen;
 
 #[derive(Debug)]
@@ -167,13 +168,16 @@ impl NGCore {
         let mut image = image::RgbaImage::new(16, 16);
         image.fill(u8::MAX);
         let data = image.as_bytes();
-        self.load_image_data(image.width(), image.height(), data);
+        self.load_image_data(image.width(), image.height(), data, true);
     }
-    pub fn load_image_from_memory(&mut self, data: &[u8]) -> Result<Image, NGError> {
+    pub fn load_image_from_memory(&mut self, data: &[u8], nearest: bool) -> Result<Image, NGError> {
         let image = image::load_from_memory(data)?.to_rgba8();
-        Ok(self.load_image_data(image.width(), image.height(), image.as_bytes()))
+        Ok(self.load_image_data(image.width(), image.height(), image.as_bytes(), nearest))
     }
-    pub fn load_image_data(&mut self, width: u32, height: u32, data: &[u8]) -> Image {
+    pub fn load_image_data(&mut self, width: u32, height: u32, data: &[u8], nearest: bool) -> Image {
+        let filter_mode = if nearest {
+            wgpu::FilterMode::Nearest
+        } else {wgpu::FilterMode::Linear};
         let tex = wgpu::TextureDescriptor {
             label: Some("Image Texture"),
             size: wgpu::Extent3d {
@@ -199,9 +203,9 @@ impl NGCore {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
+            mag_filter: filter_mode,
             min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: filter_mode,
             lod_min_clamp: 0.0,
             lod_max_clamp: 0.0,
             compare: None,
@@ -260,7 +264,7 @@ impl NGCore {
     pub fn destroy_image(&mut self, image: &Image) {
         self.textures[image.texture].texture.destroy();
     }
-    pub fn load_image<P>(&mut self, file: P) -> Result<Image, NGError>
+    pub fn load_image<P>(&mut self, file: P, nearest: bool) -> Result<Image, NGError>
     where
         P: AsRef<Path>,
     {
@@ -269,12 +273,12 @@ impl NGCore {
             Err(err) => return Err(NGError::ImageError(err)),
         };
         let data = image.as_raw().as_slice();
-        Ok(self.load_image_data(image.width(), image.height(), data))
+        Ok(self.load_image_data(image.width(), image.height(), data, nearest))
     }
-    pub fn create_image(&mut self, width: u32, height: u32) -> Image {
+    pub fn create_image(&mut self, width: u32, height: u32, nearest: bool) -> Image {
         let mut image = image::RgbaImage::new(width, height);
         image.fill(u8::MAX);
-        self.load_image_data(image.width(), image.height(), image.as_raw().as_slice())
+        self.load_image_data(image.width(), image.height(), image.as_raw().as_slice(), nearest)
     }
     pub fn update_buffer_object(&mut self, slot: usize, mesh: &Mesh) -> bool {
         if self.mesh_buffers.get(slot).is_some() {
@@ -404,6 +408,28 @@ impl NGCore {
             .build(event_loop)?;
         if config.fullscreen {
             window.set_fullscreen(Some(Fullscreen::Borderless(None)));
+        } else {
+            if let Some(monitor) = window.primary_monitor() {
+                let mut position = vec2(0,0);
+                let screen_size = vec2(monitor.size().width,monitor.size().height);
+                let mut window_size = vec2(config.width,config.height);
+                if screen_size.x <= window_size.x {
+                    window_size.x = screen_size.x;
+                } else {
+                    position.x = (screen_size.x - window_size.x) / 2.0;
+                }
+                if screen_size.y <= window_size.y {
+                    window_size.y = screen_size.y;
+                } else {
+                    position.y = (screen_size.y - window_size.y) / 2.0;
+                    position.y -= position.y / 2.0; // prefer up a bit more, because taskbars exist.
+                }
+                window.set_outer_position(position);
+                if let Some(size) = window.request_inner_size(LogicalSize::new(window_size.x,window_size.y)) {
+                    config.width = size.width as i32;
+                    config.height = size.height as i32;
+                }
+            }
         }
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::default());
         let surface = unsafe { instance.create_surface(&window)? };

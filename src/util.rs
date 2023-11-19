@@ -922,14 +922,14 @@ pub fn create_texture_atlas(
     images: &[(String, PathBuf)],
 ) -> Result<HashMap<String, Image>, NGError> {
     const SIZE: u32 = TEXTURE_SIZE;
-    let atlas = core.create_image(SIZE, SIZE);
+    let atlas = core.create_image(SIZE, SIZE, true);
 
     let mut images = images
         .iter()
         .map(|(name, path)| {
             (
                 name,
-                core.load_image(path).expect("Load the image."),
+                core.load_image(path, true).expect("Load the image."),
                 Vec2::ZERO,
             )
         })

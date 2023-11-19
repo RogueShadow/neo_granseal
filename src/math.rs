@@ -1,3 +1,4 @@
+use winit::dpi::{LogicalPosition, Position};
 use crate::util::Animatable;
 use num_traits::AsPrimitive;
 use rand::Rng;
@@ -593,6 +594,9 @@ impl Animatable<Vec2> for Vec2 {
             y: crate::util::lerp(self.y, other.y, pct),
         }
     }
+}
+impl Into<Position> for Vec2 {
+    fn into(self) -> Position { Position::Logical(LogicalPosition::from((self.x,self.y))) }
 }
 
 /**

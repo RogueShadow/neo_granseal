@@ -1,3 +1,5 @@
+#![windows_subsystem="windows"]
+
 pub mod core;
 pub mod events;
 pub mod main_loop;
@@ -32,6 +34,7 @@ pub struct GransealGameConfig {
     pub simple_pipeline: bool,
     pub msaa: MSAA,
     pub fullscreen: bool,
+    pub pixel_mode: bool,
 }
 impl Default for GransealGameConfig {
     fn default() -> Self {
@@ -44,6 +47,7 @@ impl Default for GransealGameConfig {
             simple_pipeline: true,
             msaa: MSAA::Enable4x,
             fullscreen: false,
+            pixel_mode: false,
         }
     }
 }
