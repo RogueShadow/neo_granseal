@@ -579,6 +579,12 @@ impl Vec2 {
             w: 1.0,
         }
     }
+    pub fn abs(&self) -> Vec2 {
+        Vec2 {
+            x: self.x.abs(),
+            y: self.y.abs(),
+        }
+    }
 }
 impl Animatable<Vec2> for Vec2 {
     fn animate(&self, other: &Vec2, pct: f32) -> Vec2 {

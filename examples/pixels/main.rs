@@ -13,7 +13,7 @@ fn main() {
         GransealGameConfig::new()
             .clear_color(Color::BLACK)
             .vsync(false)
-            .size(128 * 5, 128 * 5),
+            .size(256 * 5, 256 * 5),
     );
 }
 struct Entity {
@@ -33,7 +33,7 @@ impl Game {
         Self {
             rng: rand_xorshift::XorShiftRng::from_rng(rand::thread_rng()).expect("Getting Rng."),
             entities: vec![],
-            size: Vec2::new(16.0, 16.0),
+            size: Vec2::new(32.0, 32.0),
             timer: std::time::Instant::now(),
             toggle: true,
         }
