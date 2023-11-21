@@ -18,7 +18,12 @@ pub struct Color {
 }
 impl Default for Color {
     fn default() -> Self {
-        Self {r: 1.0, g: 1.0, b: 1.0, a: 1.0}
+        Self {
+            r: 1.0,
+            g: 1.0,
+            b: 1.0,
+            a: 1.0,
+        }
     }
 }
 // Pre-defined colors from CSS colors.
@@ -176,6 +181,7 @@ impl Color {
     pub const MAROON: Self = Self::rgb(128.0 / 255.0, 0.0, 0.0);
 }
 
+//TODO conversion from rgba to hsl.
 impl Color {
     pub const fn rgb(r: f32, g: f32, b: f32) -> Self {
         Self::new(r, g, b, 1.0)
@@ -303,6 +309,7 @@ where
 pub trait Animatable<T> {
     fn animate(&self, other: &T, pct: f32) -> T;
 }
+//TODO Animate by HUE.
 impl Animatable<Color> for Color {
     fn animate(&self, other: &Self, pct: f32) -> Self {
         Self::new(

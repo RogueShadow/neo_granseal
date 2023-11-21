@@ -7,6 +7,7 @@ use crate::util::{
 };
 use crate::{math, Color};
 use log::warn;
+use num_traits::AsPrimitive;
 use std::collections::HashMap;
 use std::f32::consts::{PI, TAU};
 
@@ -36,6 +37,7 @@ pub struct MBState {
     pub resolution: f32,
     pub path_start: Vec2,
     pub image: Option<Image>,
+    pub z_depth: f32,
 }
 impl Default for MBState {
     fn default() -> Self {
@@ -50,20 +52,11 @@ impl Default for MBState {
             resolution: 8.0,
             path_start: Vec2::new(0, 0),
             image: None,
+            z_depth: 0.0,
         }
     }
 }
-impl MBState {
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
-#[derive(Debug, Clone, Copy)]
-pub enum MBShapes {
-    Line(Vec2, Vec2, Option<MBState>),
-    Rect(Vec2, Option<MBState>),
-    Oval(Vec2, Option<MBState>),
-}
+
 pub trait FillStyleShorthand {
     fn solid(&mut self, c: Color);
     fn fade_down(&mut self, c1: Color, c2: Color);
@@ -128,6 +121,9 @@ impl MeshBuilder {
     pub fn set_resolution(&mut self, res: f32) {
         self.state.resolution = res;
     }
+    pub fn set_depth(&mut self, depth: f32) {
+        self.state.z_depth = depth;
+    }
     pub fn push(&mut self) {
         self.states.push(self.state);
     }
@@ -149,28 +145,6 @@ impl MeshBuilder {
         mesh.rotate(self.state.rotation);
         mesh.translate(self.state.cursor);
         self.meshes.push(mesh);
-    }
-    pub fn shape(&mut self, shape: MBShapes) {
-        match shape {
-            MBShapes::Line(begin, end, state) => {
-                self.push();
-                self.state = state.unwrap_or(self.state);
-                self.line(begin, end);
-                self.pop();
-            }
-            MBShapes::Rect(size, state) => {
-                self.push();
-                self.state = state.unwrap_or(self.state);
-                self.rect(size);
-                self.pop();
-            }
-            MBShapes::Oval(size, state) => {
-                self.push();
-                self.state = state.unwrap_or(self.state);
-                self.oval(size);
-                self.pop();
-            }
-        }
     }
     pub fn stroke_path(&mut self, path: &PathData) {
         for seg in path.segments.iter() {
@@ -210,6 +184,7 @@ impl MeshBuilder {
             )
         };
 
+        m.set_z_depth(self.state.z_depth);
         self.do_rotation(&mut m);
 
         m.image = self.state.image;
@@ -241,7 +216,7 @@ impl MeshBuilder {
                 self.state.fill_style,
             )
         };
-
+        m.set_z_depth(self.state.z_depth);
         self.do_rotation(&mut m);
         m.image = self.state.image;
         m.uv_project();
@@ -269,6 +244,7 @@ impl MeshBuilder {
                 self.state.fill_style,
             )
         };
+        m.set_z_depth(self.state.z_depth);
         self.do_rotation(&mut m);
         m.image = self.state.image;
         m.uv_project();
@@ -295,6 +271,7 @@ impl MeshBuilder {
                 self.state.fill_style,
             )
         };
+        m.set_z_depth(self.state.z_depth);
         self.do_rotation(&mut m);
         m.image = self.state.image;
         m.uv_project();
@@ -308,6 +285,7 @@ impl MeshBuilder {
             self.state.line_style,
             self.state.fill_style,
         );
+        m.set_z_depth(self.state.z_depth);
         self.do_rotation(&mut m);
         m.image = self.state.image;
         m.uv_project();
@@ -330,6 +308,7 @@ impl MeshBuilder {
             self.state.line_style,
             self.state.fill_style,
         );
+        m.set_z_depth(self.state.z_depth);
         self.do_rotation(&mut m);
         self.set_cursor(end);
         m.image = self.state.image;
@@ -346,6 +325,7 @@ impl MeshBuilder {
             self.state.fill_style,
             self.state.resolution,
         );
+        m.set_z_depth(self.state.z_depth);
         self.do_rotation(&mut m);
         m.image = self.state.image;
         m.uv_project();
@@ -361,6 +341,7 @@ impl MeshBuilder {
             self.state.fill_style,
             self.state.resolution,
         );
+        m.set_z_depth(self.state.z_depth);
         self.do_rotation(&mut m);
         self.set_cursor(end);
         m.image = self.state.image;
@@ -378,6 +359,7 @@ impl MeshBuilder {
             self.state.fill_style,
             self.state.resolution,
         );
+        m.set_z_depth(self.state.z_depth);
         self.do_rotation(&mut m);
         m.image = self.state.image;
         m.uv_project();
@@ -394,6 +376,7 @@ impl MeshBuilder {
             self.state.fill_style,
             self.state.resolution,
         );
+        m.set_z_depth(self.state.z_depth);
         self.do_rotation(&mut m);
         self.set_cursor(end);
         m.image = self.state.image;
@@ -403,6 +386,7 @@ impl MeshBuilder {
     pub fn triangle_raw(&mut self, p1: Vec2, p2: Vec2, p3: Vec2) {
         let (c1, c2, c3, _) = style_colors(self.state.fill_style);
         let mut m = raw_triangle_filled(p1, p2, p3, c1, c2, c3);
+        m.set_z_depth(self.state.z_depth);
         self.do_rotation(&mut m);
         m.image = self.state.image;
         m.uv_project();
@@ -410,6 +394,7 @@ impl MeshBuilder {
     }
     pub fn quad_raw(&mut self, p1: Vec2, p2: Vec2, p3: Vec2, p4: Vec2) {
         let mut m = raw_quad_filled(p1, p2, p3, p4, self.state.fill_style);
+        m.set_z_depth(self.state.z_depth);
         self.do_rotation(&mut m);
         m.image = self.state.image;
         m.uv_project();
@@ -498,6 +483,13 @@ impl Mesh {
             self.uv_project();
         };
     }
+    pub fn get_texture_id(&self) -> Option<usize> {
+        return if let Some(image) = self.image {
+            image.texture_id()
+        } else {
+            None
+        };
+    }
     pub fn add(mut self, other: &Self) -> Self {
         let start = self.vertices.len() as u32;
         self.vertices.extend(&other.vertices);
@@ -553,6 +545,13 @@ impl Mesh {
         for v in self.vertices.iter_mut() {
             v.x += pos.x;
             v.y += pos.y;
+        }
+        self.dirty = true.into();
+        self
+    }
+    pub fn set_z_depth(&mut self, depth: impl AsPrimitive<f32>) -> &Self {
+        for v in self.vertices.iter_mut() {
+            v.z = depth.as_();
         }
         self.dirty = true.into();
         self

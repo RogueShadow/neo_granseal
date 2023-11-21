@@ -115,6 +115,7 @@ pub struct MeshBuffer {
 }
 
 pub struct SimpleShapeRenderPipeline {
+    depth_stencil: wgpu::Texture,
     multisample: Option<wgpu::Texture>,
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
@@ -276,7 +277,13 @@ impl SimpleShapeRenderPipeline {
                     polygon_mode: wgpu::PolygonMode::Fill,
                     conservative: false,
                 },
-                depth_stencil: None,
+                depth_stencil: Some(wgpu::DepthStencilState {
+                    format: wgpu::TextureFormat::Depth32FloatStencil8,
+                    depth_write_enabled: true,
+                    depth_compare: wgpu::CompareFunction::GreaterEqual,
+                    stencil: Default::default(),
+                    bias: Default::default(),
+                }),
                 multisample: multisample_state,
                 fragment: Some(wgpu::FragmentState {
                     module: &shader,
@@ -365,7 +372,26 @@ impl SimpleShapeRenderPipeline {
                 }),
                 multiview: None,
             });
+        let depth_stencil = core.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Depth Stencil Texture"),
+            size: wgpu::Extent3d {
+                width: core.surface_configuration.width,
+                height: core.surface_configuration.height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: match multisample_state {
+                MultisampleState { count, .. } => count,
+            },
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Depth32FloatStencil8,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::COPY_DST
+                | wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        });
         Self {
+            depth_stencil,
             multisample,
             vertex_buffer,
             index_buffer,
@@ -439,6 +465,16 @@ impl SimpleShapeRenderPipeline {
             base_array_layer: 0,
             array_layer_count: None,
         };
+        let depth_attachment = wgpu::RenderPassDepthStencilAttachment {
+            view: &self
+                .depth_stencil
+                .create_view(&wgpu::TextureViewDescriptor::default()),
+            depth_ops: Some(wgpu::Operations {
+                load: wgpu::LoadOp::Clear(0.0),
+                store: wgpu::StoreOp::Store,
+            }),
+            stencil_ops: None,
+        };
         let output_view = texture.create_view(&texture_view_descriptor);
         let (view, resolve_target) = match &self.multisample {
             Some(t) if !disable_msaa => {
@@ -465,7 +501,11 @@ impl SimpleShapeRenderPipeline {
                     store: StoreOp::Store,
                 },
             })],
-            depth_stencil_attachment: None,
+            depth_stencil_attachment: if render_target.is_none() {
+                Some(depth_attachment)
+            } else {
+                None
+            },
             timestamp_writes: None,
             occlusion_query_set: None,
         });

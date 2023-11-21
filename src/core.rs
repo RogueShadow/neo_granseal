@@ -3,16 +3,14 @@ use crate::math::{vec2, Vec2};
 use crate::mesh::Mesh;
 use crate::shape_pipeline::{BufferedObjectID, MeshBuffer, SSRObjectInfo};
 use crate::{map_present_modes, GransealGameConfig, NGRenderPipeline};
-use image::{EncodableLayout, ImageError};
+use image::EncodableLayout;
 use pollster::FutureExt;
 use std::any::Any;
 use std::collections::HashMap;
 use std::path::Path;
 use wgpu::util::DeviceExt;
-use wgpu::CreateSurfaceError;
-use winit::dpi::{LogicalSize, PhysicalSize, Size};
+use winit::dpi::{LogicalSize, PhysicalSize};
 use winit::event_loop::EventLoop;
-use winit::platform::windows::MonitorHandleExtWindows;
 use winit::window::Fullscreen;
 
 #[derive(Debug)]
@@ -29,12 +27,12 @@ pub enum NGError {
     TextureOverload,
 }
 impl From<wgpu::CreateSurfaceError> for NGError {
-    fn from(value: CreateSurfaceError) -> Self {
+    fn from(value: wgpu::CreateSurfaceError) -> Self {
         NGError::CreateSurfaceError(value)
     }
 }
 impl From<image::ImageError> for NGError {
-    fn from(value: ImageError) -> Self {
+    fn from(value: image::ImageError) -> Self {
         NGError::ImageError(value)
     }
 }
@@ -73,10 +71,6 @@ pub struct EngineState {
     pub mouse: MouseState,
     pub fps: i32,
     pub(crate) keys: HashMap<Key, bool>,
-    pub rotation: f32,
-    pub scale: f32,
-    pub xpos: f32,
-    pub ypos: f32,
 }
 impl Default for EngineState {
     fn default() -> Self {
@@ -89,10 +83,6 @@ impl Default for EngineState {
             },
             fps: 0,
             keys: HashMap::new(),
-            rotation: 0.0,
-            scale: 1.0,
-            xpos: 0.0,
-            ypos: 0.0,
         }
     }
 }
@@ -118,6 +108,13 @@ impl Image {
         } else {
             None
         }
+    }
+    pub fn texture_id(&self) -> Option<usize> {
+        return if let Some(atlas_id) = self.atlas_id() {
+            Some(atlas_id)
+        } else {
+            Some(self.texture)
+        };
     }
     pub fn sub_image(mut self, start: Vec2, size: Vec2) -> Self {
         self.sub_image = Some((start, start + size));
@@ -174,10 +171,18 @@ impl NGCore {
         let image = image::load_from_memory(data)?.to_rgba8();
         Ok(self.load_image_data(image.width(), image.height(), image.as_bytes(), nearest))
     }
-    pub fn load_image_data(&mut self, width: u32, height: u32, data: &[u8], nearest: bool) -> Image {
+    pub fn load_image_data(
+        &mut self,
+        width: u32,
+        height: u32,
+        data: &[u8],
+        nearest: bool,
+    ) -> Image {
         let filter_mode = if nearest {
             wgpu::FilterMode::Nearest
-        } else {wgpu::FilterMode::Linear};
+        } else {
+            wgpu::FilterMode::Linear
+        };
         let tex = wgpu::TextureDescriptor {
             label: Some("Image Texture"),
             size: wgpu::Extent3d {
@@ -261,6 +266,7 @@ impl NGCore {
             sub_image: None,
         }
     }
+    //TODO Make this an NGCommand so it does it later, after other things are done.
     pub fn destroy_image(&mut self, image: &Image) {
         self.textures[image.texture].texture.destroy();
     }
@@ -278,7 +284,12 @@ impl NGCore {
     pub fn create_image(&mut self, width: u32, height: u32, nearest: bool) -> Image {
         let mut image = image::RgbaImage::new(width, height);
         image.fill(u8::MAX);
-        self.load_image_data(image.width(), image.height(), image.as_raw().as_slice(), nearest)
+        self.load_image_data(
+            image.width(),
+            image.height(),
+            image.as_raw().as_slice(),
+            nearest,
+        )
     }
     pub fn update_buffer_object(&mut self, slot: usize, mesh: &Mesh) -> bool {
         if self.mesh_buffers.get(slot).is_some() {
@@ -332,30 +343,12 @@ impl NGCore {
             start_vertice: 0,
             start_index: 0,
             end_index: 0,
-            texture: match mesh.image {
-                Some(image) => {
-                    if let Some((atlas, _)) = image.atlas {
-                        Some(atlas)
-                    } else {
-                        Some(image.texture)
-                    }
-                }
-                None => None,
-            },
+            texture: mesh.get_texture_id(),
         };
         self.mesh_buffers.push(MeshBuffer {
             vertex_buffer,
             index_buffer,
-            texture: match mesh.image {
-                Some(image) => {
-                    if let Some((atlas, _)) = image.atlas {
-                        Some(atlas)
-                    } else {
-                        Some(image.texture)
-                    }
-                }
-                None => None,
-            },
+            texture: mesh.get_texture_id(),
         });
         self.buffered_objects.push(object_info);
         self.buffered_objects.len() - 1
@@ -410,9 +403,9 @@ impl NGCore {
             window.set_fullscreen(Some(Fullscreen::Borderless(None)));
         } else {
             if let Some(monitor) = window.primary_monitor() {
-                let mut position = vec2(0,0);
-                let screen_size = vec2(monitor.size().width,monitor.size().height);
-                let mut window_size = vec2(config.width,config.height);
+                let mut position = vec2(0, 0);
+                let screen_size = vec2(monitor.size().width, monitor.size().height);
+                let mut window_size = vec2(config.width, config.height);
                 if screen_size.x <= window_size.x {
                     window_size.x = screen_size.x;
                 } else {
@@ -425,7 +418,9 @@ impl NGCore {
                     position.y -= position.y / 2.0; // prefer up a bit more, because taskbars exist.
                 }
                 window.set_outer_position(position);
-                if let Some(size) = window.request_inner_size(LogicalSize::new(window_size.x,window_size.y)) {
+                if let Some(size) =
+                    window.request_inner_size(LogicalSize::new(window_size.x, window_size.y))
+                {
                     config.width = size.width as i32;
                     config.height = size.height as i32;
                 }
@@ -457,7 +452,8 @@ impl NGCore {
                     label: None,
                     features: wgpu::Features::STORAGE_RESOURCE_BINDING_ARRAY
                         | wgpu::Features::BUFFER_BINDING_ARRAY
-                        | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES,
+                        | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES
+                        | wgpu::Features::DEPTH32FLOAT_STENCIL8,
                     limits: Default::default(),
                 },
                 None,
