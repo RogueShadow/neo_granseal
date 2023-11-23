@@ -455,16 +455,6 @@ impl SimpleShapeRenderPipeline {
             bytemuck::cast_slice(data.materials.as_slice()),
         );
 
-        let texture_view_descriptor = TextureViewDescriptor {
-            label: None,
-            format: Some(texture.format()),
-            dimension: Some(wgpu::TextureViewDimension::D2),
-            aspect: wgpu::TextureAspect::All,
-            base_mip_level: 0,
-            mip_level_count: None,
-            base_array_layer: 0,
-            array_layer_count: None,
-        };
         let depth_attachment = wgpu::RenderPassDepthStencilAttachment {
             view: &self
                 .depth_stencil
@@ -475,11 +465,12 @@ impl SimpleShapeRenderPipeline {
             }),
             stencil_ops: None,
         };
-        let output_view = texture.create_view(&texture_view_descriptor);
+        let output_view = texture.create_view(&TextureViewDescriptor::default());
         let (view, resolve_target) = match &self.multisample {
-            Some(t) if !disable_msaa => {
-                (t.create_view(&texture_view_descriptor), Some(&output_view))
-            }
+            Some(t) if !disable_msaa => (
+                t.create_view(&TextureViewDescriptor::default()),
+                Some(&output_view),
+            ),
             _ => (output_view, None),
         };
         let mut encoder = core
@@ -582,6 +573,153 @@ impl SimpleShapeRenderPipeline {
         drop(render_pass);
         core.queue.submit(std::iter::once(encoder.finish()));
     }
+    // pub fn my_render(
+    //     &mut self,
+    //     core: &mut NGCore,
+    //     render_target: &wgpu::Texture,
+    //     multisample_target: Option<&wgpu::Texture>,
+    //     depth_buffer: Option<&wgpu::Texture>,
+    //     stencil: bool,
+    //     clear: Option<Color>,
+    // ) {
+    //     let data = match self.data.as_ref() {
+    //         Some(d) => d,
+    //         None => return,
+    //     };
+    //     self.vertex_buffer = core.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+    //         label: Some("Simple Shape Renderer Pipeline Vertex Buffer"),
+    //         contents: bytemuck::cast_slice(data.vertices.as_slice()),
+    //         usage: wgpu::BufferUsages::VERTEX,
+    //     });
+    //     self.index_buffer = core.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+    //         label: Some("Simple Shape Renderer Pipeline Index Buffer"),
+    //         contents: bytemuck::cast_slice(data.indices.as_slice()),
+    //         usage: wgpu::BufferUsages::INDEX,
+    //     });
+    //     core.queue.write_buffer(
+    //         &self.trans_buffer,
+    //         0,
+    //         bytemuck::cast_slice(data.transforms.as_slice()),
+    //     );
+    //     core.queue.write_buffer(
+    //         &self.mats_buffer,
+    //         0,
+    //         bytemuck::cast_slice(data.materials.as_slice()),
+    //     );
+    //
+    //     let (view, resolve_target) = if let Some(msaa_tex) = multisample_target {
+    //             (
+    //                 &msaa_tex.create_view(&TextureViewDescriptor::default()),
+    //                 Some(&render_target.create_view(&TextureViewDescriptor::default()))
+    //             )
+    //         } else {
+    //             (
+    //                 &render_target.create_view(&TextureViewDescriptor::default()),
+    //                 None
+    //             )
+    //     };
+    //
+    //     let mut encoder = core.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+    //         label: Some("SimpleShapeRenderPipeline Command Encoder"),
+    //     });
+    //     let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+    //         label: Some("SimpleShapeRenderPipeline Render Pass"),
+    //         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+    //             view,
+    //             resolve_target,
+    //             ops: wgpu::Operations {
+    //                 load: if let Some(color) = clear {
+    //                     wgpu::LoadOp::Clear(color.into())
+    //                 } else {
+    //                     wgpu::LoadOp::Load
+    //                 },
+    //                 store: StoreOp::Store,
+    //             },
+    //         })],
+    //         depth_stencil_attachment: if depth_buffer.is_some() {
+    //             let view = depth_buffer.unwrap().create_view(&TextureViewDescriptor::default());
+    //             Some(wgpu::RenderPassDepthStencilAttachment {
+    //                 view: &view,
+    //                 depth_ops: Some(wgpu::Operations {
+    //                     load: wgpu::LoadOp::Clear(0.0),
+    //                     store: wgpu::StoreOp::Store,
+    //                 }),
+    //                 stencil_ops: None,
+    //             })
+    //         } else {
+    //             None
+    //         },
+    //         timestamp_writes: None,
+    //         occlusion_query_set: None,
+    //     });
+    //     if multisample_target.is_none() {
+    //         render_pass.set_pipeline(&self.pipeline2);
+    //     } else {
+    //         render_pass.set_pipeline(&self.pipeline);
+    //     }
+    //     render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+    //     render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+    //     render_pass.set_bind_group(0, &self.globals.bind_group, &[]);
+    //     render_pass.set_bind_group(1, &self.data_bind_group, &[]);
+    //     render_pass.set_bind_group(
+    //         2,
+    //         &core.textures.first().expect("Something").bind_group,
+    //         &[],
+    //     );
+    //
+    //     for (i, obj) in data.object_info.iter().enumerate() {
+    //         let index = i as u32..i as u32 + 1;
+    //         match obj.bo_slot {
+    //             None => {
+    //                 if let Some(tex) = obj.texture {
+    //                     render_pass.set_bind_group(2, &core.textures[tex].bind_group, &[]);
+    //                 } else {
+    //                     render_pass.set_bind_group(
+    //                         2,
+    //                         &core.textures.first().expect("Something").bind_group,
+    //                         &[],
+    //                     );
+    //                 }
+    //                 render_pass.draw_indexed(
+    //                     obj.start_index..obj.end_index,
+    //                     obj.start_vertice as i32,
+    //                     index,
+    //                 );
+    //             }
+    //             Some(vbi) => {
+    //                 let vb = match core.mesh_buffers.get(vbi) {
+    //                     Some(vb) => vb,
+    //                     None => {
+    //                         error!("MeshBuffer index {:?} out of bounds.", vbi);
+    //                         return;
+    //                     }
+    //                 };
+    //                 if let Some(tex) = vb.texture {
+    //                     render_pass.set_bind_group(2, &core.textures[tex].bind_group, &[]);
+    //                 } else {
+    //                     render_pass.set_bind_group(
+    //                         2,
+    //                         &core.textures.first().expect("Something").bind_group,
+    //                         &[],
+    //                     );
+    //                 }
+    //                 render_pass.set_vertex_buffer(0, vb.vertex_buffer.slice(..));
+    //                 render_pass
+    //                     .set_index_buffer(vb.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+    //                 render_pass.draw_indexed(
+    //                     0..(vb.index_buffer.size() as u32 / std::mem::size_of::<i32>() as u32),
+    //                     0,
+    //                     index,
+    //                 );
+    //                 render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+    //                 render_pass
+    //                     .set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+    //             }
+    //         }
+    //     }
+    //     drop(render_pass);
+    //     core.queue.submit(std::iter::once(encoder.finish()));
+    // }
 }
 impl NGRenderPipeline for SimpleShapeRenderPipeline {
     fn render(&mut self, core: &mut NGCore) -> Result<(), NGError> {
