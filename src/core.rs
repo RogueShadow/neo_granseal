@@ -396,7 +396,7 @@ impl NGCore {
         let timer = std::time::Instant::now();
         let window = winit::window::WindowBuilder::new()
             .with_title(&config.title)
-            .with_resizable(false)
+            .with_resizable(true)
             .with_inner_size(PhysicalSize::new(config.width, config.height))
             .build(event_loop)?;
         if config.fullscreen {

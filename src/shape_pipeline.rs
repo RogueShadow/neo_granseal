@@ -729,10 +729,21 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
                 core.window.pre_present_notify();
                 surface_texture.present();
             }
-            Result::Err(_err) => {
-                core.surface
-                    .configure(&core.device, &core.surface_configuration);
-            }
+            Result::Err(_err) => match core.window.is_minimized() {
+                None => {
+                    core.surface
+                        .configure(&core.device, &core.surface_configuration);
+                }
+                Some(true) => {
+                    std::thread::sleep(std::time::Duration::from_secs_f32(0.25));
+                    core.surface
+                        .configure(&core.device, &core.surface_configuration);
+                }
+                Some(false) => {
+                    core.surface
+                        .configure(&core.device, &core.surface_configuration);
+                }
+            },
         }
         Ok(())
     }
@@ -746,6 +757,58 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
 
     fn set_globals(&mut self, globals: GlobalUniforms) {
         self.globals = globals;
+    }
+
+    fn resized(&mut self, core: &mut NGCore, width: u32, height: u32) {
+        match &self.multisample {
+            Some(msaa_tex) => {
+                msaa_tex.destroy();
+                let get_msaa_tex = |sample_count: u32| -> wgpu::Texture {
+                    core.device.create_texture(&wgpu::TextureDescriptor {
+                        label: Some("MultiSample Texture"),
+                        size: wgpu::Extent3d {
+                            width: core.surface_configuration.width,
+                            height: core.surface_configuration.height,
+                            depth_or_array_layers: 1,
+                        },
+                        view_formats: &[core.surface.get_capabilities(&core.adapter).formats[0]],
+                        mip_level_count: 1,
+                        sample_count,
+                        dimension: wgpu::TextureDimension::D2,
+                        format: core.surface_configuration.format,
+                        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                    })
+                };
+                self.multisample = match &core.config.msaa {
+                    MSAA::Disabled => None,
+                    MSAA::Enable4x => Some(get_msaa_tex(4)),
+                    MSAA::Enable8x => Some(get_msaa_tex(8)),
+                    //MSAA::Enable16x => {Some(get_msaa_tex(16))}
+                };
+                self.depth_stencil.destroy();
+                self.depth_stencil = core.device.create_texture(&wgpu::TextureDescriptor {
+                    label: Some("Depth Stencil Texture"),
+                    size: wgpu::Extent3d {
+                        width: core.surface_configuration.width,
+                        height: core.surface_configuration.height,
+                        depth_or_array_layers: 1,
+                    },
+                    mip_level_count: 1,
+                    sample_count: match core.config.msaa {
+                        MSAA::Disabled => 1,
+                        MSAA::Enable4x => 4,
+                        MSAA::Enable8x => 8,
+                    },
+                    dimension: wgpu::TextureDimension::D2,
+                    format: wgpu::TextureFormat::Depth32FloatStencil8,
+                    usage: wgpu::TextureUsages::TEXTURE_BINDING
+                        | wgpu::TextureUsages::COPY_DST
+                        | wgpu::TextureUsages::RENDER_ATTACHMENT,
+                    view_formats: &[],
+                });
+            }
+            None => {}
+        }
     }
 }
 

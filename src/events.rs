@@ -1,5 +1,5 @@
 use std::time::Duration;
-use winit::event::MouseScrollDelta;
+use winit::event::{MouseScrollDelta, WindowEvent};
 
 #[derive()]
 pub enum Event {
@@ -191,7 +191,14 @@ pub fn map_events(event: &winit::event::WindowEvent) -> Option<Event> {
             MouseScrollDelta::LineDelta(x, y) => Some(Event::MouseWheel(*x, *y)),
             _ => None,
         },
-        _ => None,
+        winit::event::WindowEvent::Resized(size) => Some(Event::Resized(size.width, size.height)),
+        event => {
+            match event {
+                WindowEvent::RedrawRequested => {}
+                _ => println!("Unhandled event {:?}", event),
+            };
+            None
+        }
     }
 }
 

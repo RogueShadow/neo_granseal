@@ -4,10 +4,12 @@ use crate::{
     core::{NGCommand, NGCore},
     events, GlobalUniforms,
 };
-use log::error;
+use log::{error, warn};
 use std::thread::sleep;
 use std::time::Duration;
 use winit::event::{ElementState, KeyEvent, MouseButton};
+use winit::monitor::MonitorHandle;
+use winit::window::Fullscreen;
 use winit::{
     event::{Event, WindowEvent},
     event_loop,
@@ -90,6 +92,21 @@ pub(crate) fn main_loop(
                     h.event(&mut core, nge);
                 }
                 match event {
+                    WindowEvent::Resized(size) => {
+                        if size.width > 0 && size.height > 0 {
+                            core.config.width = size.width as i32;
+                            core.config.height = size.height as i32;
+                            core.surface_configuration.width = size.width;
+                            core.surface_configuration.height = size.height;
+                            core.surface
+                                .configure(&core.device, &core.surface_configuration);
+                            for renderer in pipelines.iter_mut() {
+                                renderer.resized(&mut core, size.width, size.height);
+                            }
+                        } else {
+                            warn!("Can't create surface with zero area.");
+                        }
+                    }
                     WindowEvent::RedrawRequested => {
                         let elapsed = delta.elapsed();
                         delta = std::time::Instant::now();
@@ -111,14 +128,30 @@ pub(crate) fn main_loop(
                             state,
                             ..
                         } => match physical_key {
+                            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::F12) => {
+                                if state == ElementState::Released {
+                                    let fullscreen = core.window.fullscreen();
+                                    match fullscreen {
+                                        None => {
+                                            core.window
+                                                .set_fullscreen(Some(Fullscreen::Borderless(None)));
+                                        }
+                                        Some(screen) => {
+                                            core.window.set_fullscreen(None);
+                                        }
+                                    }
+                                }
+                            }
+                            winit::keyboard::PhysicalKey::Code(
+                                winit::keyboard::KeyCode::Escape,
+                            ) => {
+                                window.exit();
+                            }
                             key => {
                                 let ng_key = map_keys(&key);
                                 core.state
                                     .keys
                                     .insert(ng_key, state == ElementState::Pressed);
-                                if key == winit::keyboard::KeyCode::Escape {
-                                    window.exit();
-                                }
                             }
                         },
                     },
