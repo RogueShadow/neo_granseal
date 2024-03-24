@@ -8,7 +8,8 @@ use pollster::FutureExt;
 use std::any::Any;
 use std::collections::HashMap;
 use std::path::Path;
-use wgpu::util::DeviceExt;
+use std::sync::Arc;
+use wgpu::util::{DeviceExt, TextureDataOrder};
 use winit::dpi::{LogicalSize, PhysicalSize};
 use winit::event_loop::EventLoop;
 use winit::window::Fullscreen;
@@ -146,10 +147,10 @@ impl Image {
 pub struct NGCore {
     pub config: GransealGameConfig,
     pub timer: std::time::Instant,
-    pub window: winit::window::Window,
+    pub window: Arc<winit::window::Window>,
     pub instance: wgpu::Instance,
     pub surface_configuration: wgpu::SurfaceConfiguration,
-    pub surface: wgpu::Surface,
+    pub surface: wgpu::Surface<'static>,
     pub adapter: wgpu::Adapter,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
@@ -199,9 +200,12 @@ impl NGCore {
                 | wgpu::TextureUsages::RENDER_ATTACHMENT,
             view_formats: &[],
         };
-        let texture = self
-            .device
-            .create_texture_with_data(&self.queue, &tex, data);
+        let texture = self.device.create_texture_with_data(
+            &self.queue,
+            &tex,
+            TextureDataOrder::LayerMajor,
+            data,
+        );
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         let sampler = self.device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("Texture Sampler"),
@@ -394,11 +398,13 @@ impl NGCore {
         mut config: GransealGameConfig,
     ) -> Result<Self, NGError> {
         let timer = std::time::Instant::now();
-        let window = winit::window::WindowBuilder::new()
-            .with_title(&config.title)
-            .with_resizable(true)
-            .with_inner_size(PhysicalSize::new(config.width, config.height))
-            .build(event_loop)?;
+        let window = Arc::new(
+            winit::window::WindowBuilder::new()
+                .with_title(&config.title)
+                .with_resizable(true)
+                .with_inner_size(PhysicalSize::new(config.width, config.height))
+                .build(event_loop)?,
+        );
         if config.fullscreen {
             window.set_fullscreen(Some(Fullscreen::Borderless(None)));
         } else {
@@ -427,7 +433,7 @@ impl NGCore {
             }
         }
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::default());
-        let surface = unsafe { instance.create_surface(&window)? };
+        let surface = unsafe { instance.create_surface(window.clone())? };
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::HighPerformance,
@@ -443,6 +449,7 @@ impl NGCore {
             width: window.inner_size().width,
             height: window.inner_size().height,
             present_mode: map_present_modes(config.vsync),
+            desired_maximum_frame_latency: 2,
             alpha_mode: wgpu::CompositeAlphaMode::Auto,
             view_formats: vec![caps.formats[0]],
         };
@@ -450,11 +457,11 @@ impl NGCore {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
-                    features: wgpu::Features::STORAGE_RESOURCE_BINDING_ARRAY
+                    required_features: wgpu::Features::STORAGE_RESOURCE_BINDING_ARRAY
                         | wgpu::Features::BUFFER_BINDING_ARRAY
                         | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES
                         | wgpu::Features::DEPTH32FLOAT_STENCIL8,
-                    limits: Default::default(),
+                    required_limits: Default::default(),
                 },
                 None,
             )

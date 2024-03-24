@@ -120,7 +120,7 @@ pub trait NeoGransealEventHandler {
 pub trait NGRenderPipeline {
     fn render(&mut self, core: &mut NGCore) -> Result<(), NGError>;
     fn render_image(&mut self, core: &mut NGCore, texture: crate::core::Image, replace: bool);
-    fn set_data(&mut self, data: Box<dyn std::any::Any>);
+    fn set_data(&mut self, core: &mut NGCore, data: Box<dyn std::any::Any>);
     fn set_globals(&mut self, globals: GlobalUniforms);
     fn resized(&mut self, core: &mut NGCore, width: u32, height: u32);
 }

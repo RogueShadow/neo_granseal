@@ -6,7 +6,7 @@ use bytemuck_derive::{Pod, Zeroable};
 use log::{error, warn};
 use std::default::Default;
 use wgpu::util::DeviceExt;
-use wgpu::{MultisampleState, StoreOp, TextureViewDescriptor};
+use wgpu::{LoadOp, MultisampleState, StoreOp, TextureViewDescriptor};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
@@ -123,10 +123,11 @@ pub struct SimpleShapeRenderPipeline {
     mats_buffer: wgpu::Buffer,
     data_bind_group: wgpu::BindGroup,
     globals: GlobalUniforms,
-    data: Option<SSRRenderData>,
+    objects: Vec<SSRObjectInfo>,
     pipeline: wgpu::RenderPipeline,
     pipeline2: wgpu::RenderPipeline,
     pipeline3: wgpu::RenderPipeline,
+    depth_pass: wgpu::RenderPipeline,
 }
 impl SimpleShapeRenderPipeline {
     const MAX: usize = 1_000_000;
@@ -252,34 +253,34 @@ impl SimpleShapeRenderPipeline {
             },
             //MSAA::Enable16x => {wgpu::MultisampleState { count: 16, mask: !0, alpha_to_coverage_enabled: true }}
         };
+        let vertex_state = wgpu::VertexState {
+            module: &shader,
+            entry_point: "vs_main",
+            buffers: &[wgpu::VertexBufferLayout {
+                array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
+                step_mode: wgpu::VertexStepMode::Vertex,
+                attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2,  2 => Float32x4],
+            }],
+        };
+        let primitive_state = wgpu::PrimitiveState {
+            topology: wgpu::PrimitiveTopology::TriangleList,
+            strip_index_format: None,
+            front_face: wgpu::FrontFace::Ccw,
+            cull_mode: Some(wgpu::Face::Back),
+            unclipped_depth: false,
+            polygon_mode: wgpu::PolygonMode::Fill,
+            conservative: false,
+        };
         let pipeline = core
             .device
             .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                 label: Some("SSR Pipeline"),
                 layout: Some(&pipeline_layout),
-                vertex: wgpu::VertexState {
-                    module: &shader,
-                    entry_point: "vs_main",
-                    buffers: &[
-                        wgpu::VertexBufferLayout {
-                            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
-                            step_mode: wgpu::VertexStepMode::Vertex,
-                            attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2,  2 => Float32x4],
-                        }
-                    ],
-                },
-                primitive: wgpu::PrimitiveState {
-                    topology: wgpu::PrimitiveTopology::TriangleList,
-                    strip_index_format: None,
-                    front_face: wgpu::FrontFace::Ccw,
-                    cull_mode: Some(wgpu::Face::Back),
-                    unclipped_depth: false,
-                    polygon_mode: wgpu::PolygonMode::Fill,
-                    conservative: false,
-                },
+                vertex: vertex_state.clone(),
+                primitive: primitive_state.clone(),
                 depth_stencil: Some(wgpu::DepthStencilState {
                     format: wgpu::TextureFormat::Depth32FloatStencil8,
-                    depth_write_enabled: true,
+                    depth_write_enabled: false,
                     depth_compare: wgpu::CompareFunction::GreaterEqual,
                     stencil: Default::default(),
                     bias: Default::default(),
@@ -301,26 +302,8 @@ impl SimpleShapeRenderPipeline {
             .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                 label: Some("SSR Pipeline Offscreen"),
                 layout: Some(&pipeline_layout),
-                vertex: wgpu::VertexState {
-                    module: &shader,
-                    entry_point: "vs_main",
-                    buffers: &[
-                        wgpu::VertexBufferLayout {
-                            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
-                            step_mode: wgpu::VertexStepMode::Vertex,
-                            attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2,  2 => Float32x4],
-                        }
-                    ],
-                },
-                primitive: wgpu::PrimitiveState {
-                    topology: wgpu::PrimitiveTopology::TriangleList,
-                    strip_index_format: None,
-                    front_face: wgpu::FrontFace::Ccw,
-                    cull_mode: Some(wgpu::Face::Back),
-                    unclipped_depth: false,
-                    polygon_mode: wgpu::PolygonMode::Fill,
-                    conservative: false,
-                },
+                vertex: vertex_state.clone(),
+                primitive: primitive_state.clone(),
                 depth_stencil: None,
                 multisample: MultisampleState::default(),
                 fragment: Some(wgpu::FragmentState {
@@ -339,26 +322,8 @@ impl SimpleShapeRenderPipeline {
             .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                 label: Some("SSR Pipeline Offscreen"),
                 layout: Some(&pipeline_layout),
-                vertex: wgpu::VertexState {
-                    module: &shader,
-                    entry_point: "vs_main",
-                    buffers: &[
-                        wgpu::VertexBufferLayout {
-                            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
-                            step_mode: wgpu::VertexStepMode::Vertex,
-                            attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2,  2 => Float32x4],
-                        }
-                    ],
-                },
-                primitive: wgpu::PrimitiveState {
-                    topology: wgpu::PrimitiveTopology::TriangleList,
-                    strip_index_format: None,
-                    front_face: wgpu::FrontFace::Ccw,
-                    cull_mode: Some(wgpu::Face::Back),
-                    unclipped_depth: false,
-                    polygon_mode: wgpu::PolygonMode::Fill,
-                    conservative: false,
-                },
+                vertex: vertex_state.clone(),
+                primitive: primitive_state.clone(),
                 depth_stencil: None,
                 multisample: MultisampleState::default(),
                 fragment: Some(wgpu::FragmentState {
@@ -370,6 +335,24 @@ impl SimpleShapeRenderPipeline {
                         write_mask: wgpu::ColorWrites::ALL,
                     })],
                 }),
+                multiview: None,
+            });
+        let depth_pass = core
+            .device
+            .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("Depth Only Pass"),
+                layout: Some(&pipeline_layout),
+                vertex: vertex_state.clone(),
+                primitive: primitive_state.clone(),
+                depth_stencil: Some(wgpu::DepthStencilState {
+                    format: wgpu::TextureFormat::Depth32FloatStencil8,
+                    depth_write_enabled: true,
+                    depth_compare: wgpu::CompareFunction::GreaterEqual,
+                    stencil: Default::default(),
+                    bias: Default::default(),
+                }),
+                multisample: multisample_state,
+                fragment: None,
                 multiview: None,
             });
         let depth_stencil = core.device.create_texture(&wgpu::TextureDescriptor {
@@ -399,10 +382,11 @@ impl SimpleShapeRenderPipeline {
             mats_buffer,
             data_bind_group,
             globals,
-            data: None,
+            objects: vec![],
             pipeline,
             pipeline2,
             pipeline3,
+            depth_pass,
         }
     }
     fn render_to(
@@ -424,47 +408,7 @@ impl SimpleShapeRenderPipeline {
             }
             (_, _) => return,
         };
-        let data = match self.data.as_ref() {
-            Some(d) => d,
-            None => return,
-        };
 
-        self.vertex_buffer = core
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Simple Shape Renderer Pipeline Vertex Buffer"),
-                contents: bytemuck::cast_slice(data.vertices.as_slice()),
-                usage: wgpu::BufferUsages::VERTEX,
-            });
-        self.index_buffer = core
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Simple Shape Renderer Pipeline Index Buffer"),
-                contents: bytemuck::cast_slice(data.indices.as_slice()),
-                usage: wgpu::BufferUsages::INDEX,
-            });
-
-        core.queue.write_buffer(
-            &self.trans_buffer,
-            0,
-            bytemuck::cast_slice(data.transforms.as_slice()),
-        );
-        core.queue.write_buffer(
-            &self.mats_buffer,
-            0,
-            bytemuck::cast_slice(data.materials.as_slice()),
-        );
-
-        let depth_attachment = wgpu::RenderPassDepthStencilAttachment {
-            view: &self
-                .depth_stencil
-                .create_view(&wgpu::TextureViewDescriptor::default()),
-            depth_ops: Some(wgpu::Operations {
-                load: wgpu::LoadOp::Clear(0.0),
-                store: wgpu::StoreOp::Store,
-            }),
-            stencil_ops: None,
-        };
         let output_view = texture.create_view(&TextureViewDescriptor::default());
         let (view, resolve_target) = match &self.multisample {
             Some(t) if !disable_msaa => (
@@ -473,67 +417,167 @@ impl SimpleShapeRenderPipeline {
             ),
             _ => (output_view, None),
         };
-        let mut encoder = core
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("SimpleShapeRenderPipeline Command Encoder"),
+
+        if !disable_msaa {
+            let depth_view = self
+                .depth_stencil
+                .create_view(&wgpu::TextureViewDescriptor::default());
+            let mut encoder = core
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("SimpleShapeRenderPipeline Command Encoder"),
+                });
+
+            let mut depth_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Depth Pass"),
+                color_attachments: &[],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &depth_view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(0.0),
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: None,
+                }),
+                timestamp_writes: None,
+                occlusion_query_set: None,
             });
-        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("SimpleShapeRenderPipeline Render Pass"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &view,
-                resolve_target,
-                ops: wgpu::Operations {
-                    load: if render_target.is_some() {
-                        wgpu::LoadOp::Load
-                    } else {
-                        wgpu::LoadOp::Clear(core.config.clear_color.into())
+
+            depth_pass.set_pipeline(&self.depth_pass);
+
+            depth_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            depth_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+            depth_pass.set_bind_group(0, &self.globals.bind_group, &[]);
+            depth_pass.set_bind_group(1, &self.data_bind_group, &[]);
+            depth_pass.set_bind_group(
+                2,
+                &core.textures.first().expect("Something").bind_group,
+                &[],
+            );
+
+            self.draw_objects(core, &mut depth_pass);
+
+            drop(depth_pass);
+
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Render Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target,
+                    ops: wgpu::Operations {
+                        load: if render_target.is_some() {
+                            wgpu::LoadOp::Load
+                        } else {
+                            wgpu::LoadOp::Clear(core.config.clear_color.into())
+                        },
+                        store: StoreOp::Store,
                     },
-                    store: StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: if render_target.is_none() {
-                Some(depth_attachment)
-            } else {
-                None
-            },
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
+                })],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &depth_view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: None,
+                }),
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
 
-        if disable_msaa {
-            if replace {
-                render_pass.set_pipeline(&self.pipeline3);
+            if disable_msaa {
+                if replace {
+                    render_pass.set_pipeline(&self.pipeline3);
+                } else {
+                    render_pass.set_pipeline(&self.pipeline2);
+                }
             } else {
-                render_pass.set_pipeline(&self.pipeline2);
+                render_pass.set_pipeline(&self.pipeline);
             }
-        } else {
-            render_pass.set_pipeline(&self.pipeline);
-        }
-        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-        render_pass.set_bind_group(0, &self.globals.bind_group, &[]);
-        render_pass.set_bind_group(1, &self.data_bind_group, &[]);
-        render_pass.set_bind_group(
-            2,
-            &core.textures.first().expect("Something").bind_group,
-            &[],
-        );
+            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+            render_pass.set_bind_group(0, &self.globals.bind_group, &[]);
+            render_pass.set_bind_group(1, &self.data_bind_group, &[]);
+            render_pass.set_bind_group(
+                2,
+                &core.textures.first().expect("Something").bind_group,
+                &[],
+            );
 
-        for (i, obj) in data.object_info.iter().enumerate() {
+            self.draw_objects(core, &mut render_pass);
+
+            drop(render_pass);
+            core.queue.submit(std::iter::once(encoder.finish()));
+        } else {
+            let mut encoder = core
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("SimpleShapeRenderPipeline Command Encoder"),
+                });
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Render Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target,
+                    ops: wgpu::Operations {
+                        load: if render_target.is_some() {
+                            wgpu::LoadOp::Load
+                        } else {
+                            wgpu::LoadOp::Clear(core.config.clear_color.into())
+                        },
+                        store: StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+
+            if disable_msaa {
+                if replace {
+                    render_pass.set_pipeline(&self.pipeline3);
+                } else {
+                    render_pass.set_pipeline(&self.pipeline2);
+                }
+            } else {
+                render_pass.set_pipeline(&self.pipeline);
+            }
+            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+            render_pass.set_bind_group(0, &self.globals.bind_group, &[]);
+            render_pass.set_bind_group(1, &self.data_bind_group, &[]);
+            render_pass.set_bind_group(
+                2,
+                &core.textures.first().expect("Something").bind_group,
+                &[],
+            );
+
+            self.draw_objects(core, &mut render_pass);
+
+            drop(render_pass);
+            core.queue.submit(std::iter::once(encoder.finish()));
+        }
+    }
+
+    fn draw_objects<'pass, 'draw: 'pass>(
+        &'draw self,
+        core: &'pass NGCore,
+        pass: &mut wgpu::RenderPass<'pass>,
+    ) {
+        for (i, obj) in self.objects.iter().enumerate() {
             let index = i as u32..i as u32 + 1;
             match obj.bo_slot {
                 None => {
                     if let Some(tex) = obj.texture {
-                        render_pass.set_bind_group(2, &core.textures[tex].bind_group, &[]);
+                        pass.set_bind_group(2, &core.textures[tex].bind_group, &[]);
                     } else {
-                        render_pass.set_bind_group(
+                        pass.set_bind_group(
                             2,
                             &core.textures.first().expect("Something").bind_group,
                             &[],
                         );
                     }
-                    render_pass.draw_indexed(
+                    pass.draw_indexed(
                         obj.start_index..obj.end_index,
                         obj.start_vertice as i32,
                         index,
@@ -548,31 +592,28 @@ impl SimpleShapeRenderPipeline {
                         }
                     };
                     if let Some(tex) = vb.texture {
-                        render_pass.set_bind_group(2, &core.textures[tex].bind_group, &[]);
+                        pass.set_bind_group(2, &core.textures[tex].bind_group, &[]);
                     } else {
-                        render_pass.set_bind_group(
+                        pass.set_bind_group(
                             2,
                             &core.textures.first().expect("Something").bind_group,
                             &[],
                         );
                     }
-                    render_pass.set_vertex_buffer(0, vb.vertex_buffer.slice(..));
-                    render_pass
-                        .set_index_buffer(vb.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-                    render_pass.draw_indexed(
+                    pass.set_vertex_buffer(0, vb.vertex_buffer.slice(..));
+                    pass.set_index_buffer(vb.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                    pass.draw_indexed(
                         0..(vb.index_buffer.size() as u32 / std::mem::size_of::<i32>() as u32),
                         0,
                         index,
                     );
-                    render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-                    render_pass
-                        .set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                    pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+                    pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                 }
             }
         }
-        drop(render_pass);
-        core.queue.submit(std::iter::once(encoder.finish()));
     }
+
     // pub fn my_render(
     //     &mut self,
     //     core: &mut NGCore,
@@ -735,9 +776,7 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
                         .configure(&core.device, &core.surface_configuration);
                 }
                 Some(true) => {
-                    std::thread::sleep(std::time::Duration::from_secs_f32(0.25));
-                    core.surface
-                        .configure(&core.device, &core.surface_configuration);
+                    std::thread::sleep(std::time::Duration::from_secs_f32(0.1));
                 }
                 Some(false) => {
                     core.surface
@@ -750,9 +789,38 @@ impl NGRenderPipeline for SimpleShapeRenderPipeline {
     fn render_image(&mut self, core: &mut NGCore, texture: Image, replace: bool) {
         self.render_to(core, None, Some(texture), replace);
     }
-    fn set_data(&mut self, data: Box<dyn std::any::Any>) {
+    fn set_data(&mut self, core: &mut NGCore, data: Box<dyn std::any::Any>) {
         let rd = data.downcast::<SSRRenderData>().expect("Get Render Data");
-        self.data = Some(*rd);
+        let data = *rd;
+
+        self.objects.clear();
+        self.objects.extend(data.object_info);
+
+        self.vertex_buffer = core
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Simple Shape Renderer Pipeline Vertex Buffer"),
+                contents: bytemuck::cast_slice(data.vertices.as_slice()),
+                usage: wgpu::BufferUsages::VERTEX,
+            });
+        self.index_buffer = core
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Simple Shape Renderer Pipeline Index Buffer"),
+                contents: bytemuck::cast_slice(data.indices.as_slice()),
+                usage: wgpu::BufferUsages::INDEX,
+            });
+
+        core.queue.write_buffer(
+            &self.trans_buffer,
+            0,
+            bytemuck::cast_slice(data.transforms.as_slice()),
+        );
+        core.queue.write_buffer(
+            &self.mats_buffer,
+            0,
+            bytemuck::cast_slice(data.materials.as_slice()),
+        );
     }
 
     fn set_globals(&mut self, globals: GlobalUniforms) {
@@ -846,9 +914,16 @@ pub struct ShapeGfx<'draw> {
     rotation: f32,
     rotation_origin: Vec2,
     tint: Color,
+    depth: f32,
 }
 
 impl<'draw> ShapeGfx<'draw> {
+    pub fn set_depth(&mut self, depth: f32) {
+        self.depth = depth;
+    }
+    pub fn adjust_depth(&mut self, depth_adjustment: f32) {
+        self.depth += depth_adjustment;
+    }
     pub fn set_tint(&mut self, color: Color) {
         self.tint = color;
     }
@@ -879,16 +954,19 @@ impl<'draw> ShapeGfx<'draw> {
             rotation: 0.0,
             rotation_origin: Vec2::ZERO,
             tint: Color::WHITE,
+            depth: 0.0,
         }
     }
     pub fn draw_image(&mut self, image: &Image, pos: Vec2) {
         let mut mesh = rect_filled(Vec2::ZERO, image.size(), FillStyle::Solid(Color::WHITE));
         mesh.texture(image, true);
+        mesh.set_z_depth(self.depth);
         self.draw_mesh(&mesh, pos);
     }
     pub fn draw_image_sized(&mut self, image: &Image, size: Vec2, pos: Vec2) {
         let mut mesh = rect_filled(Vec2::ZERO, size, FillStyle::Solid(Color::WHITE));
         mesh.texture(image, true);
+        mesh.set_z_depth(self.depth);
         self.draw_mesh(&mesh, pos);
     }
     pub fn draw_mesh(&mut self, mesh: &Mesh, pos: Vec2) {

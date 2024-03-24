@@ -124,6 +124,9 @@ impl MeshBuilder {
     pub fn set_depth(&mut self, depth: f32) {
         self.state.z_depth = depth;
     }
+    pub fn adjust_depth(&mut self, depth_adjustment: f32) {
+        self.state.z_depth += depth_adjustment;
+    }
     pub fn push(&mut self) {
         self.states.push(self.state);
     }

@@ -8,7 +8,6 @@ use log::{error, warn};
 use std::thread::sleep;
 use std::time::Duration;
 use winit::event::{ElementState, KeyEvent, MouseButton};
-use winit::monitor::MonitorHandle;
 use winit::window::Fullscreen;
 use winit::{
     event::{Event, WindowEvent},
@@ -46,7 +45,7 @@ pub(crate) fn main_loop(
                                 &core,
                                 (img.size().x, img.size().y),
                             ));
-                            renderer.set_data(data);
+                            renderer.set_data(&mut core, data);
                             renderer.render_image(&mut core, img, replace);
                         } else {
                             error!("Tried to render to invalid pipeline at index {:?}", index);
@@ -59,7 +58,7 @@ pub(crate) fn main_loop(
                         };
                         if let Some(renderer) = pipelines.get_mut(index) {
                             renderer.set_globals(GlobalUniforms::new(&core, size));
-                            renderer.set_data(data);
+                            renderer.set_data(&mut core, data);
                             match renderer.render(&mut core) {
                                 Result::Ok(_) => {}
                                 Result::Err(err) => {

@@ -1,9 +1,10 @@
-use winit::dpi::{LogicalPosition, Position};
 use crate::util::Animatable;
 use num_traits::AsPrimitive;
-use rand::Rng;
+use rand::{Rng, SeedableRng};
+use rand_xorshift::XorShiftRng;
 use std::fmt::{Display, Formatter};
 use std::ops::*;
+use winit::dpi::{LogicalPosition, Position};
 
 /**
     Matrix Structs.
@@ -539,8 +540,7 @@ impl Vec2 {
         }
     }
     pub fn random() -> Self {
-        use rand::SeedableRng;
-        let mut r = rand_xorshift::XorShiftRng::from_entropy();
+        let mut r = XorShiftRng::from_entropy();
         let vec = Vec2::new(r.gen_range(-1.0..=1.0), r.gen_range(-1.0..=1.0));
         vec.normalize();
         vec
@@ -596,7 +596,9 @@ impl Animatable<Vec2> for Vec2 {
     }
 }
 impl Into<Position> for Vec2 {
-    fn into(self) -> Position { Position::Logical(LogicalPosition::from((self.x,self.y))) }
+    fn into(self) -> Position {
+        Position::Logical(LogicalPosition::from((self.x, self.y)))
+    }
 }
 
 /**

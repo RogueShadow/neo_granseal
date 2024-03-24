@@ -3,7 +3,8 @@ use crate::math::{angle_vec2, vec2, Vec2};
 use crate::mesh::{rect_filled, FillStyle, FillStyleShorthand, MeshBuilder, Polygon};
 use crate::shape_pipeline::ShapeGfx;
 use num_traits::{AsPrimitive, Inv};
-use rand::{Rng, SeedableRng};
+use rand::Rng;
+use rand_xorshift;
 use std::collections::HashMap;
 use std::f32::consts::PI;
 use std::ops::Mul;
@@ -210,6 +211,7 @@ impl Color {
         self
     }
     pub fn random() -> Self {
+        use rand::SeedableRng;
         let mut r = rand_xorshift::XorShiftRng::from_entropy();
         Self {
             r: r.gen::<f32>(),
