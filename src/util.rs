@@ -995,3 +995,79 @@ pub fn create_texture_atlas(
 
     Ok(result)
 }
+
+pub fn slice_image(image: &Image, size: Vec2) -> Vec<Image> {
+    let img_size = image.size();
+    let tiles = vec2((img_size.x / size.x).floor(), (img_size.y / size.y).floor());
+    let mut img_tiles = vec![];
+    for x in 0..tiles.x as i32 {
+        for y in 0..tiles.y as i32 {
+            img_tiles.push(image.sub_image(vec2(x as f32 * size.x, y as f32 * size.y), size))
+        }
+    }
+    img_tiles
+}
+
+pub struct Animation<T> {
+    frame_time: Vec<f32>,
+    frames: Vec<T>,
+    current_time: f32,
+    pub reverse: bool,
+    pub paused: bool,
+    pub looped: bool,
+    length: f32,
+}
+
+impl<T> Animation<T> {
+    pub fn new(frames: Vec<T>, frame_time: impl AsPrimitive<f32>) -> Self {
+        let frame_times = frames.iter().map(|_| frame_time.as_()).collect::<Vec<_>>();
+        Self::new_variable_timing(frames, frame_times)
+    }
+    pub fn new_variable_timing(frames: Vec<T>, frame_times: Vec<impl AsPrimitive<f32>>) -> Self {
+        let frame_time = frame_times
+            .iter()
+            .map(|t| t.as_() / 1000.0)
+            .collect::<Vec<_>>();
+        let length = frame_time.iter().sum();
+        Self {
+            frame_time,
+            frames,
+            current_time: 0.0,
+            reverse: false,
+            paused: false,
+            looped: true,
+            length,
+        }
+    }
+    pub fn update(&mut self, delta: f32) {
+        if !self.paused {
+            self.current_time += delta;
+        }
+        if self.looped {
+            if self.current_time >= self.length {
+                self.current_time = 0.0;
+            }
+        }
+        self.current_time = self.current_time.clamp(0.0, self.length);
+    }
+    pub fn get_frame(&self) -> &T {
+        let mut frame = 0;
+        let mut time = 0.0;
+
+        loop {
+            time += self.frame_time[frame];
+            if time < self.current_time && frame < self.frames.len() - 1 {
+                frame += 1;
+            } else {
+                break;
+            }
+        }
+
+        if self.reverse {
+            let f = self.frames.len() - frame - 1;
+            &self.frames[f]
+        } else {
+            &self.frames[frame]
+        }
+    }
+}
