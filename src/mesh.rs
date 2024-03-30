@@ -395,6 +395,22 @@ impl MeshBuilder {
         m.uv_project();
         self.meshes.push(m);
     }
+    pub fn triangle(&mut self, p1: Vec2, p2: Vec2, p3: Vec2) {
+        let (c1, c2, c3, _) = style_colors(self.state.fill_style);
+        let mut m = raw_triangle_filled(
+            self.state.cursor + p1,
+            self.state.cursor + p2,
+            self.state.cursor + p3,
+            c1,
+            c2,
+            c3,
+        );
+        m.set_z_depth(self.state.z_depth);
+        self.do_rotation(&mut m);
+        m.image = self.state.image;
+        m.uv_project();
+        self.meshes.push(m);
+    }
     pub fn quad_raw(&mut self, p1: Vec2, p2: Vec2, p3: Vec2, p4: Vec2) {
         let mut m = raw_quad_filled(p1, p2, p3, p4, self.state.fill_style);
         m.set_z_depth(self.state.z_depth);
