@@ -586,6 +586,9 @@ impl Vec2 {
             y: self.y.abs(),
         }
     }
+    pub fn cross(&self, other: &Self) -> f32 {
+        self.x * other.y - self.y * other.x
+    }
 }
 impl Animatable<Vec2> for Vec2 {
     fn animate(&self, other: &Vec2, pct: f32) -> Vec2 {

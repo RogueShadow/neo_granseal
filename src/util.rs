@@ -564,6 +564,39 @@ impl Rectangle {
         }
     }
 }
+/// --------------------------------------------------- ///
+#[derive(Copy, Clone, Debug)]
+pub struct Triangle {
+    pub a: Vec2,
+    pub b: Vec2,
+    pub c: Vec2,
+}
+impl Triangle {
+    pub fn new(a: Vec2, b: Vec2, c: Vec2) -> Self {
+        Triangle { a, b, c }
+    }
+    pub fn area(self) -> f32 {
+        triangle_area(&self.a, &self.b, &self.c)
+    }
+    pub fn contains_point_area(self, p: &Vec2) -> bool {
+        let area = self.area();
+        let mut sum = 0f32;
+        sum += triangle_area(&self.a, &self.b, p);
+        sum += triangle_area(&self.a, &self.c, p);
+        sum += triangle_area(&self.b, &self.c, p);
+        if area == sum {
+            true
+        } else {
+            false
+        }
+    }
+}
+fn triangle_area(a: &Vec2, b: &Vec2, c: &Vec2) -> f32 {
+    let ab = vec2(b.x - a.x, b.y - a.y);
+    let ac = vec2(c.x - a.x, c.y - a.y);
+    let crossp = ab.cross(&ac);
+    crossp.abs() / 2.0
+}
 pub fn cubic_to_point(time: f32, begin: Vec2, control1: Vec2, control2: Vec2, end: Vec2) -> Vec2 {
     let part1 = begin * (1.0 - time).powf(3.0);
     let part2 = control2 * control1 * time * 3.0 * (1.0 - time).powf(2.0);
